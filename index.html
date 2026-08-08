@@ -188,6 +188,29 @@ input, textarea, select {
   color: #fff;
 }
 
+.scope-switch {
+  display: inline-flex;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 2px;
+  margin-bottom: 12px;
+  gap: 2px;
+}
+.scope-switch button {
+  flex: 1;
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  padding: 6px 10px;
+  border-radius: 4px;
+  font-size: 11.5px;
+  font-weight: 600;
+}
+.scope-switch button.is-active {
+  background: var(--ink);
+  color: #fff;
+}
+
 .tbtn {
   display: inline-flex;
   align-items: center;
@@ -529,8 +552,25 @@ input, textarea, select {
 }
 
 .field-block { margin-bottom: 26px; transition: opacity .15s ease; }
+.field-block.is-search-highlight {
+  animation: search-flash 1.6s ease;
+  border-radius: var(--radius);
+}
+@keyframes search-flash {
+  0%, 100% { box-shadow: none; background: transparent; }
+  15%, 60% { box-shadow: 0 0 0 3px var(--accent-soft); background: var(--accent-soft); }
+}
 .field-block.is-dragging { opacity: 0.35; }
 .field-block.is-drag-over { box-shadow: 0 -2px 0 var(--accent); }
+
+.field-block.is-indented {
+  margin-left: 28px;
+  margin-top: -14px;
+  padding-left: 14px;
+  border-left: 2px solid var(--line);
+}
+
+.block-controls .icon-btn.is-active { background: var(--accent); color: #fff; }
 
 .drag-handle {
   cursor: grab;
@@ -1309,6 +1349,10 @@ textarea.handout-gmnote { background: var(--gold-soft); border-color: rgba(169, 
       </div>
 
       <div id="find-panel">
+        <div class="scope-switch" id="find-scope-switch">
+          <button data-scope="scene" class="is-active">현재 씬</button>
+          <button data-scope="all">전체 시나리오</button>
+        </div>
         <div class="form-row">
           <input type="text" id="find-only-input" placeholder="찾을 단어를 입력하세요">
         </div>
@@ -1316,7 +1360,11 @@ textarea.handout-gmnote { background: var(--gold-soft); border-color: rgba(169, 
       </div>
 
       <div id="replace-panel" hidden>
-        <p style="font-size:12.5px; color:var(--muted); margin:0 0 14px;">모든 시나리오의 본문·키퍼 메모·분기·판정 내용에서 한꺼번에 바꿉니다.</p>
+        <div class="scope-switch" id="replace-scope-switch">
+          <button data-scope="scene" class="is-active">현재 씬</button>
+          <button data-scope="all">전체 시나리오</button>
+        </div>
+        <p style="font-size:12.5px; color:var(--muted); margin:0 0 14px;" id="replace-scope-desc">지금 열려있는 씬 안에서만 바꿉니다.</p>
         <div class="form-row">
           <label>찾을 단어</label>
           <input type="text" id="find-input" placeholder="찾을 단어를 입력하세요">
@@ -1330,7 +1378,7 @@ textarea.handout-gmnote { background: var(--gold-soft); border-color: rgba(169, 
     </div>
     <div class="modal-foot" id="replace-modal-foot">
       <button class="tbtn" id="replace-modal-cancel">닫기</button>
-      <button class="tbtn primary" id="replace-modal-ok">전체 바꾸기</button>
+      <button class="tbtn primary" id="replace-modal-ok">바꾸기</button>
     </div>
   </div>
 </div>
@@ -1980,12 +2028,13 @@ textarea.handout-gmnote { background: var(--gold-soft); border-color: rgba(169, 
     var html = '';
     scene.blocks.forEach(function (block, idx) {
       var meta = BLOCK_TYPES[block.type] || BLOCK_TYPES.text;
-      html += '<div class="field-block" data-block="' + block.id + '" draggable="true">';
+      html += '<div class="field-block' + (block.indent ? ' is-indented' : '') + '" data-block="' + block.id + '" draggable="true">';
       html += '<div class="field-label-row">';
       html += '<span class="drag-handle" title="드래그해서 순서 바꾸기">' + ICONS.grip + '</span>';
       html += '<span class="field-label"><span class="swatch" style="background:' + meta.color + '"></span>';
       html += '<input class="block-label-input" data-block-label="' + block.id + '" value="' + escapeHtml(block.label) + '"></span>';
       html += '<span class="block-controls">';
+      html += '<button class="icon-btn' + (block.indent ? ' is-active' : '') + '" data-block-indent="' + block.id + '" title="들여쓰기 (윗 블록에 딸린 메모처럼)">⇥</button>';
       html += '<button class="icon-btn" data-block-up="' + block.id + '" title="위로" ' + (idx === 0 ? 'disabled' : '') + '>↑</button>';
       html += '<button class="icon-btn" data-block-down="' + block.id + '" title="아래로" ' + (idx === scene.blocks.length - 1 ? 'disabled' : '') + '>↓</button>';
       html += '<button class="icon-btn" data-block-del="' + block.id + '" title="블록 삭제">' + ICONS.trash + '</button>';
@@ -2092,6 +2141,14 @@ textarea.handout-gmnote { background: var(--gold-soft); border-color: rgba(169, 
       input.addEventListener('input', function () {
         findBlock(scene, input.getAttribute('data-block-label')).label = input.value;
         saveData();
+      });
+    });
+    wrap.querySelectorAll('[data-block-indent]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var block = findBlock(scene, btn.getAttribute('data-block-indent'));
+        block.indent = !block.indent;
+        saveData();
+        renderBlockList(scene, platform);
       });
     });
     wrap.querySelectorAll('[data-block-up]').forEach(function (btn) {
@@ -2379,14 +2436,15 @@ textarea.handout-gmnote { background: var(--gold-soft); border-color: rgba(169, 
 
     scene.blocks.forEach(function (block) {
       var meta = BLOCK_TYPES[block.type] || BLOCK_TYPES.text;
+      var indentCls = block.indent ? ' is-indented' : '';
       if (block.type === 'text' || block.type === 'memo' || block.type === 'truth') {
         var extraCls = block.type === 'memo' ? ' keeper-box' : block.type === 'truth' ? ' truth-box' : '';
-        html += '<div class="field-block' + extraCls + '">';
+        html += '<div class="field-block' + extraCls + indentCls + '">';
         html += '<div class="field-label-row"><span class="field-label"><span class="swatch" style="background:' + meta.color + '"></span>' + escapeHtml(block.label) + '</span><button class="copy-btn" data-copy-block="' + block.id + '">' + ICONS.copy + ' 전체 복사</button></div>';
         html += renderTextPlayBox(block.content);
         html += '</div>';
       } else if (block.type === 'branches' && block.items.length) {
-        html += '<div class="field-block">';
+        html += '<div class="field-block' + indentCls + '">';
         html += '<div class="field-label-row"><span class="field-label"><span class="swatch" style="background:' + meta.color + '"></span>' + escapeHtml(block.label) + '</span></div>';
         block.items.forEach(function (b) {
           html += '<div class="play-item-card">';
@@ -2396,7 +2454,7 @@ textarea.handout-gmnote { background: var(--gold-soft); border-color: rgba(169, 
         });
         html += '</div>';
       } else if (block.type === 'lines' && block.items.length) {
-        html += '<div class="field-block">';
+        html += '<div class="field-block' + indentCls + '">';
         html += '<div class="field-label-row"><span class="field-label"><span class="swatch" style="background:' + meta.color + '"></span>' + escapeHtml(block.label) + '</span></div>';
         block.items.forEach(function (b) {
           html += '<div class="play-item-card">';
@@ -2406,7 +2464,7 @@ textarea.handout-gmnote { background: var(--gold-soft); border-color: rgba(169, 
         });
         html += '</div>';
       } else if (block.type === 'checks' && block.items.length) {
-        html += '<div class="field-block">';
+        html += '<div class="field-block' + indentCls + '">';
         html += '<div class="field-label-row"><span class="field-label"><span class="swatch" style="background:' + meta.color + '"></span>' + escapeHtml(block.label) + '</span></div>';
         block.items.forEach(function (c) {
           html += '<div class="play-item-card">';
@@ -2419,7 +2477,7 @@ textarea.handout-gmnote { background: var(--gold-soft); border-color: rgba(169, 
         });
         html += '</div>';
       } else if (block.type === 'npc') {
-        html += '<div class="field-block">';
+        html += '<div class="field-block' + indentCls + '">';
         html += '<div class="field-label-row"><span class="field-label"><span class="swatch" style="background:' + meta.color + '"></span>' + escapeHtml(block.label) + '</span></div>';
         html += '<div class="npc-play-card">';
         html += '<div class="npc-play-head">';
@@ -2442,7 +2500,7 @@ textarea.handout-gmnote { background: var(--gold-soft); border-color: rgba(169, 
         }
         html += '</div></div>';
       } else if (block.type === 'handout') {
-        html += '<div class="field-block">';
+        html += '<div class="field-block' + indentCls + '">';
         html += '<div class="field-label-row"><span class="field-label"><span class="swatch" style="background:' + meta.color + '"></span>' + escapeHtml(block.label) + '</span>';
         if (block.content) html += '<button class="copy-btn" data-copy-block="' + block.id + '">' + ICONS.copy + ' 복사</button>';
         html += '</div>';
@@ -2457,7 +2515,7 @@ textarea.handout-gmnote { background: var(--gold-soft); border-color: rgba(169, 
         html += '</div>';
       } else if (block.type === 'bgm') {
         var ytId = getYoutubeId(block.url);
-        html += '<div class="field-block">';
+        html += '<div class="field-block' + indentCls + '">';
         html += '<div class="field-label-row"><span class="field-label"><span class="swatch" style="background:' + meta.color + '"></span>' + escapeHtml(block.label) + '</span></div>';
         html += '<div class="bgm-play-card">';
         html += '<div class="bgm-play-head"><span class="bgm-play-note-icon">♪</span><span class="bgm-play-title">' + escapeHtml(block.title || '(제목 없음)') + '</span>';
@@ -2783,43 +2841,62 @@ textarea.handout-gmnote { background: var(--gold-soft); border-color: rgba(169, 
 
   /* ---------- 찾기·바꾸기 ---------- */
 
-  function collectTextRefs() {
-    // { get, set } 형태로 모든 텍스트 필드에 대한 참조 목록을 만든다
-    var refs = [];
+  function getAllScenesFlat() {
+    var out = [];
     state.data.scenarios.forEach(function (scenario) {
       scenario.parts.forEach(function (part) {
         part.scenes.forEach(function (scene) {
-          (scene.blocks || []).forEach(function (block) {
-            if (block.type === 'text' || block.type === 'memo' || block.type === 'truth') {
-              refs.push({ get: function () { return block.content; }, set: function (v) { block.content = v; } });
-            } else if (block.type === 'branches' || block.type === 'lines') {
-              block.items.forEach(function (b) {
-                refs.push({ get: function () { return b.label; }, set: function (v) { b.label = v; } });
-                refs.push({ get: function () { return b.text; }, set: function (v) { b.text = v; } });
-              });
-            } else if (block.type === 'checks') {
-              block.items.forEach(function (c) {
-                refs.push({ get: function () { return c.name; }, set: function (v) { c.name = v; } });
-                ['critSuccess', 'success', 'fail', 'critFail'].forEach(function (k) {
-                  refs.push({ get: function () { return c[k]; }, set: function (v) { c[k] = v; } });
-                });
-              });
-            } else if (block.type === 'npc') {
-              ['name', 'role', 'traits', 'lines'].forEach(function (k) {
-                refs.push({ get: function () { return block[k]; }, set: function (v) { block[k] = v; } });
-              });
-            } else if (block.type === 'handout') {
-              ['title', 'content', 'gmNote'].forEach(function (k) {
-                refs.push({ get: function () { return block[k]; }, set: function (v) { block[k] = v; } });
-              });
-            } else if (block.type === 'bgm') {
-              ['title', 'note'].forEach(function (k) {
-                refs.push({ get: function () { return block[k]; }, set: function (v) { block[k] = v; } });
-              });
-            }
-          });
+          out.push({ scenario: scenario, part: part, scene: scene });
         });
       });
+    });
+    return out;
+  }
+
+  function collectSceneTextRefs(scene) {
+    var refs = [];
+    (scene.blocks || []).forEach(function (block) {
+      if (block.type === 'text' || block.type === 'memo' || block.type === 'truth') {
+        refs.push({ block: block, get: function () { return block.content; }, set: function (v) { block.content = v; } });
+      } else if (block.type === 'branches' || block.type === 'lines') {
+        block.items.forEach(function (b) {
+          refs.push({ block: block, get: function () { return b.label; }, set: function (v) { b.label = v; } });
+          refs.push({ block: block, get: function () { return b.text; }, set: function (v) { b.text = v; } });
+        });
+      } else if (block.type === 'checks') {
+        block.items.forEach(function (c) {
+          refs.push({ block: block, get: function () { return c.name; }, set: function (v) { c.name = v; } });
+          ['critSuccess', 'success', 'fail', 'critFail'].forEach(function (k) {
+            refs.push({ block: block, get: function () { return c[k]; }, set: function (v) { c[k] = v; } });
+          });
+        });
+      } else if (block.type === 'npc') {
+        ['name', 'role', 'traits', 'lines'].forEach(function (k) {
+          refs.push({ block: block, get: function () { return block[k]; }, set: function (v) { block[k] = v; } });
+        });
+      } else if (block.type === 'handout') {
+        ['title', 'content', 'gmNote'].forEach(function (k) {
+          refs.push({ block: block, get: function () { return block[k]; }, set: function (v) { block[k] = v; } });
+        });
+      } else if (block.type === 'bgm') {
+        ['title', 'note'].forEach(function (k) {
+          refs.push({ block: block, get: function () { return block[k]; }, set: function (v) { block[k] = v; } });
+        });
+      }
+    });
+    return refs;
+  }
+
+  function collectTextRefs(sceneOnly) {
+    // { get, set } 형태로 텍스트 필드에 대한 참조 목록을 만든다.
+    // sceneOnly가 true면 현재 열려있는 씬 안에서만 찾는다.
+    if (sceneOnly) {
+      var scene = getCurrentScene();
+      return scene ? collectSceneTextRefs(scene) : [];
+    }
+    var refs = [];
+    getAllScenesFlat().forEach(function (e) {
+      refs = refs.concat(collectSceneTextRefs(e.scene));
     });
     return refs;
   }
@@ -2846,37 +2923,65 @@ textarea.handout-gmnote { background: var(--gold-soft); border-color: rgba(169, 
     var results = [];
     if (!term) return results;
     var lowerTerm = term.toLowerCase();
-    state.data.scenarios.forEach(function (scenario) {
-      scenario.parts.forEach(function (part) {
-        part.scenes.forEach(function (scene) {
-          var count = 0;
-          var snippet = '';
-          if (scene.title && scene.title.toLowerCase().indexOf(lowerTerm) > -1) count++;
-          (scene.blocks || []).forEach(function (block) {
-            collectBlockTexts(block).forEach(function (t) {
-              if (!t) return;
-              var idx = t.toLowerCase().indexOf(lowerTerm);
-              if (idx === -1) return;
-              count++;
-              if (!snippet) {
-                var start = Math.max(0, idx - 16);
-                var end = Math.min(t.length, idx + term.length + 30);
-                snippet = (start > 0 ? '…' : '') + t.slice(start, end) + (end < t.length ? '…' : '');
-              }
-            });
-          });
-          if (count > 0) {
-            results.push({ scenario: scenario, part: part, scene: scene, count: count, snippet: snippet });
+    getAllScenesFlat().forEach(function (e) {
+      var scenario = e.scenario, part = e.part, scene = e.scene;
+      var count = 0;
+      var snippet = '';
+      if (scene.title && scene.title.toLowerCase().indexOf(lowerTerm) > -1) count++;
+      (scene.blocks || []).forEach(function (block) {
+        collectBlockTexts(block).forEach(function (t) {
+          if (!t) return;
+          var idx = t.toLowerCase().indexOf(lowerTerm);
+          if (idx === -1) return;
+          count++;
+          if (!snippet) {
+            var start = Math.max(0, idx - 16);
+            var end = Math.min(t.length, idx + term.length + 30);
+            snippet = (start > 0 ? '…' : '') + t.slice(start, end) + (end < t.length ? '…' : '');
           }
         });
       });
+      if (count > 0) {
+        results.push({ scenario: scenario, part: part, scene: scene, count: count, snippet: snippet });
+      }
     });
     return results;
   }
 
-  function countMatches(term) {
+  // 지금 열려있는 씬 "안에서만" 검색 - 블록 단위로 결과를 반환
+  function searchWithinScene(scene, term) {
+    var results = [];
+    if (!scene || !term) return results;
+    var lowerTerm = term.toLowerCase();
+    (scene.blocks || []).forEach(function (block) {
+      var meta = BLOCK_TYPES[block.type] || BLOCK_TYPES.text;
+      var count = 0;
+      var snippet = '';
+      collectBlockTexts(block).forEach(function (t) {
+        if (!t) return;
+        var idx = 0;
+        while (true) {
+          idx = t.toLowerCase().indexOf(lowerTerm, idx);
+          if (idx === -1) break;
+          count++;
+          if (!snippet) {
+            var start = Math.max(0, idx - 16);
+            var end = Math.min(t.length, idx + term.length + 30);
+            snippet = (start > 0 ? '…' : '') + t.slice(start, end) + (end < t.length ? '…' : '');
+          }
+          idx += term.length;
+        }
+      });
+      if (count > 0) {
+        results.push({ block: block, blockLabel: block.label || meta.label, color: meta.color, count: count, snippet: snippet });
+      }
+    });
+    return results;
+  }
+
+  function countMatches(term, sceneOnly) {
     if (!term) return 0;
-    var refs = collectTextRefs();
+    var refs = collectTextRefs(sceneOnly);
     var total = 0;
     refs.forEach(function (r) {
       var v = r.get() || '';
@@ -2891,8 +2996,8 @@ textarea.handout-gmnote { background: var(--gold-soft); border-color: rgba(169, 
     return total;
   }
 
-  function applyReplace(term, replacement) {
-    var refs = collectTextRefs();
+  function applyReplace(term, replacement, sceneOnly) {
+    var refs = collectTextRefs(sceneOnly);
     var changed = 0;
     refs.forEach(function (r) {
       var v = r.get() || '';
@@ -2916,18 +3021,50 @@ textarea.handout-gmnote { background: var(--gold-soft); border-color: rgba(169, 
     var findInput = document.getElementById('find-input');
     var replaceInput = document.getElementById('replace-input');
     var preview = document.getElementById('replace-preview');
+    var replaceScopeDesc = document.getElementById('replace-scope-desc');
     var findOnlyInput = document.getElementById('find-only-input');
     var findResults = document.getElementById('find-results');
     var findPanel = document.getElementById('find-panel');
     var replacePanel = document.getElementById('replace-panel');
-    var foot = document.getElementById('replace-modal-foot');
     var okBtn = document.getElementById('replace-modal-ok');
+    var currentScene = getCurrentScene();
+
+    var findScope = currentScene ? 'scene' : 'all';
+    var replaceScope = currentScene ? 'scene' : 'all';
 
     findInput.value = ''; replaceInput.value = '';
     findOnlyInput.value = '';
     preview.innerHTML = '검색어를 입력하면 몇 건 발견됐는지 여기 보여드려요.';
-    findResults.innerHTML = '<p style="font-size:12.5px; color:var(--faint); margin:8px 2px 0;">검색어를 입력하면 이 단어가 들어간 씬들을 보여드려요.</p>';
     modal.hidden = false;
+
+    function setupScopeSwitch(containerId, getScope, setScope, onChange) {
+      var container = document.getElementById(containerId);
+      var buttons = container.querySelectorAll('button');
+      buttons.forEach(function (b) {
+        var scope = b.getAttribute('data-scope');
+        b.disabled = scope === 'scene' && !currentScene;
+        b.classList.toggle('is-active', scope === getScope());
+        b.onclick = function () {
+          if (b.disabled) return;
+          setScope(scope);
+          buttons.forEach(function (x) { x.classList.toggle('is-active', x === b); });
+          onChange();
+        };
+      });
+    }
+
+    function findScopeGet() { return findScope; }
+    function findScopeSet(v) { findScope = v; }
+    function replaceScopeGet() { return replaceScope; }
+    function replaceScopeSet(v) {
+      replaceScope = v;
+      replaceScopeDesc.textContent = v === 'scene' ? '지금 열려있는 씬 안에서만 바꿉니다.' : '모든 시나리오의 본문·키퍼 메모·분기·판정 내용에서 한꺼번에 바꿉니다.';
+      okBtn.textContent = v === 'scene' ? '이 씬에서 바꾸기' : '전체 바꾸기';
+    }
+
+    setupScopeSwitch('find-scope-switch', findScopeGet, findScopeSet, function () { updateFindResults(); });
+    setupScopeSwitch('replace-scope-switch', replaceScopeGet, replaceScopeSet, function () { updatePreview(); });
+    replaceScopeSet(replaceScope);
 
     function setSearchMode(mode) {
       document.querySelectorAll('#search-mode-switch button').forEach(function (b) {
@@ -2945,12 +3082,42 @@ textarea.handout-gmnote { background: var(--gold-soft); border-color: rgba(169, 
     });
     setSearchMode('find');
 
+    function focusBlockInScene(blockId) {
+      close();
+      setTimeout(function () {
+        var el = document.querySelector('.field-block[data-block="' + blockId + '"]');
+        if (!el) return;
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        el.classList.add('is-search-highlight');
+        setTimeout(function () { el.classList.remove('is-search-highlight'); }, 1600);
+      }, 60);
+    }
+
     function updateFindResults() {
       var term = findOnlyInput.value.trim();
       if (!term) {
-        findResults.innerHTML = '<p style="font-size:12.5px; color:var(--faint); margin:8px 2px 0;">검색어를 입력하면 이 단어가 들어간 씬들을 보여드려요.</p>';
+        findResults.innerHTML = '<p style="font-size:12.5px; color:var(--faint); margin:8px 2px 0;">검색어를 입력하면 ' + (findScope === 'scene' ? '이 씬 안에서' : '이 단어가 들어간 씬들을') + ' 보여드려요.</p>';
         return;
       }
+
+      if (findScope === 'scene') {
+        if (!currentScene) { findResults.innerHTML = '<p style="font-size:12.5px; color:var(--faint); margin:8px 2px 0;">먼저 씬을 선택해주세요.</p>'; return; }
+        var blockResults = searchWithinScene(currentScene, term);
+        if (!blockResults.length) { findResults.innerHTML = '<p style="font-size:12.5px; color:var(--faint); margin:8px 2px 0;">이 씬 안에서 일치하는 내용이 없어요.</p>'; return; }
+        var html2 = '<p style="font-size:11.5px; color:var(--muted); margin:8px 2px 8px;">이 씬에서 ' + blockResults.length + '개 블록에서 발견됐어요</p>';
+        blockResults.forEach(function (r) {
+          html2 += '<div class="find-result-item" data-find-block="' + r.block.id + '">';
+          html2 += '<div class="find-result-head"><span class="find-result-title"><span class="swatch" style="background:' + r.color + '; display:inline-block; width:8px; height:8px; border-radius:2px; margin-right:6px;"></span>' + escapeHtml(r.blockLabel) + '</span><span class="find-result-count">' + r.count + '건</span></div>';
+          if (r.snippet) html2 += '<div class="find-result-snippet">' + highlightTerm(r.snippet, term) + '</div>';
+          html2 += '</div>';
+        });
+        findResults.innerHTML = html2;
+        findResults.querySelectorAll('[data-find-block]').forEach(function (el) {
+          el.addEventListener('click', function () { focusBlockInScene(el.getAttribute('data-find-block')); });
+        });
+        return;
+      }
+
       var results = searchAcrossScenes(term);
       if (!results.length) {
         findResults.innerHTML = '<p style="font-size:12.5px; color:var(--faint); margin:8px 2px 0;">일치하는 내용이 없어요.</p>';
@@ -2981,15 +3148,19 @@ textarea.handout-gmnote { background: var(--gold-soft); border-color: rgba(169, 
         });
       });
     }
+    updateFindResults();
     findOnlyInput.addEventListener('input', updateFindResults);
 
     setTimeout(function () { findOnlyInput.focus(); }, 30);
 
     function updatePreview() {
       var term = findInput.value;
-      if (!term) { preview.innerHTML = '검색어를 입력하면 몇 건 발견됐는지 여기 보여드려요.'; return; }
-      var n = countMatches(term);
-      preview.innerHTML = '전체 시나리오에서 <b>' + n + '건</b> 발견됐어요.';
+      if (!term) {
+        preview.innerHTML = '검색어를 입력하면 몇 건 발견됐는지 여기 보여드려요.';
+        return;
+      }
+      var n = countMatches(term, replaceScope === 'scene');
+      preview.innerHTML = (replaceScope === 'scene' ? '이 씬에서' : '전체 시나리오에서') + ' <b>' + n + '건</b> 발견됐어요.';
     }
     findInput.addEventListener('input', updatePreview);
 
@@ -2997,10 +3168,10 @@ textarea.handout-gmnote { background: var(--gold-soft); border-color: rgba(169, 
     function ok() {
       var term = findInput.value;
       if (!term) { showToast('찾을 단어를 입력해주세요'); return; }
-      var n = countMatches(term);
+      var n = countMatches(term, replaceScope === 'scene');
       if (!n) { showToast('일치하는 내용이 없어요'); return; }
       if (!confirm(n + '건을 모두 바꿀까요? 되돌릴 수 없어요.')) return;
-      var changed = applyReplace(term, replaceInput.value);
+      var changed = applyReplace(term, replaceInput.value, replaceScope === 'scene');
       close();
       render();
       showToast(changed + '개 항목에서 바꿨어요');
