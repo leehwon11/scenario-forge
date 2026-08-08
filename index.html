@@ -554,7 +554,7 @@ input, textarea, select {
 
 .field-textarea {
   width: 100%;
-  min-height: 140px;
+  min-height: 44px;
   border: 1px solid var(--line);
   border-radius: var(--radius);
   background: var(--panel);
@@ -585,6 +585,30 @@ input, textarea, select {
   content: "(내용 없음)";
   color: var(--faint);
 }
+
+.field-play-box.text-lines {
+  white-space: normal;
+  padding: 6px 8px;
+}
+.text-line {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 6px 8px;
+  border-radius: 5px;
+}
+.text-line:hover { background: rgba(0, 0, 0, 0.035); }
+.text-line span { flex: 1; min-width: 0; white-space: pre-wrap; word-break: break-word; }
+.text-line .line-copy-btn {
+  flex: 0 0 auto;
+  opacity: 0.4;
+  transition: opacity .12s ease;
+}
+.text-line:hover .line-copy-btn,
+.text-line .line-copy-btn:focus,
+.text-line .line-copy-btn:hover { opacity: 1; }
+.text-line-empty { height: 10px; }
 
 .copy-btn {
   display: inline-flex;
@@ -707,7 +731,7 @@ input, textarea, select {
   border-radius: 5px;
   padding: 8px 9px;
   font-size: 12.5px;
-  min-height: 60px;
+  min-height: 40px;
   resize: none;
   overflow: hidden;
   outline: none;
@@ -796,7 +820,7 @@ input, textarea, select {
 .npc-sub-label { display: block; font-size: 10.5px; font-weight: 700; color: var(--faint); letter-spacing: 0.04em; margin: 10px 0 5px; }
 .npc-form textarea {
   width: 100%; border: 1px solid var(--line); border-radius: 5px; padding: 8px 9px;
-  font-size: 12.5px; min-height: 56px; resize: none; overflow: hidden; outline: none;
+  font-size: 12.5px; min-height: 40px; resize: none; overflow: hidden; outline: none;
 }
 .npc-form textarea:focus { border-color: var(--accent); }
 
@@ -2011,7 +2035,7 @@ textarea.handout-gmnote { background: var(--gold-soft); border-color: rgba(169, 
     });
     wrap.innerHTML = html;
     wrap.querySelectorAll('textarea[data-branch-text]').forEach(function (t) {
-      t.style.cssText = 'width:100%; border:1px solid var(--line); border-radius:5px; padding:8px 9px; font-size:12.5px; min-height:56px; resize:none; overflow:hidden; outline:none;';
+      t.style.cssText = 'width:100%; border:1px solid var(--line); border-radius:5px; padding:8px 9px; font-size:12.5px; min-height:40px; resize:none; overflow:hidden; outline:none;';
     });
 
     wrap.querySelectorAll('[data-branch-label]').forEach(function (input) {
@@ -2050,7 +2074,7 @@ textarea.handout-gmnote { background: var(--gold-soft); border-color: rgba(169, 
     });
     wrap.innerHTML = html;
     wrap.querySelectorAll('textarea[data-line-text]').forEach(function (t) {
-      t.style.cssText = 'width:100%; border:1px solid var(--line); border-radius:5px; padding:8px 9px; font-size:12.5px; min-height:56px; resize:none; overflow:hidden; outline:none;';
+      t.style.cssText = 'width:100%; border:1px solid var(--line); border-radius:5px; padding:8px 9px; font-size:12.5px; min-height:40px; resize:none; overflow:hidden; outline:none;';
     });
 
     wrap.querySelectorAll('[data-line-label]').forEach(function (input) {
@@ -2143,8 +2167,8 @@ textarea.handout-gmnote { background: var(--gold-soft); border-color: rgba(169, 
       if (block.type === 'text' || block.type === 'memo' || block.type === 'truth') {
         var extraCls = block.type === 'memo' ? ' keeper-box' : block.type === 'truth' ? ' truth-box' : '';
         html += '<div class="field-block' + extraCls + '">';
-        html += '<div class="field-label-row"><span class="field-label"><span class="swatch" style="background:' + meta.color + '"></span>' + escapeHtml(block.label) + '</span><button class="copy-btn" data-copy-block="' + block.id + '">' + ICONS.copy + ' 복사</button></div>';
-        html += '<div class="field-play-box' + (block.content ? '' : ' is-empty') + '">' + escapeHtml(block.content) + '</div>';
+        html += '<div class="field-label-row"><span class="field-label"><span class="swatch" style="background:' + meta.color + '"></span>' + escapeHtml(block.label) + '</span><button class="copy-btn" data-copy-block="' + block.id + '">' + ICONS.copy + ' 전체 복사</button></div>';
+        html += renderTextPlayBox(block.content);
         html += '</div>';
       } else if (block.type === 'branches' && block.items.length) {
         html += '<div class="field-block">';
@@ -2286,6 +2310,21 @@ textarea.handout-gmnote { background: var(--gold-soft); border-color: rgba(169, 
         copyText(lines.join('\n'), copyAllBtn);
       });
     }
+  }
+
+  function renderTextPlayBox(content) {
+    if (!content) return '<div class="field-play-box is-empty"></div>';
+    var lines = content.split('\n');
+    var html = '<div class="field-play-box text-lines">';
+    lines.forEach(function (line) {
+      if (!line.trim()) {
+        html += '<div class="text-line-empty">&nbsp;</div>';
+        return;
+      }
+      html += '<div class="text-line"><span>' + escapeHtml(line) + '</span><button class="copy-btn line-copy-btn" data-copy-raw="' + escapeHtml(line) + '">' + ICONS.copy + '</button></div>';
+    });
+    html += '</div>';
+    return html;
   }
 
   function outcomeRow(cls, label, text) {
