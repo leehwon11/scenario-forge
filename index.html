@@ -482,12 +482,14 @@ input, textarea, select {
 .drag-handle {
   cursor: grab;
   color: var(--faint);
-  font-size: 13px;
   line-height: 1;
   padding: 2px 2px;
   flex: 0 0 auto;
   user-select: none;
+  display: inline-flex;
+  align-items: center;
 }
+.drag-handle svg { width: 15px; height: 15px; }
 .drag-handle:active { cursor: grabbing; }
 
 .field-label-row {
@@ -784,9 +786,13 @@ input, textarea, select {
 .npc-avatar-edit img { width: 100%; height: 100%; object-fit: cover; }
 .npc-form-fields { flex: 1; display: flex; flex-direction: column; gap: 6px; }
 .npc-form-fields input {
-  border: 1px solid var(--line); border-radius: 5px; padding: 7px 9px; font-size: 12.5px; outline: none;
+  border: 1px solid var(--line); border-radius: 5px; padding: 7px 9px; font-size: 12.5px; outline: none; width: 100%;
 }
 .npc-form-fields input:focus { border-color: var(--accent); }
+.npc-form > input[type="text"] {
+  width: 100%; border: 1px solid var(--line); border-radius: 5px; padding: 8px 9px; font-size: 12.5px; outline: none; box-sizing: border-box;
+}
+.npc-form > input[type="text"]:focus { border-color: var(--accent); }
 .npc-sub-label { display: block; font-size: 10.5px; font-weight: 700; color: var(--faint); letter-spacing: 0.04em; margin: 10px 0 5px; }
 .npc-form textarea {
   width: 100%; border: 1px solid var(--line); border-radius: 5px; padding: 8px 9px;
@@ -1196,7 +1202,8 @@ textarea.handout-gmnote { background: var(--gold-soft); border-color: rgba(169, 
     plus: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 5v14M5 12h14" stroke-linecap="round"/></svg>',
     chev: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M9 6l6 6-6 6" stroke-linecap="round" stroke-linejoin="round"/></svg>',
     copy: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15V5a2 2 0 012-2h10"/></svg>',
-    check: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M20 6L9 17l-5-5" stroke-linecap="round" stroke-linejoin="round"/></svg>'
+    check: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M20 6L9 17l-5-5" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+    grip: '<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="6" r="1.6"/><circle cx="15" cy="6" r="1.6"/><circle cx="9" cy="12" r="1.6"/><circle cx="15" cy="12" r="1.6"/><circle cx="9" cy="18" r="1.6"/><circle cx="15" cy="18" r="1.6"/></svg>'
   };
 
   function uid() {
@@ -1744,7 +1751,7 @@ textarea.handout-gmnote { background: var(--gold-soft); border-color: rgba(169, 
       var meta = BLOCK_TYPES[block.type] || BLOCK_TYPES.text;
       html += '<div class="field-block" data-block="' + block.id + '" draggable="true">';
       html += '<div class="field-label-row">';
-      html += '<span class="drag-handle" title="드래그해서 순서 바꾸기">⠿</span>';
+      html += '<span class="drag-handle" title="드래그해서 순서 바꾸기">' + ICONS.grip + '</span>';
       html += '<span class="field-label"><span class="swatch" style="background:' + meta.color + '"></span>';
       html += '<input class="block-label-input" data-block-label="' + block.id + '" value="' + escapeHtml(block.label) + '"></span>';
       html += '<span class="block-controls">';
