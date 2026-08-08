@@ -1272,32 +1272,7 @@ textarea.handout-gmnote { background: var(--gold-soft); border-color: rgba(169, 
           ]
         }
       ],
-      scenarios: [
-        {
-          id: uid(), title: '예시 시나리오', platformId: roll20Id,
-          parts: [
-            {
-              id: uid(), title: '1부. 도입',
-              scenes: [
-                {
-                  id: uid(), title: '1. 등대 앞',
-                  blocks: [
-                    { id: uid(), type: 'text', label: '본문 / 지문', content: '조사원들은 안개 낀 등대 앞에 도착한다. 문은 잠겨있지 않다.' },
-                    { id: uid(), type: 'memo', label: '키퍼 메모', content: 'PC들이 문을 억지로 열려고 하면 【감정】 판정. 실패 시 손을 벤다(1 피해).' },
-                    { id: uid(), type: 'branches', label: '선택지에 따른 분기', items: [
-                      { id: uid(), label: '문을 두드린다', text: '아무 반응이 없다. 안에서 발소리가 들리는 것 같기도 하다.' },
-                      { id: uid(), label: '문을 바로 연다', text: '삐걱거리며 문이 열린다. 곰팡이 냄새가 확 풍긴다.' }
-                    ] },
-                    { id: uid(), type: 'checks', label: '주사위 판정 결과', items: [
-                      { id: uid(), name: '감정(Spot Hidden)', critSuccess: '문 틈으로 안쪽 서가가 살짝 보인다. 낡은 항해일지 하나가 눈에 띈다.', success: '문이 오랫동안 열리지 않았다는 걸 알 수 있다.', fail: '별다른 특이사항을 발견하지 못한다.', critFail: '문에 손이 걸려 가벼운 상처를 입는다(1 피해).' }
-                    ] }
-                  ]
-                }
-              ]
-            }
-          ]
-        }
-      ],
+      scenarios: [],
       selection: { platformId: roll20Id, scenarioId: null, partId: null, sceneId: null }
     };
   }
@@ -1332,11 +1307,11 @@ textarea.handout-gmnote { background: var(--gold-soft); border-color: rgba(169, 
         (part.scenes || []).forEach(function (scene) {
           if (Array.isArray(scene.blocks)) return;
           var blocks = [];
-          if (scene.content) blocks.push({ id: uid(), type: 'text', label: '본문 / 지문', content: scene.content });
+          if (scene.content) blocks.push({ id: uid(), type: 'text', label: '나레이션', content: scene.content });
           if (scene.keeperMemo) blocks.push({ id: uid(), type: 'memo', label: '키퍼 메모', content: scene.keeperMemo });
           if (scene.branches && scene.branches.length) blocks.push({ id: uid(), type: 'branches', label: '선택지에 따른 분기', items: scene.branches });
           if (scene.checks && scene.checks.length) blocks.push({ id: uid(), type: 'checks', label: '주사위 판정 결과', items: scene.checks });
-          if (!blocks.length) blocks.push({ id: uid(), type: 'text', label: '본문 / 지문', content: '' });
+          if (!blocks.length) blocks.push({ id: uid(), type: 'text', label: '나레이션', content: '' });
           scene.blocks = blocks;
           delete scene.content;
           delete scene.keeperMemo;
@@ -1652,7 +1627,7 @@ textarea.handout-gmnote { background: var(--gold-soft); border-color: rgba(169, 
         openPrompt('새 씬 이름', '', function (val) {
           if (!val) return;
           var scene = { id: uid(), title: val, blocks: [
-            { id: uid(), type: 'text', label: '본문 / 지문', content: '' }
+            { id: uid(), type: 'text', label: '나레이션', content: '' }
           ] };
           part.scenes.push(scene);
           state.openParts[partId] = true;
