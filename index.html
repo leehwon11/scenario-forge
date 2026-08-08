@@ -126,6 +126,31 @@ input, textarea, select {
   gap: 2px;
 }
 
+.font-scale-switch {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 3px;
+  background: var(--panel-alt);
+  gap: 2px;
+}
+.font-scale-switch button {
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  font-family: var(--font-body);
+  font-weight: 700;
+  line-height: 1;
+}
+.font-scale-switch button:nth-child(1) { font-size: 10px; }
+.font-scale-switch button:nth-child(2) { font-size: 13px; }
+.font-scale-switch button:nth-child(3) { font-size: 16px; }
+.font-scale-switch button.is-active { background: var(--ink); color: #fff; }
+
 .mode-switch button {
   border: none;
   background: transparent;
@@ -1006,6 +1031,11 @@ textarea.handout-gmnote { background: var(--gold-soft); border-color: rgba(169, 
     </div>
     <div class="topbar-spacer"></div>
     <span class="save-indicator" id="save-indicator"></span>
+    <div class="font-scale-switch" id="font-scale-switch" title="글자 크기">
+      <button data-scale="0.9">가</button>
+      <button data-scale="1" class="is-active">가</button>
+      <button data-scale="1.15">가</button>
+    </div>
     <div class="mode-switch">
       <button data-mode="edit" class="is-active">편집</button>
       <button data-mode="play">플레이</button>
@@ -2690,6 +2720,24 @@ textarea.handout-gmnote { background: var(--gold-soft); border-color: rgba(169, 
   sidebarToggle.addEventListener('click', function () {
     document.getElementById('sidebar').classList.toggle('is-open');
   });
+
+  /* ---------- 글자 크기 조절 ---------- */
+  var UI_SCALE_KEY = 'scenario-forge-ui-scale';
+  function applyUiScale(scale) {
+    document.body.style.zoom = scale;
+    document.querySelectorAll('#font-scale-switch button').forEach(function (b) {
+      b.classList.toggle('is-active', b.getAttribute('data-scale') === String(scale));
+    });
+    try { localStorage.setItem(UI_SCALE_KEY, scale); } catch (e) {}
+  }
+  document.querySelectorAll('#font-scale-switch button').forEach(function (btn) {
+    btn.addEventListener('click', function () { applyUiScale(btn.getAttribute('data-scale')); });
+  });
+  (function () {
+    var saved = '1';
+    try { saved = localStorage.getItem(UI_SCALE_KEY) || '1'; } catch (e) {}
+    applyUiScale(saved);
+  })();
 
   /* ---------- 입력칸 자동 높이 조정 ---------- */
   document.addEventListener('input', function (e) {
