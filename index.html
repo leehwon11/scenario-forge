@@ -740,6 +740,17 @@ input, textarea, select {
   gap: 6px;
   margin-bottom: 8px;
 }
+#floating-command-bar {
+  z-index: 60;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 6px 8px;
+  box-shadow: var(--shadow);
+  margin-bottom: 0;
+  pointer-events: auto;
+}
+#floating-command-bar[hidden] { display: none; }
 .command-chip {
   display: inline-flex;
   align-items: center;
@@ -1035,46 +1046,58 @@ textarea.handout-gmnote { background: var(--gold-soft); border-color: rgba(169, 
 }
 .form-row input:focus, .form-row textarea:focus { border-color: var(--accent); }
 
-.command-row {
+.command-chip-row {
   display: flex;
-  gap: 8px;
-  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+.command-manage-chip {
+  border: 1px solid var(--line);
+  background: var(--panel-alt);
+  color: var(--muted);
+  padding: 6px 12px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: grab;
+}
+.command-manage-chip:hover { border-color: var(--accent); color: var(--accent-ink); }
+.command-manage-chip.is-active { background: var(--ink); color: #fff; border-color: var(--ink); }
+.command-manage-chip.is-dragging { opacity: 0.35; }
+
+.command-editor {
   border: 1px solid var(--line);
   border-radius: var(--radius);
-  padding: 10px;
-  margin-bottom: 8px;
+  padding: 12px;
+  margin-top: 10px;
+  background: var(--panel-alt);
 }
-.command-row-move {
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-  flex: 0 0 auto;
-}
-.command-row-move .icon-btn { width: 22px; height: 22px; font-size: 11px; color: var(--muted); }
-.command-row-move .icon-btn:disabled { opacity: 0.3; cursor: default; }
-.command-row-move .icon-btn:disabled:hover { background: transparent; }
-.command-insert-btn {
-  flex: 0 0 auto;
-  align-self: center;
-  padding: 6px 10px;
-  font-size: 11.5px;
-  white-space: nowrap;
-}
-.command-row input { flex: 1; border: 1px solid var(--line); border-radius: 4px; padding: 6px 8px; font-size: 12.5px; }
-.command-row textarea.snippet {
+.command-editor input[type="text"] {
   width: 100%;
   border: 1px solid var(--line);
   border-radius: 4px;
-  padding: 6px 8px;
+  padding: 7px 9px;
+  font-size: 12.5px;
+  outline: none;
+  background: var(--panel);
+}
+.command-editor input[type="text"]:focus { border-color: var(--accent); }
+.command-editor textarea.snippet {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 7px 9px;
   font-size: 12.5px;
   font-family: var(--font-mono);
   resize: none;
   overflow: hidden;
   outline: none;
-  min-height: 30px;
+  min-height: 34px;
   line-height: 1.5;
+  background: var(--panel);
 }
-.command-row textarea.snippet:focus { border-color: var(--accent); }
+.command-editor textarea.snippet:focus { border-color: var(--accent); }
 
 .color-quickadd {
   border: 1px solid var(--line);
@@ -1987,6 +2010,7 @@ textarea.handout-gmnote { background: var(--gold-soft); border-color: rgba(169, 
     html += '</div>';
     html += '</div>';
 
+    html += '<div class="command-bar" id="floating-command-bar" hidden></div>';
     html += '<div id="block-list"></div>';
     html += '<div class="add-block-bar">';
     Object.keys(BLOCK_TYPES).forEach(function (type) {
@@ -2049,22 +2073,18 @@ textarea.handout-gmnote { background: var(--gold-soft); border-color: rgba(169, 
       html += '</div>';
 
       if (block.type === 'text') {
-        html += '<div class="command-bar" data-command-bar-for="' + block.id + '"></div>';
         html += '<textarea class="field-textarea" data-block-content="' + block.id + '" placeholder="여기에 장면 지문, 대사, 묘사를 적어주세요.">' + escapeHtml(block.content) + '</textarea>';
       } else if (block.type === 'memo') {
         html += '<div class="keeper-box"><textarea class="field-textarea" data-block-content="' + block.id + '" placeholder="진행 팁, GM만 알아야 할 정보, 유의사항 등을 적어주세요.">' + escapeHtml(block.content) + '</textarea></div>';
       } else if (block.type === 'truth') {
         html += '<div class="truth-box"><textarea class="field-textarea" data-block-content="' + block.id + '" placeholder="이 시나리오의 진짜 전말, 사건의 진상을 적어주세요. (GM 전용)">' + escapeHtml(block.content) + '</textarea></div>';
       } else if (block.type === 'branches') {
-        html += '<div class="command-bar" data-command-bar-for="' + block.id + '"></div>';
         html += '<div data-branch-wrap="' + block.id + '"></div>';
         html += '<button class="add-item-btn" data-add-branch="' + block.id + '">' + ICONS.plus + ' 분기 추가</button>';
       } else if (block.type === 'lines') {
-        html += '<div class="command-bar" data-command-bar-for="' + block.id + '"></div>';
         html += '<div data-line-wrap="' + block.id + '"></div>';
         html += '<button class="add-item-btn" data-add-line="' + block.id + '">' + ICONS.plus + ' 대사 추가</button>';
       } else if (block.type === 'checks') {
-        html += '<div class="command-bar" data-command-bar-for="' + block.id + '"></div>';
         html += '<div data-check-wrap="' + block.id + '"></div>';
         html += '<button class="add-item-btn" data-add-check="' + block.id + '">' + ICONS.plus + ' 판정 항목 추가</button>';
       } else if (block.type === 'npc') {
@@ -2232,51 +2252,74 @@ textarea.handout-gmnote { background: var(--gold-soft); border-color: rgba(169, 
       });
     });
 
-    // 본문 블록에는 명령어 바를 붙여줌
-    if (!wrap.dataset.focusBound) {
-      wrap.dataset.focusBound = '1';
-      wrap.addEventListener('focusin', function (e) {
-        var target = e.target;
-        var isField = target.tagName === 'TEXTAREA' || (target.tagName === 'INPUT' && target.type === 'text');
-        if (!isField) return;
-        state.globalLastFocusedField = target;
-        var blockEl = target.closest('.field-block');
-        if (!blockEl) return;
-        if (!state.lastFocusedField) state.lastFocusedField = {};
-        state.lastFocusedField[blockEl.getAttribute('data-block')] = target;
-      });
-    }
-    wrap.querySelectorAll('[data-command-bar-for]').forEach(function (bar) {
-      var blockId = bar.getAttribute('data-command-bar-for');
+    // 명령어 바: 지금 클릭(포커스)한 칸 바로 위로 옮겨다님
+    var floatBar = document.getElementById('floating-command-bar');
+    function renderFloatBarContent() {
+      if (!floatBar) return;
       if (platform && platform.commands.length) {
         var cbHtml = '';
         platform.commands.forEach(function (c) {
-          cbHtml += '<button class="command-chip" data-snippet="' + escapeHtml(c.snippet) + '" data-snippet-target="' + blockId + '">' + escapeHtml(c.label) + '</button>';
+          cbHtml += '<button class="command-chip" data-snippet="' + escapeHtml(c.snippet) + '">' + escapeHtml(c.label) + '</button>';
         });
-        cbHtml += '<button class="command-chip-manage" data-manage-commands="' + blockId + '">+ 관리</button>';
-        bar.innerHTML = cbHtml;
+        cbHtml += '<button class="command-chip-manage" id="floating-command-manage">+ 관리</button>';
+        floatBar.innerHTML = cbHtml;
       } else {
-        bar.innerHTML = '<button class="command-chip-manage" data-manage-commands="' + blockId + '">+ 이 사이트의 명령어 등록하기</button>';
+        floatBar.innerHTML = '<button class="command-chip-manage" id="floating-command-manage">+ 이 사이트의 명령어 등록하기</button>';
       }
-    });
-    wrap.querySelectorAll('[data-snippet]').forEach(function (btn) {
-      btn.addEventListener('click', function () {
-        var blockId = btn.getAttribute('data-snippet-target');
-        var ta = state.lastFocusedField && state.lastFocusedField[blockId];
-        if (!ta || !wrap.contains(ta)) {
-          ta = wrap.querySelector('[data-block-content="' + blockId + '"]');
-        }
-        if (!ta) {
-          var blockEl = wrap.querySelector('.field-block[data-block="' + blockId + '"]');
-          ta = blockEl && blockEl.querySelector('textarea, input[type="text"]');
-        }
-        if (!ta) { showToast('먼저 삽입할 칸을 한 번 클릭해주세요'); return; }
-        insertAtCursor(ta, btn.getAttribute('data-snippet'));
+      floatBar.querySelectorAll('[data-snippet]').forEach(function (btn) {
+        btn.addEventListener('mousedown', function (e) { e.preventDefault(); });
+        btn.addEventListener('click', function () {
+          if (state.globalLastFocusedField) insertAtCursor(state.globalLastFocusedField, btn.getAttribute('data-snippet'));
+        });
       });
-    });
-    wrap.querySelectorAll('[data-manage-commands]').forEach(function (btn) {
-      btn.addEventListener('click', openCommandModal);
-    });
+      var manageBtn = document.getElementById('floating-command-manage');
+      if (manageBtn) {
+        manageBtn.addEventListener('mousedown', function (e) { e.preventDefault(); });
+        manageBtn.addEventListener('click', openCommandModal);
+      }
+    }
+    renderFloatBarContent();
+
+    if (!wrap.dataset.focusBound) {
+      wrap.dataset.focusBound = '1';
+      var hideTimer = null;
+
+      function positionFloatingBar(bar, target) {
+        var r = target.getBoundingClientRect();
+        bar.style.position = 'fixed';
+        bar.style.left = Math.round(r.left) + 'px';
+        bar.style.top = Math.round(r.top - bar.offsetHeight - 6) + 'px';
+        bar.style.width = Math.round(r.width) + 'px';
+      }
+
+      wrap.addEventListener('focusin', function (e) {
+        var target = e.target;
+        var isField = target.tagName === 'TEXTAREA' || (target.tagName === 'INPUT' && target.type === 'text' && !target.classList.contains('block-label-input'));
+        if (!isField) return;
+        clearTimeout(hideTimer);
+        state.globalLastFocusedField = target;
+        var bar = document.getElementById('floating-command-bar');
+        if (!bar) return;
+        bar.hidden = false;
+        positionFloatingBar(bar, target);
+      });
+
+      wrap.addEventListener('focusout', function (e) {
+        var isField = e.target.tagName === 'TEXTAREA' || (e.target.tagName === 'INPUT' && e.target.type === 'text');
+        if (!isField) return;
+        hideTimer = setTimeout(function () {
+          var bar = document.getElementById('floating-command-bar');
+          if (bar) bar.hidden = true;
+        }, 150);
+      });
+
+      document.getElementById('main').addEventListener('scroll', function () {
+        var bar = document.getElementById('floating-command-bar');
+        if (bar && !bar.hidden && state.globalLastFocusedField && wrap.contains(state.globalLastFocusedField)) {
+          positionFloatingBar(bar, state.globalLastFocusedField);
+        }
+      });
+    }
 
     // 분기 / 판정 / 대사 블록
     scene.blocks.forEach(function (block) {
@@ -2741,6 +2784,7 @@ textarea.handout-gmnote { background: var(--gold-soft); border-color: rgba(169, 
     if (!platform.colors) platform.colors = [];
     var modal = document.getElementById('command-modal');
     document.getElementById('command-modal-platform').textContent = platform.name;
+    state.openCommandId = null;
     renderCommandModalList(platform);
     renderColorPaletteList(platform);
     modal.hidden = false;
@@ -2753,7 +2797,9 @@ textarea.handout-gmnote { background: var(--gold-soft); border-color: rgba(169, 
     document.getElementById('command-modal-close').addEventListener('click', close);
     document.getElementById('command-modal-done').addEventListener('click', close);
     document.getElementById('add-command-btn').onclick = function () {
-      platform.commands.push({ id: uid(), label: '', snippet: '' });
+      var c = { id: uid(), label: '새 명령어', snippet: '' };
+      platform.commands.push(c);
+      state.openCommandId = c.id;
       saveData();
       renderCommandModalList(platform);
     };
@@ -2815,44 +2861,72 @@ textarea.handout-gmnote { background: var(--gold-soft); border-color: rgba(169, 
 
   function renderCommandModalList(platform) {
     var wrap = document.getElementById('command-list');
-    var html = '';
-    platform.commands.forEach(function (c, idx) {
-      html += '<div class="command-row" data-command="' + c.id + '">';
-      html += '<div class="command-row-move">';
-      html += '<button class="icon-btn" data-cmd-up="' + c.id + '" title="위로" ' + (idx === 0 ? 'disabled' : '') + '>↑</button>';
-      html += '<button class="icon-btn" data-cmd-down="' + c.id + '" title="아래로" ' + (idx === platform.commands.length - 1 ? 'disabled' : '') + '>↓</button>';
-      html += '</div>';
-      html += '<div style="flex:1; display:flex; flex-direction:column; gap:6px;">';
-      html += '<input type="text" placeholder="버튼에 표시될 이름 (예: 굵게)" data-cmd-label="' + c.id + '" value="' + escapeHtml(c.label) + '">';
-      html += '<textarea class="snippet" placeholder="실제로 삽입될 텍스트/코드" data-cmd-snippet="' + c.id + '" rows="1">' + escapeHtml(c.snippet) + '</textarea>';
-      html += '</div>';
-      html += '<button class="tbtn command-insert-btn" data-cmd-insert="' + c.id + '" title="마지막으로 클릭했던 칸에 삽입">삽입</button>';
-      html += '<button class="remove-btn" data-cmd-del="' + c.id + '">' + ICONS.trash + '</button>';
-      html += '</div>';
-    });
+
     if (!platform.commands.length) {
-      html = '<p style="font-size:12.5px; color:var(--faint);">아직 등록된 명령어가 없어요. 아래에서 추가해보세요.</p>';
+      wrap.innerHTML = '<p style="font-size:12.5px; color:var(--faint);">아직 등록된 명령어가 없어요. 아래에서 추가해보세요.</p>';
+      return;
     }
+
+    var openId = state.openCommandId;
+    var openCmd = platform.commands.find(function (c) { return c.id === openId; });
+
+    var html = '<div class="command-chip-row" id="command-chip-row">';
+    platform.commands.forEach(function (c) {
+      html += '<button class="command-manage-chip' + (c.id === openId ? ' is-active' : '') + '" data-command-chip="' + c.id + '" draggable="true">' + escapeHtml(c.label || '(이름 없음)') + '</button>';
+    });
+    html += '</div>';
+
+    if (openCmd) {
+      html += '<div class="command-editor" data-command-editor="' + openCmd.id + '">';
+      html += '<label class="npc-sub-label" style="margin-top:0;">버튼에 표시될 이름</label>';
+      html += '<input type="text" placeholder="예: 굵게" data-cmd-label="' + openCmd.id + '" value="' + escapeHtml(openCmd.label) + '">';
+      html += '<label class="npc-sub-label">실제로 삽입될 텍스트/코드</label>';
+      html += '<textarea class="snippet" data-cmd-snippet="' + openCmd.id + '" rows="1">' + escapeHtml(openCmd.snippet) + '</textarea>';
+      html += '<button class="tbtn danger" style="margin-top:10px;" data-cmd-del="' + openCmd.id + '">' + ICONS.trash + ' 이 명령어 삭제</button>';
+      html += '</div>';
+    } else {
+      html += '<p style="font-size:12px; color:var(--faint); margin:10px 2px 0;">위에서 명령어를 눌러 이름·내용을 수정하세요. 드래그해서 순서도 바꿀 수 있어요.</p>';
+    }
+
     wrap.innerHTML = html;
 
-    wrap.querySelectorAll('[data-cmd-up]').forEach(function (btn) {
-      btn.addEventListener('click', function () {
-        moveInArray(platform.commands, btn.getAttribute('data-cmd-up'), -1);
+    wrap.querySelectorAll('[data-command-chip]').forEach(function (chip) {
+      chip.addEventListener('click', function () {
+        var id = chip.getAttribute('data-command-chip');
+        state.openCommandId = (state.openCommandId === id) ? null : id;
+        renderCommandModalList(platform);
+      });
+    });
+
+    var draggedId = null;
+    wrap.querySelectorAll('[data-command-chip]').forEach(function (chip) {
+      chip.addEventListener('dragstart', function (e) {
+        draggedId = chip.getAttribute('data-command-chip');
+        chip.classList.add('is-dragging');
+        if (e.dataTransfer) { e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', draggedId); }
+      });
+      chip.addEventListener('dragend', function () { chip.classList.remove('is-dragging'); });
+      chip.addEventListener('dragover', function (e) { e.preventDefault(); });
+      chip.addEventListener('drop', function (e) {
+        e.preventDefault();
+        var targetId = chip.getAttribute('data-command-chip');
+        if (!draggedId || draggedId === targetId) return;
+        var fromIdx = platform.commands.findIndex(function (c) { return c.id === draggedId; });
+        var toIdx = platform.commands.findIndex(function (c) { return c.id === targetId; });
+        if (fromIdx === -1 || toIdx === -1) return;
+        var moved = platform.commands.splice(fromIdx, 1)[0];
+        platform.commands.splice(toIdx, 0, moved);
         saveData();
         renderCommandModalList(platform);
       });
     });
-    wrap.querySelectorAll('[data-cmd-down]').forEach(function (btn) {
-      btn.addEventListener('click', function () {
-        moveInArray(platform.commands, btn.getAttribute('data-cmd-down'), 1);
-        saveData();
-        renderCommandModalList(platform);
-      });
-    });
+
     wrap.querySelectorAll('[data-cmd-label]').forEach(function (input) {
       input.addEventListener('input', function () {
         findCommand(platform, input.getAttribute('data-cmd-label')).label = input.value;
         saveData();
+        var chip = wrap.querySelector('[data-command-chip="' + input.getAttribute('data-cmd-label') + '"]');
+        if (chip) chip.textContent = input.value || '(이름 없음)';
       });
     });
     wrap.querySelectorAll('[data-cmd-snippet]').forEach(function (input) {
@@ -2861,21 +2935,10 @@ textarea.handout-gmnote { background: var(--gold-soft); border-color: rgba(169, 
         saveData();
       });
     });
-    wrap.querySelectorAll('[data-cmd-insert]').forEach(function (btn) {
-      btn.addEventListener('click', function () {
-        var cmd = findCommand(platform, btn.getAttribute('data-cmd-insert'));
-        var ta = state.globalLastFocusedField;
-        if (!ta || !document.body.contains(ta) || !document.getElementById('main').contains(ta)) {
-          showToast('먼저 씬 화면에서 삽입할 칸을 한 번 클릭한 뒤 다시 눌러주세요');
-          return;
-        }
-        insertAtCursor(ta, cmd.snippet);
-        showToast('삽입했어요');
-      });
-    });
     wrap.querySelectorAll('[data-cmd-del]').forEach(function (btn) {
       btn.addEventListener('click', function () {
         platform.commands = platform.commands.filter(function (c) { return c.id !== btn.getAttribute('data-cmd-del'); });
+        state.openCommandId = null;
         saveData();
         renderCommandModalList(platform);
       });
