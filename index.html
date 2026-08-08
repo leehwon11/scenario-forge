@@ -951,8 +951,30 @@ textarea.handout-gmnote { background: var(--gold-soft); border-color: rgba(169, 
   padding: 10px;
   margin-bottom: 8px;
 }
+.command-row-move {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  flex: 0 0 auto;
+}
+.command-row-move .icon-btn { width: 22px; height: 22px; font-size: 11px; color: var(--muted); }
+.command-row-move .icon-btn:disabled { opacity: 0.3; cursor: default; }
+.command-row-move .icon-btn:disabled:hover { background: transparent; }
 .command-row input { flex: 1; border: 1px solid var(--line); border-radius: 4px; padding: 6px 8px; font-size: 12.5px; }
-.command-row input.snippet { font-family: var(--font-mono); }
+.command-row textarea.snippet {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 6px 8px;
+  font-size: 12.5px;
+  font-family: var(--font-mono);
+  resize: none;
+  overflow: hidden;
+  outline: none;
+  min-height: 30px;
+  line-height: 1.5;
+}
+.command-row textarea.snippet:focus { border-color: var(--accent); }
 
 .color-quickadd {
   border: 1px solid var(--line);
@@ -2486,11 +2508,15 @@ textarea.handout-gmnote { background: var(--gold-soft); border-color: rgba(169, 
   function renderCommandModalList(platform) {
     var wrap = document.getElementById('command-list');
     var html = '';
-    platform.commands.forEach(function (c) {
+    platform.commands.forEach(function (c, idx) {
       html += '<div class="command-row" data-command="' + c.id + '">';
+      html += '<div class="command-row-move">';
+      html += '<button class="icon-btn" data-cmd-up="' + c.id + '" title="위로" ' + (idx === 0 ? 'disabled' : '') + '>↑</button>';
+      html += '<button class="icon-btn" data-cmd-down="' + c.id + '" title="아래로" ' + (idx === platform.commands.length - 1 ? 'disabled' : '') + '>↓</button>';
+      html += '</div>';
       html += '<div style="flex:1; display:flex; flex-direction:column; gap:6px;">';
       html += '<input type="text" placeholder="버튼에 표시될 이름 (예: 굵게)" data-cmd-label="' + c.id + '" value="' + escapeHtml(c.label) + '">';
-      html += '<input type="text" class="snippet" placeholder="실제로 삽입될 텍스트/코드" data-cmd-snippet="' + c.id + '" value="' + escapeHtml(c.snippet) + '">';
+      html += '<textarea class="snippet" placeholder="실제로 삽입될 텍스트/코드" data-cmd-snippet="' + c.id + '" rows="1">' + escapeHtml(c.snippet) + '</textarea>';
       html += '</div>';
       html += '<button class="remove-btn" data-cmd-del="' + c.id + '">' + ICONS.trash + '</button>';
       html += '</div>';
@@ -2500,6 +2526,20 @@ textarea.handout-gmnote { background: var(--gold-soft); border-color: rgba(169, 
     }
     wrap.innerHTML = html;
 
+    wrap.querySelectorAll('[data-cmd-up]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        moveInArray(platform.commands, btn.getAttribute('data-cmd-up'), -1);
+        saveData();
+        renderCommandModalList(platform);
+      });
+    });
+    wrap.querySelectorAll('[data-cmd-down]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        moveInArray(platform.commands, btn.getAttribute('data-cmd-down'), 1);
+        saveData();
+        renderCommandModalList(platform);
+      });
+    });
     wrap.querySelectorAll('[data-cmd-label]').forEach(function (input) {
       input.addEventListener('input', function () {
         findCommand(platform, input.getAttribute('data-cmd-label')).label = input.value;
@@ -2519,6 +2559,7 @@ textarea.handout-gmnote { background: var(--gold-soft); border-color: rgba(169, 
         renderCommandModalList(platform);
       });
     });
+    autoResizeAllTextareas(wrap);
   }
   function findCommand(platform, id) { return platform.commands.find(function (c) { return c.id === id; }); }
 
