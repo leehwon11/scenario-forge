@@ -535,7 +535,8 @@ input, textarea, select {
   font-size: 13.5px;
   line-height: 1.75;
   color: var(--ink);
-  resize: vertical;
+  resize: none;
+  overflow: hidden;
   outline: none;
 }
 .field-textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
@@ -680,7 +681,8 @@ input, textarea, select {
   padding: 8px 9px;
   font-size: 12.5px;
   min-height: 60px;
-  resize: vertical;
+  resize: none;
+  overflow: hidden;
   outline: none;
 }
 .outcome-field.crit-success textarea { background: var(--gold-soft); }
@@ -763,7 +765,7 @@ input, textarea, select {
 .npc-sub-label { display: block; font-size: 10.5px; font-weight: 700; color: var(--faint); letter-spacing: 0.04em; margin: 10px 0 5px; }
 .npc-form textarea {
   width: 100%; border: 1px solid var(--line); border-radius: 5px; padding: 8px 9px;
-  font-size: 12.5px; min-height: 56px; resize: vertical; outline: none;
+  font-size: 12.5px; min-height: 56px; resize: none; overflow: hidden; outline: none;
 }
 .npc-form textarea:focus { border-color: var(--accent); }
 
@@ -1939,8 +1941,20 @@ textarea.handout-gmnote { background: var(--gold-soft); border-color: rgba(169, 
         block.items.push({ id: uid(), name: '', critSuccess: '', success: '', fail: '', critFail: '' });
         saveData();
         renderCheckList(scene, block);
+        autoResizeAllTextareas(wrap);
       });
     });
+
+    autoResizeAllTextareas(wrap);
+  }
+
+  function autoResizeTextarea(el) {
+    el.style.height = 'auto';
+    el.style.height = (el.scrollHeight + 2) + 'px';
+  }
+
+  function autoResizeAllTextareas(root) {
+    (root || document).querySelectorAll('textarea').forEach(autoResizeTextarea);
   }
 
   function findBlock(scene, id) { return scene.blocks.find(function (b) { return b.id === id; }); }
@@ -1960,7 +1974,7 @@ textarea.handout-gmnote { background: var(--gold-soft); border-color: rgba(169, 
     });
     wrap.innerHTML = html;
     wrap.querySelectorAll('textarea[data-branch-text]').forEach(function (t) {
-      t.style.cssText = 'width:100%; border:1px solid var(--line); border-radius:5px; padding:8px 9px; font-size:12.5px; min-height:56px; resize:vertical; outline:none;';
+      t.style.cssText = 'width:100%; border:1px solid var(--line); border-radius:5px; padding:8px 9px; font-size:12.5px; min-height:56px; resize:none; overflow:hidden; outline:none;';
     });
 
     wrap.querySelectorAll('[data-branch-label]').forEach(function (input) {
@@ -1980,6 +1994,7 @@ textarea.handout-gmnote { background: var(--gold-soft); border-color: rgba(169, 
         renderBranchList(scene, block);
       });
     });
+    autoResizeAllTextareas(wrap);
   }
   function findItem(block, id) { return block.items.find(function (i) { return i.id === id; }); }
 
@@ -1998,7 +2013,7 @@ textarea.handout-gmnote { background: var(--gold-soft); border-color: rgba(169, 
     });
     wrap.innerHTML = html;
     wrap.querySelectorAll('textarea[data-line-text]').forEach(function (t) {
-      t.style.cssText = 'width:100%; border:1px solid var(--line); border-radius:5px; padding:8px 9px; font-size:12.5px; min-height:56px; resize:vertical; outline:none;';
+      t.style.cssText = 'width:100%; border:1px solid var(--line); border-radius:5px; padding:8px 9px; font-size:12.5px; min-height:56px; resize:none; overflow:hidden; outline:none;';
     });
 
     wrap.querySelectorAll('[data-line-label]').forEach(function (input) {
@@ -2018,6 +2033,7 @@ textarea.handout-gmnote { background: var(--gold-soft); border-color: rgba(169, 
         renderLineList(scene, block);
       });
     });
+    autoResizeAllTextareas(wrap);
   }
 
   function renderCheckList(scene, block) {
@@ -2059,6 +2075,7 @@ textarea.handout-gmnote { background: var(--gold-soft); border-color: rgba(169, 
         renderCheckList(scene, block);
       });
     });
+    autoResizeAllTextareas(wrap);
   }
 
   function outcomeField(checkId, key, cls, label, value) {
@@ -2672,6 +2689,11 @@ textarea.handout-gmnote { background: var(--gold-soft); border-color: rgba(169, 
   syncMobileToggle();
   sidebarToggle.addEventListener('click', function () {
     document.getElementById('sidebar').classList.toggle('is-open');
+  });
+
+  /* ---------- 입력칸 자동 높이 조정 ---------- */
+  document.addEventListener('input', function (e) {
+    if (e.target && e.target.tagName === 'TEXTAREA') autoResizeTextarea(e.target);
   });
 
   /* ---------- 단축키 ---------- */
