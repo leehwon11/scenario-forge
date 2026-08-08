@@ -166,6 +166,28 @@ input, textarea, select {
   color: #fff;
 }
 
+.search-mode-switch {
+  display: inline-flex;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 3px;
+  background: var(--panel-alt);
+  gap: 2px;
+}
+.search-mode-switch button {
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  padding: 6px 14px;
+  border-radius: 999px;
+  font-size: 12.5px;
+  font-weight: 600;
+}
+.search-mode-switch button.is-active {
+  background: var(--accent);
+  color: #fff;
+}
+
 .tbtn {
   display: inline-flex;
   align-items: center;
@@ -289,6 +311,37 @@ input, textarea, select {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.recent-item {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 9px;
+  border-radius: var(--radius);
+  cursor: pointer;
+}
+.recent-item:hover { background: var(--panel-alt); }
+.recent-item.is-active { background: var(--accent-soft); }
+.recent-item-title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--ink);
+}
+.recent-item-sub {
+  flex: 0 0 auto;
+  max-width: 80px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 10.5px;
+  color: var(--faint);
 }
 
 .tree {
@@ -1044,6 +1097,22 @@ textarea.handout-gmnote { background: var(--gold-soft); border-color: rgba(169, 
 }
 .replace-preview b { color: var(--accent-ink); }
 
+#find-results { max-height: 360px; overflow-y: auto; }
+.find-result-item {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 10px 12px;
+  margin-bottom: 8px;
+  cursor: pointer;
+}
+.find-result-item:hover { border-color: var(--accent); background: var(--accent-soft); }
+.find-result-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.find-result-title { font-family: var(--font-display); font-weight: 700; font-size: 13.5px; color: var(--ink); }
+.find-result-count { flex: 0 0 auto; font-size: 10.5px; color: var(--faint); font-weight: 700; }
+.find-result-path { font-size: 10.5px; color: var(--faint); margin-top: 2px; }
+.find-result-snippet { font-size: 12px; color: var(--muted); margin-top: 6px; line-height: 1.5; }
+.find-result-snippet mark { background: var(--gold-soft); color: var(--ink); font-weight: 700; border-radius: 2px; }
+
 .toast {
   position: fixed;
   bottom: 22px;
@@ -1061,6 +1130,18 @@ textarea.handout-gmnote { background: var(--gold-soft); border-color: rgba(169, 
   z-index: 200;
 }
 .toast.is-visible { opacity: 1; transform: translateX(-50%) translateY(0); }
+.toast.has-action { pointer-events: auto; display: flex; align-items: center; gap: 12px; }
+.toast-undo-btn {
+  border: 1px solid rgba(255,255,255,.4);
+  background: transparent;
+  color: #fff;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 11.5px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.toast-undo-btn:hover { background: rgba(255,255,255,.15); }
 
 @media (max-width: 860px) {
   .app { grid-template-columns: 1fr; grid-template-areas: "topbar" "main"; }
@@ -1113,6 +1194,13 @@ textarea.handout-gmnote { background: var(--gold-soft); border-color: rgba(169, 
 
   <aside class="sidebar" id="sidebar">
     <div class="platform-tabs" id="platform-tabs"></div>
+
+    <div class="sidebar-section" id="recent-section" hidden>
+      <div class="sidebar-section-head">
+        <span class="sidebar-section-title">최근 작업</span>
+      </div>
+      <div id="recent-list"></div>
+    </div>
 
     <div class="sidebar-section">
       <div class="sidebar-section-head">
@@ -1209,25 +1297,39 @@ textarea.handout-gmnote { background: var(--gold-soft); border-color: rgba(169, 
 
 <!-- 찾기·바꾸기 모달 -->
 <div class="modal-backdrop" id="replace-modal" hidden>
-  <div class="modal" style="max-width:460px;">
+  <div class="modal" style="max-width:480px;">
     <div class="modal-head">
-      <h3>찾기·바꾸기</h3>
+      <h3>찾기 · 바꾸기</h3>
       <button class="icon-btn" id="replace-modal-close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M6 6l12 12M18 6L6 18" stroke-linecap="round"/></svg></button>
     </div>
     <div class="modal-body">
-      <p style="font-size:12.5px; color:var(--muted); margin:0 0 14px;">모든 시나리오의 본문·키퍼 메모·분기·판정 내용에서 한꺼번에 바꿉니다.</p>
-      <div class="form-row">
-        <label>찾을 단어</label>
-        <input type="text" id="find-input" placeholder="찾을 단어를 입력하세요">
+      <div class="search-mode-switch" id="search-mode-switch" style="margin-bottom:14px;">
+        <button data-search-mode="find" class="is-active">찾기</button>
+        <button data-search-mode="replace">바꾸기</button>
       </div>
-      <div class="form-row">
-        <label>바꿀 단어</label>
-        <input type="text" id="replace-input" placeholder="바꿀 단어를 입력하세요">
+
+      <div id="find-panel">
+        <div class="form-row">
+          <input type="text" id="find-only-input" placeholder="찾을 단어를 입력하세요">
+        </div>
+        <div id="find-results"></div>
       </div>
-      <div class="replace-preview" id="replace-preview">검색어를 입력하면 몇 건 발견됐는지 여기 보여드려요.</div>
+
+      <div id="replace-panel" hidden>
+        <p style="font-size:12.5px; color:var(--muted); margin:0 0 14px;">모든 시나리오의 본문·키퍼 메모·분기·판정 내용에서 한꺼번에 바꿉니다.</p>
+        <div class="form-row">
+          <label>찾을 단어</label>
+          <input type="text" id="find-input" placeholder="찾을 단어를 입력하세요">
+        </div>
+        <div class="form-row">
+          <label>바꿀 단어</label>
+          <input type="text" id="replace-input" placeholder="바꿀 단어를 입력하세요">
+        </div>
+        <div class="replace-preview" id="replace-preview">검색어를 입력하면 몇 건 발견됐는지 여기 보여드려요.</div>
+      </div>
     </div>
-    <div class="modal-foot">
-      <button class="tbtn" id="replace-modal-cancel">취소</button>
+    <div class="modal-foot" id="replace-modal-foot">
+      <button class="tbtn" id="replace-modal-cancel">닫기</button>
       <button class="tbtn primary" id="replace-modal-ok">전체 바꾸기</button>
     </div>
   </div>
@@ -1240,6 +1342,7 @@ textarea.handout-gmnote { background: var(--gold-soft); border-color: rgba(169, 
   'use strict';
 
   var STORAGE_KEY = 'scenario-forge-data-v1';
+  var RECENT_KEY = 'scenario-forge-recent-v1';
 
   var PLATFORM_COLORS = ['#3f6d52', '#a97a3a', '#4a5a8a', '#af4a3d', '#6b6b6b', '#7a5c8a'];
 
@@ -1306,8 +1409,25 @@ textarea.handout-gmnote { background: var(--gold-soft); border-color: rgba(169, 
     currentScenarioId: null,
     currentPartId: null,
     currentSceneId: null,
-    openParts: {}
+    openParts: {},
+    recentScenes: loadRecentScenes()
   };
+
+  function loadRecentScenes() {
+    try {
+      var raw = localStorage.getItem(RECENT_KEY);
+      return raw ? JSON.parse(raw) : [];
+    } catch (e) {
+      return [];
+    }
+  }
+
+  function trackRecentScene(scenarioId, partId, sceneId) {
+    state.recentScenes = state.recentScenes.filter(function (r) { return r.sceneId !== sceneId; });
+    state.recentScenes.unshift({ scenarioId: scenarioId, partId: partId, sceneId: sceneId, t: Date.now() });
+    state.recentScenes = state.recentScenes.slice(0, 8);
+    try { localStorage.setItem(RECENT_KEY, JSON.stringify(state.recentScenes)); } catch (e) {}
+  }
 
   function loadData() {
     var d;
@@ -1365,10 +1485,37 @@ textarea.handout-gmnote { background: var(--gold-soft); border-color: rgba(169, 
 
   function showToast(msg) {
     var t = document.getElementById('toast');
+    t.innerHTML = '';
     t.textContent = msg;
+    t.classList.remove('has-action');
     t.classList.add('is-visible');
     clearTimeout(showToast._timer);
     showToast._timer = setTimeout(function () { t.classList.remove('is-visible'); }, 1800);
+  }
+
+  function showUndoToast(label, onUndo) {
+    var t = document.getElementById('toast');
+    clearTimeout(showToast._timer);
+    var handled = false;
+    t.innerHTML = '';
+    var span = document.createElement('span');
+    span.textContent = label + ' 삭제됨';
+    var btn = document.createElement('button');
+    btn.className = 'toast-undo-btn';
+    btn.textContent = '되돌리기';
+    btn.addEventListener('click', function () {
+      if (handled) return;
+      handled = true;
+      t.classList.remove('is-visible');
+      onUndo();
+    });
+    t.appendChild(span);
+    t.appendChild(btn);
+    t.classList.add('has-action');
+    t.classList.add('is-visible');
+    showToast._timer = setTimeout(function () {
+      t.classList.remove('is-visible');
+    }, 6000);
   }
 
   /* ---------- 데이터 조회 헬퍼 ---------- */
@@ -1424,6 +1571,7 @@ textarea.handout-gmnote { background: var(--gold-soft); border-color: rgba(169, 
 
   function render() {
     renderPlatformTabs();
+    renderRecentList();
     renderScenarioList();
     renderTree();
     renderMain();
@@ -1450,6 +1598,47 @@ textarea.handout-gmnote { background: var(--gold-soft); border-color: rgba(169, 
       });
     });
     document.getElementById('platform-add-btn').addEventListener('click', openPlatformModal);
+  }
+
+  function renderRecentList() {
+    var section = document.getElementById('recent-section');
+    var wrap = document.getElementById('recent-list');
+    if (!section || !wrap) return;
+
+    var entries = state.recentScenes.map(function (r) {
+      var scenario = getScenario(r.scenarioId);
+      var part = scenario && getPart(scenario, r.partId);
+      var scene = part && getScene(scenario, part, r.sceneId);
+      if (!scenario || !part || !scene) return null;
+      return { scenario: scenario, part: part, scene: scene, r: r };
+    }).filter(Boolean).slice(0, 6);
+
+    if (!entries.length) {
+      section.hidden = true;
+      return;
+    }
+    section.hidden = false;
+
+    var html = '';
+    entries.forEach(function (e) {
+      var active = e.scene.id === state.currentSceneId;
+      html += '<div class="recent-item' + (active ? ' is-active' : '') + '" data-recent-platform="' + e.scenario.platformId + '" data-recent-scenario="' + e.scenario.id + '" data-recent-part="' + e.part.id + '" data-recent-scene="' + e.scene.id + '">';
+      html += '<span class="recent-item-title">' + escapeHtml(e.scene.title) + '</span>';
+      html += '<span class="recent-item-sub">' + escapeHtml(e.scenario.title) + '</span>';
+      html += '</div>';
+    });
+    wrap.innerHTML = html;
+
+    wrap.querySelectorAll('[data-recent-scene]').forEach(function (el) {
+      el.addEventListener('click', function () {
+        state.currentPlatformId = el.getAttribute('data-recent-platform');
+        state.currentScenarioId = el.getAttribute('data-recent-scenario');
+        state.currentPartId = el.getAttribute('data-recent-part');
+        state.currentSceneId = el.getAttribute('data-recent-scene');
+        state.openParts[state.currentPartId] = true;
+        render();
+      });
+    });
   }
 
   function renderScenarioList() {
@@ -1485,6 +1674,7 @@ textarea.handout-gmnote { background: var(--gold-soft); border-color: rgba(169, 
         var sc = getScenario(id);
         if (!sc) return;
         if (!confirm('"' + sc.title + '" 시나리오를 삭제할까요? 안의 모든 파트·씬이 함께 삭제됩니다.')) return;
+        var idx = state.data.scenarios.findIndex(function (s) { return s.id === id; });
         state.data.scenarios = state.data.scenarios.filter(function (s) { return s.id !== id; });
         if (state.currentScenarioId === id) {
           state.currentScenarioId = null;
@@ -1493,6 +1683,11 @@ textarea.handout-gmnote { background: var(--gold-soft); border-color: rgba(169, 
         }
         saveData();
         render();
+        showUndoToast('"' + sc.title + '" 시나리오', function () {
+          state.data.scenarios.splice(idx, 0, sc);
+          saveData();
+          render();
+        });
       });
     });
   }
@@ -1568,10 +1763,16 @@ textarea.handout-gmnote { background: var(--gold-soft); border-color: rgba(169, 
         var id = btn.getAttribute('data-part-del');
         var part = getPart(scenario, id);
         if (!confirm('"' + part.title + '" 파트를 삭제할까요? 안의 씬도 함께 삭제됩니다.')) return;
+        var idx = scenario.parts.findIndex(function (p) { return p.id === id; });
         scenario.parts = scenario.parts.filter(function (p) { return p.id !== id; });
         if (state.currentPartId === id) { state.currentPartId = null; state.currentSceneId = null; }
         saveData();
         render();
+        showUndoToast('"' + part.title + '" 파트', function () {
+          scenario.parts.splice(idx, 0, part);
+          saveData();
+          render();
+        });
       });
     });
     wrap.querySelectorAll('[data-part-up]').forEach(function (btn) {
@@ -1618,10 +1819,16 @@ textarea.handout-gmnote { background: var(--gold-soft); border-color: rgba(169, 
         var part = getPart(scenario, partId);
         var scene = getScene(scenario, part, sceneId);
         if (!confirm('"' + scene.title + '" 씬을 삭제할까요?')) return;
+        var idx = part.scenes.findIndex(function (s) { return s.id === sceneId; });
         part.scenes = part.scenes.filter(function (s) { return s.id !== sceneId; });
         if (state.currentSceneId === sceneId) state.currentSceneId = null;
         saveData();
         render();
+        showUndoToast('"' + scene.title + '" 씬', function () {
+          part.scenes.splice(idx, 0, scene);
+          saveData();
+          render();
+        });
       });
     });
     wrap.querySelectorAll('[data-scene-up]').forEach(function (btn) {
@@ -1686,8 +1893,11 @@ textarea.handout-gmnote { background: var(--gold-soft); border-color: rgba(169, 
         '<h3>씬을 선택해주세요</h3>' +
         '<p>왼쪽에서 시나리오와 파트를 고르고, 씬을 선택하거나 새로 만들면 여기에 내용이 나타나요.</p>' +
         '</div>';
+      document.title = '시나리오 대장간';
       return;
     }
+    document.title = scene.title + ' · 시나리오 대장간';
+    trackRecentScene(state.currentScenarioId, state.currentPartId, state.currentSceneId);
     if (state.mode === 'edit') renderEditMode(main, scene);
     else renderPlayMode(main, scene);
   }
@@ -1894,9 +2104,17 @@ textarea.handout-gmnote { background: var(--gold-soft); border-color: rgba(169, 
       btn.addEventListener('click', function () {
         var id = btn.getAttribute('data-block-del');
         if (!confirm('이 블록을 삭제할까요?')) return;
+        var idx = scene.blocks.findIndex(function (b) { return b.id === id; });
+        var removed = scene.blocks[idx];
         scene.blocks = scene.blocks.filter(function (b) { return b.id !== id; });
         saveData();
         renderBlockList(scene, platform);
+        var typeLabel = (BLOCK_TYPES[removed.type] || {}).label || '블록';
+        showUndoToast(typeLabel + ' 블록', function () {
+          scene.blocks.splice(idx, 0, removed);
+          saveData();
+          renderBlockList(scene, platform);
+        });
       });
     });
 
@@ -2606,6 +2824,56 @@ textarea.handout-gmnote { background: var(--gold-soft); border-color: rgba(169, 
     return refs;
   }
 
+  function collectBlockTexts(block) {
+    var texts = [];
+    if (block.type === 'text' || block.type === 'memo' || block.type === 'truth') {
+      texts.push(block.content);
+    } else if (block.type === 'branches' || block.type === 'lines') {
+      (block.items || []).forEach(function (i) { texts.push(i.label, i.text); });
+    } else if (block.type === 'checks') {
+      (block.items || []).forEach(function (c) { texts.push(c.name, c.critSuccess, c.success, c.fail, c.critFail); });
+    } else if (block.type === 'npc') {
+      texts.push(block.name, block.role, block.traits, block.lines);
+    } else if (block.type === 'handout') {
+      texts.push(block.title, block.content, block.gmNote);
+    } else if (block.type === 'bgm') {
+      texts.push(block.title, block.note);
+    }
+    return texts;
+  }
+
+  function searchAcrossScenes(term) {
+    var results = [];
+    if (!term) return results;
+    var lowerTerm = term.toLowerCase();
+    state.data.scenarios.forEach(function (scenario) {
+      scenario.parts.forEach(function (part) {
+        part.scenes.forEach(function (scene) {
+          var count = 0;
+          var snippet = '';
+          if (scene.title && scene.title.toLowerCase().indexOf(lowerTerm) > -1) count++;
+          (scene.blocks || []).forEach(function (block) {
+            collectBlockTexts(block).forEach(function (t) {
+              if (!t) return;
+              var idx = t.toLowerCase().indexOf(lowerTerm);
+              if (idx === -1) return;
+              count++;
+              if (!snippet) {
+                var start = Math.max(0, idx - 16);
+                var end = Math.min(t.length, idx + term.length + 30);
+                snippet = (start > 0 ? '…' : '') + t.slice(start, end) + (end < t.length ? '…' : '');
+              }
+            });
+          });
+          if (count > 0) {
+            results.push({ scenario: scenario, part: part, scene: scene, count: count, snippet: snippet });
+          }
+        });
+      });
+    });
+    return results;
+  }
+
   function countMatches(term) {
     if (!term) return 0;
     var refs = collectTextRefs();
@@ -2637,15 +2905,85 @@ textarea.handout-gmnote { background: var(--gold-soft); border-color: rgba(169, 
     return changed;
   }
 
+  function highlightTerm(text, term) {
+    var idx = text.toLowerCase().indexOf(term.toLowerCase());
+    if (idx === -1) return escapeHtml(text);
+    return escapeHtml(text.slice(0, idx)) + '<mark>' + escapeHtml(text.slice(idx, idx + term.length)) + '</mark>' + escapeHtml(text.slice(idx + term.length));
+  }
+
   function openReplaceModal() {
     var modal = document.getElementById('replace-modal');
     var findInput = document.getElementById('find-input');
     var replaceInput = document.getElementById('replace-input');
     var preview = document.getElementById('replace-preview');
+    var findOnlyInput = document.getElementById('find-only-input');
+    var findResults = document.getElementById('find-results');
+    var findPanel = document.getElementById('find-panel');
+    var replacePanel = document.getElementById('replace-panel');
+    var foot = document.getElementById('replace-modal-foot');
+    var okBtn = document.getElementById('replace-modal-ok');
+
     findInput.value = ''; replaceInput.value = '';
+    findOnlyInput.value = '';
     preview.innerHTML = '검색어를 입력하면 몇 건 발견됐는지 여기 보여드려요.';
+    findResults.innerHTML = '<p style="font-size:12.5px; color:var(--faint); margin:8px 2px 0;">검색어를 입력하면 이 단어가 들어간 씬들을 보여드려요.</p>';
     modal.hidden = false;
-    setTimeout(function () { findInput.focus(); }, 30);
+
+    function setSearchMode(mode) {
+      document.querySelectorAll('#search-mode-switch button').forEach(function (b) {
+        b.classList.toggle('is-active', b.getAttribute('data-search-mode') === mode);
+      });
+      findPanel.hidden = mode !== 'find';
+      replacePanel.hidden = mode !== 'replace';
+      okBtn.hidden = mode !== 'replace';
+      setTimeout(function () {
+        (mode === 'find' ? findOnlyInput : findInput).focus();
+      }, 20);
+    }
+    document.querySelectorAll('#search-mode-switch button').forEach(function (btn) {
+      btn.onclick = function () { setSearchMode(btn.getAttribute('data-search-mode')); };
+    });
+    setSearchMode('find');
+
+    function updateFindResults() {
+      var term = findOnlyInput.value.trim();
+      if (!term) {
+        findResults.innerHTML = '<p style="font-size:12.5px; color:var(--faint); margin:8px 2px 0;">검색어를 입력하면 이 단어가 들어간 씬들을 보여드려요.</p>';
+        return;
+      }
+      var results = searchAcrossScenes(term);
+      if (!results.length) {
+        findResults.innerHTML = '<p style="font-size:12.5px; color:var(--faint); margin:8px 2px 0;">일치하는 내용이 없어요.</p>';
+        return;
+      }
+      var html = '<p style="font-size:11.5px; color:var(--muted); margin:8px 2px 8px;">' + results.length + '개 씬에서 발견됐어요</p>';
+      results.forEach(function (r) {
+        html += '<div class="find-result-item" data-find-platform="' + r.scenario.platformId + '" data-find-scenario="' + r.scenario.id + '" data-find-part="' + r.part.id + '" data-find-scene="' + r.scene.id + '">';
+        html += '<div class="find-result-head"><span class="find-result-title">' + escapeHtml(r.scene.title) + '</span><span class="find-result-count">' + r.count + '건</span></div>';
+        html += '<div class="find-result-path">' + escapeHtml(r.scenario.title) + ' / ' + escapeHtml(r.part.title) + '</div>';
+        if (r.snippet) html += '<div class="find-result-snippet">' + highlightTerm(r.snippet, term) + '</div>';
+        html += '</div>';
+      });
+      findResults.innerHTML = html;
+      findResults.querySelectorAll('[data-find-scene]').forEach(function (el) {
+        el.addEventListener('click', function () {
+          state.currentPlatformId = el.getAttribute('data-find-platform');
+          state.currentScenarioId = el.getAttribute('data-find-scenario');
+          state.currentPartId = el.getAttribute('data-find-part');
+          state.currentSceneId = el.getAttribute('data-find-scene');
+          state.openParts[state.currentPartId] = true;
+          state.mode = 'edit';
+          document.querySelectorAll('.mode-switch button[data-mode]').forEach(function (b) {
+            b.classList.toggle('is-active', b.getAttribute('data-mode') === 'edit');
+          });
+          close();
+          render();
+        });
+      });
+    }
+    findOnlyInput.addEventListener('input', updateFindResults);
+
+    setTimeout(function () { findOnlyInput.focus(); }, 30);
 
     function updatePreview() {
       var term = findInput.value;
@@ -2669,6 +3007,7 @@ textarea.handout-gmnote { background: var(--gold-soft); border-color: rgba(169, 
     }
     function cleanup() {
       findInput.removeEventListener('input', updatePreview);
+      findOnlyInput.removeEventListener('input', updateFindResults);
       document.getElementById('replace-modal-close').removeEventListener('click', close);
       document.getElementById('replace-modal-cancel').removeEventListener('click', close);
       document.getElementById('replace-modal-ok').removeEventListener('click', ok);
@@ -2685,8 +3024,11 @@ textarea.handout-gmnote { background: var(--gold-soft); border-color: rgba(169, 
     var url = URL.createObjectURL(blob);
     var a = document.createElement('a');
     var date = new Date().toISOString().slice(0, 10);
+    var scenario = getCurrentScenario();
+    var baseName = scenario ? scenario.title : '시나리오 대장간 백업';
+    var safeName = baseName.replace(/[\\/:*?"<>|]/g, '').trim() || '시나리오 대장간 백업';
     a.href = url;
-    a.download = 'scenario-forge-backup-' + date + '.json';
+    a.download = safeName + '_' + date + '.json';
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
