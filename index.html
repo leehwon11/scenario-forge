@@ -1053,6 +1053,13 @@ textarea.handout-gmnote { background: var(--gold-soft); border-color: rgba(169, 
 .command-row-move .icon-btn { width: 22px; height: 22px; font-size: 11px; color: var(--muted); }
 .command-row-move .icon-btn:disabled { opacity: 0.3; cursor: default; }
 .command-row-move .icon-btn:disabled:hover { background: transparent; }
+.command-insert-btn {
+  flex: 0 0 auto;
+  align-self: center;
+  padding: 6px 10px;
+  font-size: 11.5px;
+  white-space: nowrap;
+}
 .command-row input { flex: 1; border: 1px solid var(--line); border-radius: 4px; padding: 6px 8px; font-size: 12.5px; }
 .command-row textarea.snippet {
   width: 100%;
@@ -2049,12 +2056,15 @@ textarea.handout-gmnote { background: var(--gold-soft); border-color: rgba(169, 
       } else if (block.type === 'truth') {
         html += '<div class="truth-box"><textarea class="field-textarea" data-block-content="' + block.id + '" placeholder="이 시나리오의 진짜 전말, 사건의 진상을 적어주세요. (GM 전용)">' + escapeHtml(block.content) + '</textarea></div>';
       } else if (block.type === 'branches') {
+        html += '<div class="command-bar" data-command-bar-for="' + block.id + '"></div>';
         html += '<div data-branch-wrap="' + block.id + '"></div>';
         html += '<button class="add-item-btn" data-add-branch="' + block.id + '">' + ICONS.plus + ' 분기 추가</button>';
       } else if (block.type === 'lines') {
+        html += '<div class="command-bar" data-command-bar-for="' + block.id + '"></div>';
         html += '<div data-line-wrap="' + block.id + '"></div>';
         html += '<button class="add-item-btn" data-add-line="' + block.id + '">' + ICONS.plus + ' 대사 추가</button>';
       } else if (block.type === 'checks') {
+        html += '<div class="command-bar" data-command-bar-for="' + block.id + '"></div>';
         html += '<div data-check-wrap="' + block.id + '"></div>';
         html += '<button class="add-item-btn" data-add-check="' + block.id + '">' + ICONS.plus + ' 판정 항목 추가</button>';
       } else if (block.type === 'npc') {
@@ -2223,6 +2233,19 @@ textarea.handout-gmnote { background: var(--gold-soft); border-color: rgba(169, 
     });
 
     // 본문 블록에는 명령어 바를 붙여줌
+    if (!wrap.dataset.focusBound) {
+      wrap.dataset.focusBound = '1';
+      wrap.addEventListener('focusin', function (e) {
+        var target = e.target;
+        var isField = target.tagName === 'TEXTAREA' || (target.tagName === 'INPUT' && target.type === 'text');
+        if (!isField) return;
+        state.globalLastFocusedField = target;
+        var blockEl = target.closest('.field-block');
+        if (!blockEl) return;
+        if (!state.lastFocusedField) state.lastFocusedField = {};
+        state.lastFocusedField[blockEl.getAttribute('data-block')] = target;
+      });
+    }
     wrap.querySelectorAll('[data-command-bar-for]').forEach(function (bar) {
       var blockId = bar.getAttribute('data-command-bar-for');
       if (platform && platform.commands.length) {
@@ -2238,7 +2261,16 @@ textarea.handout-gmnote { background: var(--gold-soft); border-color: rgba(169, 
     });
     wrap.querySelectorAll('[data-snippet]').forEach(function (btn) {
       btn.addEventListener('click', function () {
-        var ta = wrap.querySelector('[data-block-content="' + btn.getAttribute('data-snippet-target') + '"]');
+        var blockId = btn.getAttribute('data-snippet-target');
+        var ta = state.lastFocusedField && state.lastFocusedField[blockId];
+        if (!ta || !wrap.contains(ta)) {
+          ta = wrap.querySelector('[data-block-content="' + blockId + '"]');
+        }
+        if (!ta) {
+          var blockEl = wrap.querySelector('.field-block[data-block="' + blockId + '"]');
+          ta = blockEl && blockEl.querySelector('textarea, input[type="text"]');
+        }
+        if (!ta) { showToast('먼저 삽입할 칸을 한 번 클릭해주세요'); return; }
         insertAtCursor(ta, btn.getAttribute('data-snippet'));
       });
     });
@@ -2794,6 +2826,7 @@ textarea.handout-gmnote { background: var(--gold-soft); border-color: rgba(169, 
       html += '<input type="text" placeholder="버튼에 표시될 이름 (예: 굵게)" data-cmd-label="' + c.id + '" value="' + escapeHtml(c.label) + '">';
       html += '<textarea class="snippet" placeholder="실제로 삽입될 텍스트/코드" data-cmd-snippet="' + c.id + '" rows="1">' + escapeHtml(c.snippet) + '</textarea>';
       html += '</div>';
+      html += '<button class="tbtn command-insert-btn" data-cmd-insert="' + c.id + '" title="마지막으로 클릭했던 칸에 삽입">삽입</button>';
       html += '<button class="remove-btn" data-cmd-del="' + c.id + '">' + ICONS.trash + '</button>';
       html += '</div>';
     });
@@ -2826,6 +2859,18 @@ textarea.handout-gmnote { background: var(--gold-soft); border-color: rgba(169, 
       input.addEventListener('input', function () {
         findCommand(platform, input.getAttribute('data-cmd-snippet')).snippet = input.value;
         saveData();
+      });
+    });
+    wrap.querySelectorAll('[data-cmd-insert]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var cmd = findCommand(platform, btn.getAttribute('data-cmd-insert'));
+        var ta = state.globalLastFocusedField;
+        if (!ta || !document.body.contains(ta) || !document.getElementById('main').contains(ta)) {
+          showToast('먼저 씬 화면에서 삽입할 칸을 한 번 클릭한 뒤 다시 눌러주세요');
+          return;
+        }
+        insertAtCursor(ta, cmd.snippet);
+        showToast('삽입했어요');
       });
     });
     wrap.querySelectorAll('[data-cmd-del]').forEach(function (btn) {
