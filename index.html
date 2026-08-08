@@ -1,0 +1,2407 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>시나리오 대장간 — TRPG 시나리오 관리 도구</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #eef1ec;
+  --panel: #ffffff;
+  --panel-alt: #f6f7f3;
+  --line: #dbe2da;
+  --line-strong: #c3ccc2;
+  --ink: #232922;
+  --muted: #667066;
+  --faint: #93a091;
+  --accent: #3f6d52;
+  --accent-ink: #2c4d3b;
+  --accent-soft: rgba(63, 109, 82, 0.1);
+  --gold: #a97a3a;
+  --gold-soft: rgba(169, 122, 58, 0.1);
+  --danger: #af4a3d;
+  --danger-soft: rgba(175, 74, 61, 0.09);
+  --radius: 6px;
+  --shadow: 0 1px 2px rgba(35, 41, 34, 0.06), 0 8px 24px rgba(35, 41, 34, 0.06);
+  --font-display: 'Fraunces', serif;
+  --font-body: 'Inter', 'Pretendard', sans-serif;
+  --font-mono: 'IBM Plex Mono', monospace;
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; height: 100%; }
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-size: 14px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+button {
+  font-family: inherit;
+  font-size: inherit;
+  cursor: pointer;
+}
+
+input, textarea, select {
+  font-family: inherit;
+  font-size: inherit;
+  color: inherit;
+}
+
+::selection { background: var(--accent-soft); }
+
+/* ============ 레이아웃 ============ */
+.app {
+  display: grid;
+  grid-template-columns: 300px 1fr;
+  grid-template-rows: 56px 1fr;
+  grid-template-areas:
+    "topbar topbar"
+    "sidebar main";
+  height: 100vh;
+}
+
+.topbar {
+  grid-area: topbar;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 18px;
+  background: var(--panel);
+  border-bottom: 1px solid var(--line);
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin-right: 6px;
+}
+
+.brand-mark {
+  width: 26px;
+  height: 26px;
+  border-radius: 5px;
+  background: var(--accent);
+  color: #fff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 14px;
+  flex: 0 0 auto;
+}
+
+.brand-name {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 16px;
+  color: var(--ink);
+  white-space: nowrap;
+}
+
+.topbar-spacer { flex: 1; }
+
+.save-indicator {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--faint);
+  white-space: nowrap;
+  margin-right: 2px;
+}
+
+.mode-switch {
+  display: inline-flex;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 3px;
+  background: var(--panel-alt);
+  gap: 2px;
+}
+
+.mode-switch button {
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  padding: 6px 14px;
+  border-radius: 999px;
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+.mode-switch button.is-active {
+  background: var(--accent);
+  color: #fff;
+}
+
+.tbtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid var(--line);
+  background: var(--panel);
+  color: var(--ink);
+  padding: 7px 12px;
+  border-radius: var(--radius);
+  font-size: 12.5px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.tbtn:hover { border-color: var(--line-strong); background: var(--panel-alt); }
+.tbtn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+.tbtn.primary:hover { background: var(--accent-ink); }
+.tbtn.danger { color: var(--danger); border-color: var(--danger-soft); }
+.tbtn.danger:hover { background: var(--danger-soft); }
+.tbtn svg { width: 14px; height: 14px; stroke-width: 2; flex: 0 0 auto; }
+
+/* ============ 사이드바 ============ */
+.sidebar {
+  grid-area: sidebar;
+  background: var(--panel);
+  border-right: 1px solid var(--line);
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.platform-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 14px 14px 10px;
+  border-bottom: 1px solid var(--line);
+}
+
+.platform-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid var(--line);
+  background: var(--panel-alt);
+  color: var(--muted);
+  padding: 5px 10px;
+  border-radius: 999px;
+  font-size: 11.5px;
+  font-weight: 600;
+}
+
+.platform-tab .dot {
+  width: 7px; height: 7px; border-radius: 50%; flex: 0 0 auto;
+}
+
+.platform-tab.is-active {
+  background: var(--ink);
+  color: #fff;
+  border-color: var(--ink);
+}
+
+.platform-tab-add {
+  border: 1px dashed var(--line-strong);
+  background: transparent;
+  color: var(--faint);
+  border-radius: 999px;
+  width: 26px; height: 26px;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+
+.sidebar-section {
+  padding: 14px;
+  border-bottom: 1px solid var(--line);
+}
+
+.sidebar-section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.sidebar-section-title {
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--faint);
+}
+
+.icon-btn {
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  width: 24px; height: 24px;
+  border-radius: 5px;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.icon-btn:hover { background: var(--panel-alt); color: var(--ink); }
+.icon-btn svg { width: 15px; height: 15px; stroke-width: 2; }
+
+.scenario-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 9px;
+  border-radius: var(--radius);
+  cursor: pointer;
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.scenario-item:hover { background: var(--panel-alt); }
+.scenario-item.is-active { background: var(--accent-soft); color: var(--accent-ink); font-weight: 700; }
+
+.scenario-item-title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tree {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px;
+}
+
+.tree-empty {
+  color: var(--faint);
+  font-size: 12.5px;
+  text-align: center;
+  padding: 30px 10px;
+  line-height: 1.7;
+}
+
+.part-block { margin-bottom: 4px; }
+
+.part-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 8px;
+  border-radius: var(--radius);
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 12.5px;
+  color: var(--ink);
+}
+
+.part-head:hover { background: var(--panel-alt); }
+
+.part-head .chev {
+  width: 12px; height: 12px; flex: 0 0 auto;
+  color: var(--faint);
+  transition: transform .15s ease;
+}
+.part-block.is-open .part-head .chev { transform: rotate(90deg); }
+
+.part-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.part-count { font-family: var(--font-mono); font-size: 10.5px; color: var(--faint); }
+
+.part-actions { display: none; gap: 2px; }
+.part-head:hover .part-actions { display: flex; }
+
+.scene-list {
+  display: none;
+  padding-left: 20px;
+  margin: 2px 0 6px;
+  border-left: 1px solid var(--line);
+}
+.part-block.is-open .scene-list { display: block; }
+
+.scene-item {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 8px;
+  margin-left: 4px;
+  border-radius: var(--radius);
+  cursor: pointer;
+  font-size: 12.5px;
+  color: var(--muted);
+}
+.scene-item:hover { background: var(--panel-alt); color: var(--ink); }
+.scene-item.is-active { background: var(--ink); color: #fff; }
+.scene-item.is-done .scene-item-title { text-decoration: line-through; opacity: 0.6; }
+
+.scene-done-check {
+  flex: 0 0 auto;
+  margin: 0;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+.scene-actions { display: none; gap: 1px; flex: 0 0 auto; }
+.scene-item:hover .scene-actions { display: flex; }
+.scene-actions .icon-btn { width: 20px; height: 20px; color: inherit; font-size: 11px; }
+.scene-actions .icon-btn svg { width: 13px; height: 13px; }
+
+.part-actions .icon-btn { font-size: 11px; }
+.part-actions .icon-btn:disabled,
+.scene-actions .icon-btn:disabled { opacity: 0.3; cursor: default; }
+.part-actions .icon-btn:disabled:hover,
+.scene-actions .icon-btn:disabled:hover { background: transparent; }
+
+.scene-item-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.add-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px;
+  margin-left: 24px;
+  color: var(--faint);
+  font-size: 12px;
+  border-radius: var(--radius);
+  cursor: pointer;
+}
+.add-row:hover { background: var(--panel-alt); color: var(--accent-ink); }
+.add-row svg { width: 12px; height: 12px; }
+
+.add-scenario-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  padding: 8px;
+  border: 1px dashed var(--line-strong);
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--muted);
+  font-size: 12.5px;
+  font-weight: 600;
+  margin-top: 4px;
+}
+.add-scenario-btn:hover { border-color: var(--accent); color: var(--accent-ink); background: var(--accent-soft); }
+
+/* ============ 메인 ============ */
+.main {
+  grid-area: main;
+  overflow-y: auto;
+  padding: 32px 40px 80px;
+}
+
+.main-empty {
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 10px;
+  color: var(--faint);
+  text-align: center;
+}
+.main-empty svg { width: 40px; height: 40px; opacity: .5; margin-bottom: 6px; }
+.main-empty h3 { font-family: var(--font-display); font-size: 20px; color: var(--muted); margin: 0; }
+.main-empty p { font-size: 13px; max-width: 320px; margin: 0; }
+
+.scene-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+  margin-bottom: 22px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid var(--line);
+}
+
+.breadcrumb {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--faint);
+  margin-bottom: 8px;
+  letter-spacing: 0.02em;
+}
+
+.scene-title-input {
+  font-family: var(--font-display);
+  font-size: 30px;
+  font-weight: 600;
+  color: var(--ink);
+  border: none;
+  background: transparent;
+  padding: 0;
+  width: 100%;
+  outline: none;
+}
+.scene-title-input:focus { color: var(--accent-ink); }
+
+.scene-play-title {
+  font-family: var(--font-display);
+  font-size: 30px;
+  font-weight: 600;
+  color: var(--ink);
+  margin: 0;
+}
+
+.scene-header-actions {
+  display: flex;
+  gap: 8px;
+  flex: 0 0 auto;
+  padding-top: 4px;
+}
+
+.field-block { margin-bottom: 26px; }
+
+.field-label-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.field-label {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+  flex: 1;
+  min-width: 0;
+}
+.field-label .swatch { width: 8px; height: 8px; border-radius: 2px; flex: 0 0 auto; }
+
+.block-label-input {
+  border: none;
+  background: transparent;
+  font: inherit;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 2px 4px;
+  border-radius: 4px;
+  min-width: 0;
+  flex: 1;
+}
+.block-label-input:hover { background: var(--panel-alt); }
+.block-label-input:focus { outline: none; background: var(--panel-alt); color: var(--ink); }
+
+.block-controls {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex: 0 0 auto;
+}
+.block-controls .icon-btn { font-size: 12px; font-weight: 700; color: var(--faint); }
+.block-controls .icon-btn:disabled { opacity: 0.3; cursor: default; }
+.block-controls .icon-btn:disabled:hover { background: transparent; }
+
+.add-block-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 6px;
+  padding-top: 20px;
+  border-top: 1px dashed var(--line);
+}
+.add-block-btn { min-width: 150px; }
+
+@media (max-width: 640px) {
+  .add-block-bar { flex-direction: column; }
+}
+
+.field-textarea {
+  width: 100%;
+  min-height: 140px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--panel);
+  padding: 14px;
+  font-size: 13.5px;
+  line-height: 1.75;
+  color: var(--ink);
+  resize: vertical;
+  outline: none;
+}
+.field-textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+
+.field-play-box {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--panel-alt);
+  padding: 16px;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-size: 13.5px;
+  line-height: 1.8;
+  color: var(--ink);
+  position: relative;
+}
+.field-play-box:empty::before,
+.field-play-box.is-empty::before {
+  content: "(내용 없음)";
+  color: var(--faint);
+}
+
+.copy-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  border: 1px solid var(--line);
+  background: var(--panel);
+  color: var(--muted);
+  padding: 4px 9px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+}
+.copy-btn:hover { border-color: var(--accent); color: var(--accent-ink); }
+.copy-btn svg { width: 11px; height: 11px; }
+.copy-btn.is-copied { border-color: var(--accent); background: var(--accent-soft); color: var(--accent-ink); }
+
+.keeper-box .field-textarea,
+.keeper-box .field-play-box {
+  background: var(--gold-soft);
+  border-color: rgba(169, 122, 58, 0.28);
+}
+
+/* 명령어 삽입 바 */
+.command-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+.command-chip {
+  border: 1px solid var(--line);
+  background: var(--panel-alt);
+  color: var(--muted);
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+.command-chip:hover { border-color: var(--accent); color: var(--accent-ink); background: var(--accent-soft); }
+.command-chip-manage {
+  border: 1px dashed var(--line-strong);
+  color: var(--faint);
+  background: transparent;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+}
+.command-chip-manage:hover { color: var(--accent-ink); border-color: var(--accent); }
+
+/* 분기 / 판정 카드 */
+.item-card {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--panel);
+  padding: 14px;
+  margin-bottom: 10px;
+}
+.item-card-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.item-card-head input.mini-input {
+  flex: 1;
+  border: none;
+  border-bottom: 1px dashed var(--line-strong);
+  background: transparent;
+  font-weight: 700;
+  font-size: 13px;
+  padding: 2px 0;
+  outline: none;
+  color: var(--ink);
+}
+.item-card-head input.mini-input:focus { border-color: var(--accent); }
+
+.remove-btn {
+  border: none;
+  background: transparent;
+  color: var(--faint);
+  width: 22px; height: 22px;
+  border-radius: 5px;
+  display: inline-flex; align-items: center; justify-content: center;
+  flex: 0 0 auto;
+}
+.remove-btn:hover { background: var(--danger-soft); color: var(--danger); }
+.remove-btn svg { width: 14px; height: 14px; }
+
+.outcome-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+@media (max-width: 720px) { .outcome-grid { grid-template-columns: 1fr; } }
+
+.outcome-field { display: flex; flex-direction: column; gap: 5px; }
+.outcome-label {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-size: 10.5px; font-weight: 700; letter-spacing: 0.04em;
+  padding: 2px 0;
+}
+.outcome-label.crit-success { color: var(--gold); }
+.outcome-label.success { color: var(--accent); }
+.outcome-label.fail { color: var(--muted); }
+.outcome-label.crit-fail { color: var(--danger); }
+.outcome-field textarea {
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  padding: 8px 9px;
+  font-size: 12.5px;
+  min-height: 60px;
+  resize: vertical;
+  outline: none;
+}
+.outcome-field.crit-success textarea { background: var(--gold-soft); }
+.outcome-field.success textarea { background: var(--accent-soft); }
+.outcome-field.fail textarea { background: var(--panel-alt); }
+.outcome-field.crit-fail textarea { background: var(--danger-soft); }
+.outcome-field textarea:focus { border-color: var(--accent); }
+
+.add-item-btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  border: 1px dashed var(--line-strong);
+  background: transparent;
+  color: var(--muted);
+  padding: 8px 12px;
+  border-radius: var(--radius);
+  font-size: 12.5px;
+  font-weight: 600;
+  width: 100%;
+  justify-content: center;
+}
+.add-item-btn:hover { border-color: var(--accent); color: var(--accent-ink); background: var(--accent-soft); }
+.add-item-btn svg { width: 13px; height: 13px; }
+
+/* 플레이 모드 - 분기/판정 카드 */
+.play-item-card {
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--accent);
+  border-radius: 0 var(--radius) var(--radius) 0;
+  background: var(--panel);
+  padding: 12px 14px;
+  margin-bottom: 10px;
+}
+.play-item-title {
+  font-weight: 700;
+  font-size: 13px;
+  margin-bottom: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.play-item-body { font-size: 13px; line-height: 1.7; white-space: pre-wrap; color: var(--ink); }
+
+.play-outcome-row {
+  display: flex;
+  gap: 8px;
+  padding: 6px 0;
+  border-top: 1px dashed var(--line);
+  font-size: 12.5px;
+}
+.play-outcome-row:first-child { border-top: none; }
+.play-outcome-tag {
+  flex: 0 0 68px;
+  font-weight: 700;
+  font-size: 10.5px;
+  letter-spacing: 0.02em;
+}
+.play-outcome-tag.crit-success { color: var(--gold); }
+.play-outcome-tag.success { color: var(--accent); }
+.play-outcome-tag.fail { color: var(--muted); }
+.play-outcome-tag.crit-fail { color: var(--danger); }
+.play-outcome-text { flex: 1; white-space: pre-wrap; color: var(--ink); }
+
+/* NPC 카드 - 편집 */
+.npc-form { border: 1px solid var(--line); border-radius: var(--radius); padding: 14px; background: var(--panel); }
+.npc-form-row { display: flex; gap: 12px; margin-bottom: 12px; }
+.npc-avatar-edit {
+  width: 56px; height: 56px; border-radius: 50%; overflow: hidden; flex: 0 0 auto;
+  background: var(--panel-alt); border: 1px solid var(--line);
+}
+.npc-avatar-edit img { width: 100%; height: 100%; object-fit: cover; }
+.npc-form-fields { flex: 1; display: flex; flex-direction: column; gap: 6px; }
+.npc-form-fields input {
+  border: 1px solid var(--line); border-radius: 5px; padding: 7px 9px; font-size: 12.5px; outline: none;
+}
+.npc-form-fields input:focus { border-color: var(--accent); }
+.npc-sub-label { display: block; font-size: 10.5px; font-weight: 700; color: var(--faint); letter-spacing: 0.04em; margin: 10px 0 5px; }
+.npc-form textarea {
+  width: 100%; border: 1px solid var(--line); border-radius: 5px; padding: 8px 9px;
+  font-size: 12.5px; min-height: 56px; resize: vertical; outline: none;
+}
+.npc-form textarea:focus { border-color: var(--accent); }
+
+/* NPC 카드 - 플레이 */
+.npc-play-card { border: 1px solid var(--line); border-left: 3px solid #7a5c8a; border-radius: 0 var(--radius) var(--radius) 0; background: var(--panel); padding: 14px; }
+.npc-play-head { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; }
+.npc-play-avatar { width: 48px; height: 48px; border-radius: 50%; object-fit: cover; flex: 0 0 auto; border: 1px solid var(--line); }
+.npc-play-avatar-empty { background: var(--panel-alt); }
+.npc-play-name { font-family: var(--font-display); font-weight: 700; font-size: 15px; color: var(--ink); }
+.npc-play-role { font-size: 11.5px; color: var(--muted); margin-top: 2px; }
+.npc-play-traits { margin: 0 0 10px; padding-left: 18px; font-size: 12.5px; color: var(--ink); line-height: 1.7; }
+.npc-play-line {
+  display: flex; align-items: flex-start; justify-content: space-between; gap: 10px;
+  padding: 7px 0; border-top: 1px dashed var(--line); font-size: 13px; font-style: italic; color: var(--ink);
+}
+.npc-play-line:first-of-type { border-top: none; }
+.npc-play-line .copy-btn { flex: 0 0 auto; }
+
+/* 핸드아웃 - 편집 */
+.handout-preview-wrap { margin: 8px 0 0; }
+.handout-preview-wrap img { max-width: 100%; max-height: 180px; border-radius: 5px; border: 1px solid var(--line); display: block; }
+textarea.handout-gmnote { background: var(--gold-soft); border-color: rgba(169, 122, 58, 0.28); }
+
+/* 핸드아웃 - 플레이 */
+.handout-play-card { border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; background: var(--panel); }
+.handout-play-image { width: 100%; max-height: 340px; object-fit: contain; background: var(--panel-alt); display: block; }
+.handout-play-content { padding: 14px 16px; white-space: pre-wrap; font-size: 13.5px; line-height: 1.8; color: var(--ink); }
+.handout-gmnote-play {
+  margin-top: 8px; border: 1px solid rgba(169, 122, 58, 0.28); background: var(--gold-soft);
+  border-radius: var(--radius); padding: 10px 12px; font-size: 12.5px; color: var(--ink); white-space: pre-wrap; line-height: 1.6;
+}
+.handout-gmnote-tag {
+  display: inline-block; font-size: 10px; font-weight: 700; letter-spacing: 0.05em;
+  color: var(--gold); border: 1px solid var(--gold); border-radius: 999px; padding: 1px 8px; margin-right: 8px; vertical-align: 1px;
+}
+
+/* 이전 / 다음 씬 네비게이션 */
+.scene-nav {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-top: 30px;
+  padding-top: 20px;
+  border-top: 1px solid var(--line);
+}
+.scene-nav-btn {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--panel);
+  padding: 10px 14px;
+  text-align: left;
+}
+.scene-nav-btn:hover { border-color: var(--accent); background: var(--accent-soft); }
+.scene-nav-next { text-align: right; align-items: flex-end; }
+.scene-nav-dir { font-size: 10.5px; font-weight: 700; color: var(--faint); letter-spacing: 0.03em; }
+.scene-nav-title { font-family: var(--font-display); font-size: 14px; color: var(--ink); font-weight: 600; }
+
+@media (max-width: 640px) {
+  .scene-nav { grid-template-columns: 1fr; }
+}
+
+/* ============ 모달 ============ */
+.modal-backdrop {
+  position: fixed; inset: 0;
+  background: rgba(20, 26, 20, 0.4);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 100;
+  padding: 24px;
+}
+.modal-backdrop[hidden] { display: none; }
+
+.modal {
+  background: var(--panel);
+  border-radius: 10px;
+  box-shadow: var(--shadow);
+  width: 100%;
+  max-width: 560px;
+  max-height: 84vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.modal-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--line);
+}
+.modal-head h3 { margin: 0; font-family: var(--font-display); font-size: 17px; }
+.modal-body { padding: 18px 20px; overflow-y: auto; }
+.modal-foot {
+  display: flex; justify-content: flex-end; gap: 8px;
+  padding: 14px 20px; border-top: 1px solid var(--line);
+}
+
+.form-row { margin-bottom: 14px; }
+.form-row label {
+  display: block; font-size: 11.5px; font-weight: 700; color: var(--muted);
+  margin-bottom: 6px; letter-spacing: 0.03em;
+}
+.form-row input[type=text], .form-row textarea, .form-row input[type=search] {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  padding: 9px 11px;
+  outline: none;
+}
+.form-row input:focus, .form-row textarea:focus { border-color: var(--accent); }
+
+.command-row {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 10px;
+  margin-bottom: 8px;
+}
+.command-row input { flex: 1; border: 1px solid var(--line); border-radius: 4px; padding: 6px 8px; font-size: 12.5px; }
+.command-row input.snippet { font-family: var(--font-mono); }
+
+.color-swatches { display: flex; gap: 6px; flex-wrap: wrap; }
+.color-swatch {
+  width: 24px; height: 24px; border-radius: 50%;
+  border: 2px solid transparent;
+  cursor: pointer;
+}
+.color-swatch.is-selected { border-color: var(--ink); }
+
+.replace-preview {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 10px 12px;
+  background: var(--panel-alt);
+  font-size: 12.5px;
+  color: var(--muted);
+  margin-bottom: 14px;
+}
+.replace-preview b { color: var(--accent-ink); }
+
+.toast {
+  position: fixed;
+  bottom: 22px;
+  left: 50%;
+  transform: translateX(-50%) translateY(10px);
+  background: var(--ink);
+  color: #fff;
+  padding: 10px 18px;
+  border-radius: 999px;
+  font-size: 12.5px;
+  font-weight: 600;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .18s ease, transform .18s ease;
+  z-index: 200;
+}
+.toast.is-visible { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+@media (max-width: 860px) {
+  .app { grid-template-columns: 1fr; grid-template-areas: "topbar" "main"; }
+  .sidebar { position: fixed; inset: 56px 0 0 0; z-index: 40; transform: translateX(-100%); transition: transform .2s ease; }
+  .sidebar.is-open { transform: translateX(0); }
+  .main { padding: 20px 16px 60px; }
+}
+</style>
+</head>
+<body>
+
+<div class="app">
+  <header class="topbar">
+    <button class="icon-btn" id="sidebar-toggle-btn" style="display:none;" aria-label="목록 열기">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M4 6h16M4 12h16M4 18h16" stroke-linecap="round"/></svg>
+    </button>
+    <div class="brand">
+      <span class="brand-mark">シ</span>
+      <span class="brand-name">시나리오 대장간</span>
+    </div>
+    <div class="topbar-spacer"></div>
+    <span class="save-indicator" id="save-indicator"></span>
+    <div class="mode-switch">
+      <button data-mode="edit" class="is-active">편집</button>
+      <button data-mode="play">플레이</button>
+    </div>
+    <button class="tbtn" id="find-replace-btn">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="11" cy="11" r="7" stroke-linecap="round"/><path d="M21 21l-4.3-4.3" stroke-linecap="round"/></svg>
+      찾기·바꾸기
+    </button>
+    <button class="tbtn" id="export-btn">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 3v12m0 0l-4-4m4 4l4-4M5 21h14" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      내보내기
+    </button>
+    <button class="tbtn" id="import-btn">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 15V3m0 0L8 7m4-4l4 4M5 21h14" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      불러오기
+    </button>
+    <input type="file" id="import-file-input" accept="application/json" hidden>
+    <button class="tbtn danger" id="reset-btn">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M3 6h18M8 6V4a1 1 0 011-1h6a1 1 0 011 1v2m3 0l-1 14a2 2 0 01-2 2H7a2 2 0 01-2-2L4 6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      초기화
+    </button>
+  </header>
+
+  <aside class="sidebar" id="sidebar">
+    <div class="platform-tabs" id="platform-tabs"></div>
+
+    <div class="sidebar-section">
+      <div class="sidebar-section-head">
+        <span class="sidebar-section-title">시나리오</span>
+      </div>
+      <div id="scenario-list"></div>
+      <button class="add-scenario-btn" id="add-scenario-btn">
+        <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor"><path d="M12 5v14M5 12h14" stroke-linecap="round"/></svg>
+        새 시나리오
+      </button>
+    </div>
+
+    <div class="sidebar-section" style="border-bottom:none; flex:1; display:flex; flex-direction:column; min-height:0;">
+      <div class="sidebar-section-head">
+        <span class="sidebar-section-title">구성</span>
+        <button class="icon-btn" id="command-lib-btn" title="명령어 라이브러리">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M4 17l6-6-6-6M12 19h8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+      </div>
+      <div class="tree" id="tree"></div>
+    </div>
+  </aside>
+
+  <main class="main" id="main"></main>
+</div>
+
+<!-- 새 항목 이름 입력 모달 -->
+<div class="modal-backdrop" id="prompt-modal" hidden>
+  <div class="modal" style="max-width:400px;">
+    <div class="modal-head"><h3 id="prompt-modal-title">이름 입력</h3></div>
+    <div class="modal-body">
+      <div class="form-row">
+        <input type="text" id="prompt-modal-input" placeholder="이름을 입력하세요">
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="tbtn" id="prompt-modal-cancel">취소</button>
+      <button class="tbtn primary" id="prompt-modal-ok">확인</button>
+    </div>
+  </div>
+</div>
+
+<!-- 명령어 라이브러리 모달 -->
+<div class="modal-backdrop" id="command-modal" hidden>
+  <div class="modal">
+    <div class="modal-head">
+      <h3>명령어 라이브러리 — <span id="command-modal-platform"></span></h3>
+      <button class="icon-btn" id="command-modal-close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M6 6l12 12M18 6L6 18" stroke-linecap="round"/></svg></button>
+    </div>
+    <div class="modal-body">
+      <p style="font-size:12.5px; color:var(--muted); margin:0 0 14px;">이 사이트에서 자주 쓰는 서식/명령어를 저장해두면, 씬 편집 화면 본문 위 칩을 눌러 바로 삽입할 수 있어요.</p>
+      <div id="command-list"></div>
+      <button class="add-item-btn" id="add-command-btn" style="margin-top:6px;">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 5v14M5 12h14" stroke-linecap="round"/></svg>
+        명령어 추가
+      </button>
+    </div>
+    <div class="modal-foot">
+      <button class="tbtn primary" id="command-modal-done">완료</button>
+    </div>
+  </div>
+</div>
+
+<!-- 플랫폼 추가 모달 -->
+<div class="modal-backdrop" id="platform-modal" hidden>
+  <div class="modal" style="max-width:400px;">
+    <div class="modal-head"><h3>사이트 추가</h3></div>
+    <div class="modal-body">
+      <div class="form-row">
+        <label>사이트 이름</label>
+        <input type="text" id="platform-name-input" placeholder="예: Roll20, 코코포리아">
+      </div>
+      <div class="form-row">
+        <label>색상</label>
+        <div class="color-swatches" id="platform-color-swatches"></div>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="tbtn" id="platform-modal-cancel">취소</button>
+      <button class="tbtn primary" id="platform-modal-ok">추가</button>
+    </div>
+  </div>
+</div>
+
+<!-- 찾기·바꾸기 모달 -->
+<div class="modal-backdrop" id="replace-modal" hidden>
+  <div class="modal" style="max-width:460px;">
+    <div class="modal-head">
+      <h3>찾기·바꾸기</h3>
+      <button class="icon-btn" id="replace-modal-close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M6 6l12 12M18 6L6 18" stroke-linecap="round"/></svg></button>
+    </div>
+    <div class="modal-body">
+      <p style="font-size:12.5px; color:var(--muted); margin:0 0 14px;">모든 시나리오의 본문·키퍼 메모·분기·판정 내용에서 한꺼번에 바꿉니다.</p>
+      <div class="form-row">
+        <label>찾을 단어</label>
+        <input type="text" id="find-input" placeholder="찾을 단어를 입력하세요">
+      </div>
+      <div class="form-row">
+        <label>바꿀 단어</label>
+        <input type="text" id="replace-input" placeholder="바꿀 단어를 입력하세요">
+      </div>
+      <div class="replace-preview" id="replace-preview">검색어를 입력하면 몇 건 발견됐는지 여기 보여드려요.</div>
+    </div>
+    <div class="modal-foot">
+      <button class="tbtn" id="replace-modal-cancel">취소</button>
+      <button class="tbtn primary" id="replace-modal-ok">전체 바꾸기</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+(function () {
+  'use strict';
+
+  var STORAGE_KEY = 'scenario-forge-data-v1';
+
+  var PLATFORM_COLORS = ['#3f6d52', '#a97a3a', '#4a5a8a', '#af4a3d', '#6b6b6b', '#7a5c8a'];
+
+  var ICONS = {
+    trash: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M3 6h18M8 6V4a1 1 0 011-1h6a1 1 0 011 1v2m3 0l-1 14a2 2 0 01-2 2H7a2 2 0 01-2-2L4 6" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+    plus: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 5v14M5 12h14" stroke-linecap="round"/></svg>',
+    chev: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M9 6l6 6-6 6" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+    copy: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15V5a2 2 0 012-2h10"/></svg>',
+    check: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M20 6L9 17l-5-5" stroke-linecap="round" stroke-linejoin="round"/></svg>'
+  };
+
+  function uid() {
+    return 'id_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 8);
+  }
+
+  function escapeHtml(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+
+  function defaultData() {
+    var roll20Id = uid();
+    var kokoId = uid();
+    return {
+      platforms: [
+        {
+          id: roll20Id, name: 'Roll20', color: '#3f6d52',
+          commands: [
+            { id: uid(), label: '지문(desc)', snippet: '/desc ' },
+            { id: uid(), label: '굵게', snippet: '**굵은 글씨**' },
+            { id: uid(), label: '색 강조(빨강)', snippet: '<span style="color:#c0392b">강조 텍스트</span>' },
+            { id: uid(), label: '배경 강조', snippet: '<span style="background:#fdf3d0">강조 텍스트</span>' }
+          ]
+        },
+        {
+          id: kokoId, name: '코코포리아', color: '#4a5a8a',
+          commands: [
+            { id: uid(), label: '귓속말', snippet: '((귓속말: ))' },
+            { id: uid(), label: '설명', snippet: '【설명】' }
+          ]
+        }
+      ],
+      scenarios: [
+        {
+          id: uid(), title: '예시 시나리오', platformId: roll20Id,
+          parts: [
+            {
+              id: uid(), title: '1부. 도입',
+              scenes: [
+                {
+                  id: uid(), title: '1. 등대 앞',
+                  blocks: [
+                    { id: uid(), type: 'text', label: '본문 / 지문', content: '조사원들은 안개 낀 등대 앞에 도착한다. 문은 잠겨있지 않다.' },
+                    { id: uid(), type: 'memo', label: '키퍼 메모', content: 'PC들이 문을 억지로 열려고 하면 【감정】 판정. 실패 시 손을 벤다(1 피해).' },
+                    { id: uid(), type: 'branches', label: '선택지에 따른 분기', items: [
+                      { id: uid(), label: '문을 두드린다', text: '아무 반응이 없다. 안에서 발소리가 들리는 것 같기도 하다.' },
+                      { id: uid(), label: '문을 바로 연다', text: '삐걱거리며 문이 열린다. 곰팡이 냄새가 확 풍긴다.' }
+                    ] },
+                    { id: uid(), type: 'checks', label: '주사위 판정 결과', items: [
+                      { id: uid(), name: '감정(Spot Hidden)', critSuccess: '문 틈으로 안쪽 서가가 살짝 보인다. 낡은 항해일지 하나가 눈에 띈다.', success: '문이 오랫동안 열리지 않았다는 걸 알 수 있다.', fail: '별다른 특이사항을 발견하지 못한다.', critFail: '문에 손이 걸려 가벼운 상처를 입는다(1 피해).' }
+                    ] }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      selection: { platformId: roll20Id, scenarioId: null, partId: null, sceneId: null }
+    };
+  }
+
+  var state = {
+    data: loadData(),
+    mode: 'edit',
+    currentPlatformId: null,
+    currentScenarioId: null,
+    currentPartId: null,
+    currentSceneId: null,
+    openParts: {}
+  };
+
+  function loadData() {
+    var d;
+    try {
+      var raw = localStorage.getItem(STORAGE_KEY);
+      d = raw ? JSON.parse(raw) : defaultData();
+    } catch (e) {
+      d = defaultData();
+    }
+    migrateData(d);
+    return d;
+  }
+
+  // 예전 버전(본문/키퍼메모/분기/판정 고정 필드)으로 저장된 씬을
+  // 자유 순서 블록(blocks) 구조로 자동 변환합니다.
+  function migrateData(d) {
+    (d.scenarios || []).forEach(function (scenario) {
+      (scenario.parts || []).forEach(function (part) {
+        (part.scenes || []).forEach(function (scene) {
+          if (Array.isArray(scene.blocks)) return;
+          var blocks = [];
+          if (scene.content) blocks.push({ id: uid(), type: 'text', label: '본문 / 지문', content: scene.content });
+          if (scene.keeperMemo) blocks.push({ id: uid(), type: 'memo', label: '키퍼 메모', content: scene.keeperMemo });
+          if (scene.branches && scene.branches.length) blocks.push({ id: uid(), type: 'branches', label: '선택지에 따른 분기', items: scene.branches });
+          if (scene.checks && scene.checks.length) blocks.push({ id: uid(), type: 'checks', label: '주사위 판정 결과', items: scene.checks });
+          if (!blocks.length) blocks.push({ id: uid(), type: 'text', label: '본문 / 지문', content: '' });
+          scene.blocks = blocks;
+          delete scene.content;
+          delete scene.keeperMemo;
+          delete scene.branches;
+          delete scene.checks;
+        });
+      });
+    });
+  }
+
+  function saveData() {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state.data));
+      updateSaveIndicator();
+    } catch (e) {
+      showToast('저장 실패: 브라우저 저장공간을 확인해주세요');
+    }
+  }
+
+  function updateSaveIndicator() {
+    var el = document.getElementById('save-indicator');
+    if (!el) return;
+    var now = new Date();
+    var hh = String(now.getHours()).padStart(2, '0');
+    var mm = String(now.getMinutes()).padStart(2, '0');
+    var ss = String(now.getSeconds()).padStart(2, '0');
+    el.textContent = '저장됨 ' + hh + ':' + mm + ':' + ss;
+  }
+
+  function showToast(msg) {
+    var t = document.getElementById('toast');
+    t.textContent = msg;
+    t.classList.add('is-visible');
+    clearTimeout(showToast._timer);
+    showToast._timer = setTimeout(function () { t.classList.remove('is-visible'); }, 1800);
+  }
+
+  /* ---------- 데이터 조회 헬퍼 ---------- */
+  function getPlatform(id) { return state.data.platforms.find(function (p) { return p.id === id; }); }
+  function getScenario(id) { return state.data.scenarios.find(function (s) { return s.id === id; }); }
+  function getScenariosForPlatform(platformId) {
+    return state.data.scenarios.filter(function (s) { return s.platformId === platformId; });
+  }
+  function getPart(scenario, partId) {
+    return scenario && scenario.parts.find(function (p) { return p.id === partId; });
+  }
+  function getScene(scenario, part, sceneId) {
+    return part && part.scenes.find(function (sc) { return sc.id === sceneId; });
+  }
+  function getCurrentScenario() { return getScenario(state.currentScenarioId); }
+  function getCurrentPart() {
+    var sc = getCurrentScenario();
+    return sc && getPart(sc, state.currentPartId);
+  }
+  function getCurrentScene() {
+    var part = getCurrentPart();
+    return part && getScene(getCurrentScenario(), part, state.currentSceneId);
+  }
+
+  /* ---------- 초기 선택 ---------- */
+  function ensureSelection() {
+    if (!state.currentPlatformId && state.data.platforms.length) {
+      state.currentPlatformId = state.data.platforms[0].id;
+    }
+  }
+
+  function moveInArray(arr, id, dir) {
+    var i = arr.findIndex(function (item) { return item.id === id; });
+    var j = i + dir;
+    if (i === -1 || j < 0 || j >= arr.length) return;
+    var tmp = arr[i];
+    arr[i] = arr[j];
+    arr[j] = tmp;
+  }
+
+  // 현재 시나리오의 모든 씬을 파트 순서 -> 씬 순서로 평평하게 나열
+  function getFlatSceneList(scenario) {
+    var flat = [];
+    scenario.parts.forEach(function (part) {
+      part.scenes.forEach(function (scene) {
+        flat.push({ partId: part.id, sceneId: scene.id, partTitle: part.title, sceneTitle: scene.title });
+      });
+    });
+    return flat;
+  }
+
+  /* ================= 렌더링 ================= */
+
+  function render() {
+    renderPlatformTabs();
+    renderScenarioList();
+    renderTree();
+    renderMain();
+  }
+
+  function renderPlatformTabs() {
+    var wrap = document.getElementById('platform-tabs');
+    var html = '';
+    state.data.platforms.forEach(function (p) {
+      var active = p.id === state.currentPlatformId;
+      html += '<button class="platform-tab' + (active ? ' is-active' : '') + '" data-platform="' + p.id + '">' +
+        '<span class="dot" style="background:' + p.color + '"></span>' + escapeHtml(p.name) + '</button>';
+    });
+    html += '<button class="platform-tab-add" id="platform-add-btn" title="사이트 추가">' + ICONS.plus + '</button>';
+    wrap.innerHTML = html;
+
+    wrap.querySelectorAll('[data-platform]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        state.currentPlatformId = btn.getAttribute('data-platform');
+        state.currentScenarioId = null;
+        state.currentPartId = null;
+        state.currentSceneId = null;
+        render();
+      });
+    });
+    document.getElementById('platform-add-btn').addEventListener('click', openPlatformModal);
+  }
+
+  function renderScenarioList() {
+    var wrap = document.getElementById('scenario-list');
+    var list = getScenariosForPlatform(state.currentPlatformId);
+    if (!list.length) {
+      wrap.innerHTML = '<div class="tree-empty" style="padding:14px 4px;">이 사이트로 진행하는<br>시나리오가 아직 없어요.</div>';
+      return;
+    }
+    var html = '';
+    list.forEach(function (s) {
+      var active = s.id === state.currentScenarioId;
+      html += '<div class="scenario-item' + (active ? ' is-active' : '') + '" data-scenario="' + s.id + '">' +
+        '<span class="scenario-item-title">' + escapeHtml(s.title) + '</span>' +
+        '<button class="icon-btn scenario-del" data-scenario-del="' + s.id + '" title="삭제">' + ICONS.trash + '</button>' +
+        '</div>';
+    });
+    wrap.innerHTML = html;
+
+    wrap.querySelectorAll('[data-scenario]').forEach(function (el) {
+      el.addEventListener('click', function (ev) {
+        if (ev.target.closest('[data-scenario-del]')) return;
+        state.currentScenarioId = el.getAttribute('data-scenario');
+        state.currentPartId = null;
+        state.currentSceneId = null;
+        render();
+      });
+    });
+    wrap.querySelectorAll('[data-scenario-del]').forEach(function (btn) {
+      btn.addEventListener('click', function (ev) {
+        ev.stopPropagation();
+        var id = btn.getAttribute('data-scenario-del');
+        var sc = getScenario(id);
+        if (!sc) return;
+        if (!confirm('"' + sc.title + '" 시나리오를 삭제할까요? 안의 모든 파트·씬이 함께 삭제됩니다.')) return;
+        state.data.scenarios = state.data.scenarios.filter(function (s) { return s.id !== id; });
+        if (state.currentScenarioId === id) {
+          state.currentScenarioId = null;
+          state.currentPartId = null;
+          state.currentSceneId = null;
+        }
+        saveData();
+        render();
+      });
+    });
+  }
+
+  function renderTree() {
+    var wrap = document.getElementById('tree');
+    var scenario = getCurrentScenario();
+    if (!scenario) {
+      wrap.innerHTML = '<div class="tree-empty">왼쪽에서 시나리오를<br>먼저 선택하거나 만들어주세요.</div>';
+      return;
+    }
+    var html = '';
+    scenario.parts.forEach(function (part, partIdx) {
+      var isOpen = !!state.openParts[part.id];
+      var doneCount = part.scenes.filter(function (s) { return s.done; }).length;
+      html += '<div class="part-block' + (isOpen ? ' is-open' : '') + '" data-part="' + part.id + '">';
+      html += '<div class="part-head" data-part-toggle="' + part.id + '">';
+      html += '<span class="chev">' + ICONS.chev + '</span>';
+      html += '<span class="part-title">' + escapeHtml(part.title) + '</span>';
+      html += '<span class="part-count">' + doneCount + '/' + part.scenes.length + '</span>';
+      html += '<span class="part-actions">' +
+        '<button class="icon-btn" data-part-up="' + part.id + '" title="위로" ' + (partIdx === 0 ? 'disabled' : '') + '>↑</button>' +
+        '<button class="icon-btn" data-part-down="' + part.id + '" title="아래로" ' + (partIdx === scenario.parts.length - 1 ? 'disabled' : '') + '>↓</button>' +
+        '<button class="icon-btn" data-part-rename="' + part.id + '" title="이름 변경">✎</button>' +
+        '<button class="icon-btn" data-part-del="' + part.id + '" title="삭제">' + ICONS.trash + '</button>' +
+        '</span>';
+      html += '</div>';
+
+      html += '<div class="scene-list">';
+      part.scenes.forEach(function (scene, sceneIdx) {
+        var active = scene.id === state.currentSceneId && part.id === state.currentPartId;
+        html += '<div class="scene-item' + (active ? ' is-active' : '') + (scene.done ? ' is-done' : '') + '" data-scene="' + scene.id + '" data-scene-part="' + part.id + '">' +
+          '<input type="checkbox" class="scene-done-check" data-scene-done="' + scene.id + '" data-scene-done-part="' + part.id + '" ' + (scene.done ? 'checked' : '') + ' title="진행 완료 표시">' +
+          '<span class="scene-item-title">' + escapeHtml(scene.title) + '</span>' +
+          '<span class="scene-actions">' +
+          '<button class="icon-btn" data-scene-up="' + scene.id + '" data-scene-up-part="' + part.id + '" title="위로" ' + (sceneIdx === 0 ? 'disabled' : '') + '>↑</button>' +
+          '<button class="icon-btn" data-scene-down="' + scene.id + '" data-scene-down-part="' + part.id + '" title="아래로" ' + (sceneIdx === part.scenes.length - 1 ? 'disabled' : '') + '>↓</button>' +
+          '<button class="icon-btn scene-del" data-scene-del="' + scene.id + '" data-scene-del-part="' + part.id + '" title="삭제">' + ICONS.trash + '</button>' +
+          '</span>' +
+          '</div>';
+      });
+      html += '<div class="add-row" data-add-scene="' + part.id + '">' + ICONS.plus + ' 새 씬</div>';
+      html += '</div>'; // scene-list
+      html += '</div>'; // part-block
+    });
+    html += '<div class="add-row" data-add-part style="margin-left:8px; margin-top:4px;">' + ICONS.plus + ' 새 파트(폴더)</div>';
+    wrap.innerHTML = html;
+
+    wrap.querySelectorAll('[data-part-toggle]').forEach(function (el) {
+      el.addEventListener('click', function (ev) {
+        if (ev.target.closest('.part-actions')) return;
+        var id = el.getAttribute('data-part-toggle');
+        state.openParts[id] = !state.openParts[id];
+        renderTree();
+      });
+    });
+    wrap.querySelectorAll('[data-part-rename]').forEach(function (btn) {
+      btn.addEventListener('click', function (ev) {
+        ev.stopPropagation();
+        var id = btn.getAttribute('data-part-rename');
+        var part = getPart(scenario, id);
+        openPrompt('파트 이름 변경', part.title, function (val) {
+          if (!val) return;
+          part.title = val;
+          saveData();
+          renderTree();
+        });
+      });
+    });
+    wrap.querySelectorAll('[data-part-del]').forEach(function (btn) {
+      btn.addEventListener('click', function (ev) {
+        ev.stopPropagation();
+        var id = btn.getAttribute('data-part-del');
+        var part = getPart(scenario, id);
+        if (!confirm('"' + part.title + '" 파트를 삭제할까요? 안의 씬도 함께 삭제됩니다.')) return;
+        scenario.parts = scenario.parts.filter(function (p) { return p.id !== id; });
+        if (state.currentPartId === id) { state.currentPartId = null; state.currentSceneId = null; }
+        saveData();
+        render();
+      });
+    });
+    wrap.querySelectorAll('[data-part-up]').forEach(function (btn) {
+      btn.addEventListener('click', function (ev) {
+        ev.stopPropagation();
+        moveInArray(scenario.parts, btn.getAttribute('data-part-up'), -1);
+        saveData();
+        renderTree();
+      });
+    });
+    wrap.querySelectorAll('[data-part-down]').forEach(function (btn) {
+      btn.addEventListener('click', function (ev) {
+        ev.stopPropagation();
+        moveInArray(scenario.parts, btn.getAttribute('data-part-down'), 1);
+        saveData();
+        renderTree();
+      });
+    });
+    wrap.querySelectorAll('[data-scene]').forEach(function (el) {
+      el.addEventListener('click', function (ev) {
+        if (ev.target.closest('.scene-actions') || ev.target.closest('.scene-done-check')) return;
+        state.currentPartId = el.getAttribute('data-scene-part');
+        state.currentSceneId = el.getAttribute('data-scene');
+        renderTree();
+        renderMain();
+      });
+    });
+    wrap.querySelectorAll('[data-scene-done]').forEach(function (checkbox) {
+      checkbox.addEventListener('click', function (ev) { ev.stopPropagation(); });
+      checkbox.addEventListener('change', function () {
+        var partId = checkbox.getAttribute('data-scene-done-part');
+        var part = getPart(scenario, partId);
+        var scene = getScene(scenario, part, checkbox.getAttribute('data-scene-done'));
+        scene.done = checkbox.checked;
+        saveData();
+        renderTree();
+      });
+    });
+    wrap.querySelectorAll('[data-scene-del]').forEach(function (btn) {
+      btn.addEventListener('click', function (ev) {
+        ev.stopPropagation();
+        var sceneId = btn.getAttribute('data-scene-del');
+        var partId = btn.getAttribute('data-scene-del-part');
+        var part = getPart(scenario, partId);
+        var scene = getScene(scenario, part, sceneId);
+        if (!confirm('"' + scene.title + '" 씬을 삭제할까요?')) return;
+        part.scenes = part.scenes.filter(function (s) { return s.id !== sceneId; });
+        if (state.currentSceneId === sceneId) state.currentSceneId = null;
+        saveData();
+        render();
+      });
+    });
+    wrap.querySelectorAll('[data-scene-up]').forEach(function (btn) {
+      btn.addEventListener('click', function (ev) {
+        ev.stopPropagation();
+        var part = getPart(scenario, btn.getAttribute('data-scene-up-part'));
+        moveInArray(part.scenes, btn.getAttribute('data-scene-up'), -1);
+        saveData();
+        renderTree();
+      });
+    });
+    wrap.querySelectorAll('[data-scene-down]').forEach(function (btn) {
+      btn.addEventListener('click', function (ev) {
+        ev.stopPropagation();
+        var part = getPart(scenario, btn.getAttribute('data-scene-down-part'));
+        moveInArray(part.scenes, btn.getAttribute('data-scene-down'), 1);
+        saveData();
+        renderTree();
+      });
+    });
+    wrap.querySelectorAll('[data-add-scene]').forEach(function (el) {
+      el.addEventListener('click', function () {
+        var partId = el.getAttribute('data-add-scene');
+        var part = getPart(scenario, partId);
+        openPrompt('새 씬 이름', '', function (val) {
+          if (!val) return;
+          var scene = { id: uid(), title: val, blocks: [
+            { id: uid(), type: 'text', label: '본문 / 지문', content: '' }
+          ] };
+          part.scenes.push(scene);
+          state.openParts[partId] = true;
+          state.currentPartId = partId;
+          state.currentSceneId = scene.id;
+          saveData();
+          render();
+        });
+      });
+    });
+    var addPartEl = wrap.querySelector('[data-add-part]');
+    if (addPartEl) {
+      addPartEl.addEventListener('click', function () {
+        openPrompt('새 파트(폴더) 이름', '', function (val) {
+          if (!val) return;
+          var part = { id: uid(), title: val, scenes: [] };
+          scenario.parts.push(part);
+          state.openParts[part.id] = true;
+          saveData();
+          renderTree();
+        });
+      });
+    }
+  }
+
+  /* ---------- 메인 패널 ---------- */
+
+  function renderMain() {
+    var main = document.getElementById('main');
+    var scene = getCurrentScene();
+    if (!scene) {
+      main.innerHTML = '<div class="main-empty">' +
+        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M4 19.5A2.5 2.5 0 016.5 17H20M4 19.5A2.5 2.5 0 006.5 22H20V4a2 2 0 00-2-2H6.5A2.5 2.5 0 004 4.5v15z" stroke-linecap="round" stroke-linejoin="round"/></svg>' +
+        '<h3>씬을 선택해주세요</h3>' +
+        '<p>왼쪽에서 시나리오와 파트를 고르고, 씬을 선택하거나 새로 만들면 여기에 내용이 나타나요.</p>' +
+        '</div>';
+      return;
+    }
+    if (state.mode === 'edit') renderEditMode(main, scene);
+    else renderPlayMode(main, scene);
+  }
+
+  function currentPlatform() {
+    var sc = getCurrentScenario();
+    return sc && getPlatform(sc.platformId);
+  }
+
+  var BLOCK_TYPES = {
+    text: { label: '본문 텍스트', color: 'var(--accent)' },
+    memo: { label: '키퍼 메모', color: 'var(--gold)' },
+    branches: { label: '선택지 분기', color: '#4a5a8a' },
+    checks: { label: '판정 결과', color: 'var(--danger)' },
+    npc: { label: 'NPC 카드', color: '#7a5c8a' },
+    handout: { label: '핸드아웃', color: '#2f7d8a' }
+  };
+
+  function renderEditMode(main, scene) {
+    var scenario = getCurrentScenario();
+    var part = getCurrentPart();
+    var platform = currentPlatform();
+
+    var html = '';
+    html += '<div class="scene-header">';
+    html += '<div style="flex:1; min-width:0;">';
+    html += '<div class="breadcrumb">' + escapeHtml(platform ? platform.name : '') + ' / ' + escapeHtml(scenario.title) + ' / ' + escapeHtml(part.title) + '</div>';
+    html += '<input type="text" class="scene-title-input" id="scene-title-input" value="' + escapeHtml(scene.title) + '">';
+    html += '</div>';
+    html += '</div>';
+
+    html += '<div id="block-list"></div>';
+    html += '<div class="add-block-bar">';
+    Object.keys(BLOCK_TYPES).forEach(function (type) {
+      html += '<button class="add-item-btn add-block-btn" data-add-block="' + type + '" style="width:auto; flex:1;">' + ICONS.plus + ' ' + BLOCK_TYPES[type].label + '</button>';
+    });
+    html += '</div>';
+
+    main.innerHTML = html;
+
+    document.getElementById('scene-title-input').addEventListener('input', function (e) {
+      scene.title = e.target.value;
+      saveData();
+      renderTree();
+    });
+
+    main.querySelectorAll('[data-add-block]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var type = btn.getAttribute('data-add-block');
+        var block = { id: uid(), type: type, label: BLOCK_TYPES[type].label };
+        if (type === 'text' || type === 'memo') block.content = '';
+        if (type === 'branches' || type === 'checks') block.items = [];
+        if (type === 'npc') { block.name = ''; block.imageUrl = ''; block.role = ''; block.traits = ''; block.lines = ''; }
+        if (type === 'handout') { block.imageUrl = ''; block.content = ''; block.gmNote = ''; }
+        scene.blocks.push(block);
+        saveData();
+        renderBlockList(scene, platform);
+      });
+    });
+
+    renderBlockList(scene, platform);
+  }
+
+  function moveBlock(scene, blockId, dir) {
+    var i = scene.blocks.findIndex(function (b) { return b.id === blockId; });
+    var j = i + dir;
+    if (i === -1 || j < 0 || j >= scene.blocks.length) return;
+    var tmp = scene.blocks[i];
+    scene.blocks[i] = scene.blocks[j];
+    scene.blocks[j] = tmp;
+    saveData();
+  }
+
+  function renderBlockList(scene, platform) {
+    var wrap = document.getElementById('block-list');
+    var html = '';
+    scene.blocks.forEach(function (block, idx) {
+      var meta = BLOCK_TYPES[block.type] || BLOCK_TYPES.text;
+      html += '<div class="field-block" data-block="' + block.id + '">';
+      html += '<div class="field-label-row">';
+      html += '<span class="field-label"><span class="swatch" style="background:' + meta.color + '"></span>';
+      html += '<input class="block-label-input" data-block-label="' + block.id + '" value="' + escapeHtml(block.label) + '"></span>';
+      html += '<span class="block-controls">';
+      html += '<button class="icon-btn" data-block-up="' + block.id + '" title="위로" ' + (idx === 0 ? 'disabled' : '') + '>↑</button>';
+      html += '<button class="icon-btn" data-block-down="' + block.id + '" title="아래로" ' + (idx === scene.blocks.length - 1 ? 'disabled' : '') + '>↓</button>';
+      html += '<button class="icon-btn" data-block-del="' + block.id + '" title="블록 삭제">' + ICONS.trash + '</button>';
+      html += '</span>';
+      html += '</div>';
+
+      if (block.type === 'text') {
+        html += '<div class="command-bar" data-command-bar-for="' + block.id + '"></div>';
+        html += '<textarea class="field-textarea" data-block-content="' + block.id + '" placeholder="여기에 장면 지문, 대사, 묘사를 적어주세요.">' + escapeHtml(block.content) + '</textarea>';
+      } else if (block.type === 'memo') {
+        html += '<div class="keeper-box"><textarea class="field-textarea" data-block-content="' + block.id + '" placeholder="진행 팁, GM만 알아야 할 정보, 유의사항 등을 적어주세요.">' + escapeHtml(block.content) + '</textarea></div>';
+      } else if (block.type === 'branches') {
+        html += '<div data-branch-wrap="' + block.id + '"></div>';
+        html += '<button class="add-item-btn" data-add-branch="' + block.id + '">' + ICONS.plus + ' 분기 추가</button>';
+      } else if (block.type === 'checks') {
+        html += '<div data-check-wrap="' + block.id + '"></div>';
+        html += '<button class="add-item-btn" data-add-check="' + block.id + '">' + ICONS.plus + ' 판정 항목 추가</button>';
+      } else if (block.type === 'npc') {
+        html += '<div class="npc-form" data-npc-form="' + block.id + '">';
+        html += '<div class="npc-form-row">';
+        html += '<div class="npc-avatar-edit"><img data-npc-preview="' + block.id + '" src="' + escapeHtml(block.imageUrl) + '" onerror="this.style.display=\'none\'"></div>';
+        html += '<div class="npc-form-fields">';
+        html += '<input type="text" data-npc-name="' + block.id + '" placeholder="NPC 이름" value="' + escapeHtml(block.name) + '">';
+        html += '<input type="text" data-npc-role="' + block.id + '" placeholder="역할 / 한 줄 소개 (예: 등대지기, 수상한 노인)" value="' + escapeHtml(block.role) + '">';
+        html += '<input type="text" data-npc-image="' + block.id + '" placeholder="이미지 URL (선택)" value="' + escapeHtml(block.imageUrl) + '">';
+        html += '</div></div>';
+        html += '<label class="npc-sub-label">특징 (한 줄에 하나씩)</label>';
+        html += '<textarea data-npc-traits="' + block.id + '" placeholder="예&#10;왼쪽 눈에 안대를 하고 있다&#10;말투가 유독 정중하다">' + escapeHtml(block.traits) + '</textarea>';
+        html += '<label class="npc-sub-label">대사 예시 (한 줄에 하나씩)</label>';
+        html += '<textarea data-npc-lines="' + block.id + '" placeholder="예&#10;&quot;등대엔 함부로 들어가지 않는 게 좋을 텐데.&quot;">' + escapeHtml(block.lines) + '</textarea>';
+        html += '</div>';
+      } else if (block.type === 'handout') {
+        html += '<div class="npc-form" data-handout-form="' + block.id + '">';
+        html += '<label class="npc-sub-label" style="margin-top:0;">이미지 URL (선택 — 사진, 지도, 편지 스캔본 등)</label>';
+        html += '<input type="text" data-handout-image="' + block.id + '" placeholder="https://..." value="' + escapeHtml(block.imageUrl) + '">';
+        html += '<div class="handout-preview-wrap"><img data-handout-preview="' + block.id + '" src="' + escapeHtml(block.imageUrl) + '" style="' + (block.imageUrl ? '' : 'display:none;') + '" onerror="this.style.display=\'none\'"></div>';
+        html += '<label class="npc-sub-label">탐사자에게 보여줄 내용</label>';
+        html += '<textarea data-handout-content="' + block.id + '" placeholder="편지, 신문기사, 사진 설명 등 플레이어에게 그대로 보여줄 텍스트">' + escapeHtml(block.content) + '</textarea>';
+        html += '<label class="npc-sub-label">GM 전용 메모 (플레이어에게 보여주지 않음)</label>';
+        html += '<textarea data-handout-gmnote="' + block.id + '" class="handout-gmnote" placeholder="이 핸드아웃과 관련해서 GM만 알아야 할 정보">' + escapeHtml(block.gmNote) + '</textarea>';
+        html += '</div>';
+      }
+
+      html += '</div>';
+    });
+    if (!scene.blocks.length) {
+      html = '<div class="tree-empty" style="text-align:left; padding:20px 0;">아직 블록이 없어요. 아래 버튼으로 원하는 순서대로 추가해보세요.</div>';
+    }
+    wrap.innerHTML = html;
+
+    // 라벨/이동/삭제
+    wrap.querySelectorAll('[data-block-label]').forEach(function (input) {
+      input.addEventListener('input', function () {
+        findBlock(scene, input.getAttribute('data-block-label')).label = input.value;
+        saveData();
+      });
+    });
+    wrap.querySelectorAll('[data-block-up]').forEach(function (btn) {
+      btn.addEventListener('click', function () { moveBlock(scene, btn.getAttribute('data-block-up'), -1); renderBlockList(scene, platform); });
+    });
+    wrap.querySelectorAll('[data-block-down]').forEach(function (btn) {
+      btn.addEventListener('click', function () { moveBlock(scene, btn.getAttribute('data-block-down'), 1); renderBlockList(scene, platform); });
+    });
+    wrap.querySelectorAll('[data-block-del]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var id = btn.getAttribute('data-block-del');
+        if (!confirm('이 블록을 삭제할까요?')) return;
+        scene.blocks = scene.blocks.filter(function (b) { return b.id !== id; });
+        saveData();
+        renderBlockList(scene, platform);
+      });
+    });
+
+    // 텍스트/메모 입력
+    wrap.querySelectorAll('[data-block-content]').forEach(function (ta) {
+      ta.addEventListener('input', function () {
+        findBlock(scene, ta.getAttribute('data-block-content')).content = ta.value;
+        saveData();
+      });
+    });
+
+    // NPC 카드 입력
+    ['name', 'role', 'traits', 'lines'].forEach(function (key) {
+      wrap.querySelectorAll('[data-npc-' + key + ']').forEach(function (input) {
+        input.addEventListener('input', function () {
+          findBlock(scene, input.getAttribute('data-npc-' + key))[key] = input.value;
+          saveData();
+        });
+      });
+    });
+    wrap.querySelectorAll('[data-npc-image]').forEach(function (input) {
+      input.addEventListener('input', function () {
+        var block = findBlock(scene, input.getAttribute('data-npc-image'));
+        block.imageUrl = input.value;
+        saveData();
+        var preview = wrap.querySelector('[data-npc-preview="' + block.id + '"]');
+        if (preview) { preview.src = input.value; preview.style.display = ''; }
+      });
+    });
+
+    // 핸드아웃 입력
+    ['content', 'gmNote'].forEach(function (key) {
+      wrap.querySelectorAll('[data-handout-' + (key === 'gmNote' ? 'gmnote' : key) + ']').forEach(function (input) {
+        input.addEventListener('input', function () {
+          findBlock(scene, input.getAttribute('data-handout-' + (key === 'gmNote' ? 'gmnote' : key)))[key] = input.value;
+          saveData();
+        });
+      });
+    });
+    wrap.querySelectorAll('[data-handout-image]').forEach(function (input) {
+      input.addEventListener('input', function () {
+        var block = findBlock(scene, input.getAttribute('data-handout-image'));
+        block.imageUrl = input.value;
+        saveData();
+        var preview = wrap.querySelector('[data-handout-preview="' + block.id + '"]');
+        if (preview) {
+          preview.src = input.value;
+          preview.style.display = input.value ? '' : 'none';
+        }
+      });
+    });
+
+    // 본문 블록에는 명령어 바를 붙여줌
+    wrap.querySelectorAll('[data-command-bar-for]').forEach(function (bar) {
+      var blockId = bar.getAttribute('data-command-bar-for');
+      if (platform && platform.commands.length) {
+        var cbHtml = '';
+        platform.commands.forEach(function (c) {
+          cbHtml += '<button class="command-chip" data-snippet="' + escapeHtml(c.snippet) + '" data-snippet-target="' + blockId + '">' + escapeHtml(c.label) + '</button>';
+        });
+        cbHtml += '<button class="command-chip-manage" data-manage-commands="' + blockId + '">+ 관리</button>';
+        bar.innerHTML = cbHtml;
+      } else {
+        bar.innerHTML = '<button class="command-chip-manage" data-manage-commands="' + blockId + '">+ 이 사이트의 명령어 등록하기</button>';
+      }
+    });
+    wrap.querySelectorAll('[data-snippet]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var ta = wrap.querySelector('[data-block-content="' + btn.getAttribute('data-snippet-target') + '"]');
+        insertAtCursor(ta, btn.getAttribute('data-snippet'));
+      });
+    });
+    wrap.querySelectorAll('[data-manage-commands]').forEach(function (btn) {
+      btn.addEventListener('click', openCommandModal);
+    });
+
+    // 분기 / 판정 블록
+    scene.blocks.forEach(function (block) {
+      if (block.type === 'branches') renderBranchList(scene, block);
+      if (block.type === 'checks') renderCheckList(scene, block);
+    });
+    wrap.querySelectorAll('[data-add-branch]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var block = findBlock(scene, btn.getAttribute('data-add-branch'));
+        block.items.push({ id: uid(), label: '', text: '' });
+        saveData();
+        renderBranchList(scene, block);
+      });
+    });
+    wrap.querySelectorAll('[data-add-check]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var block = findBlock(scene, btn.getAttribute('data-add-check'));
+        block.items.push({ id: uid(), name: '', critSuccess: '', success: '', fail: '', critFail: '' });
+        saveData();
+        renderCheckList(scene, block);
+      });
+    });
+  }
+
+  function findBlock(scene, id) { return scene.blocks.find(function (b) { return b.id === id; }); }
+
+  function renderBranchList(scene, block) {
+    var wrap = document.querySelector('[data-branch-wrap="' + block.id + '"]');
+    if (!wrap) return;
+    var html = '';
+    block.items.forEach(function (b) {
+      html += '<div class="item-card" data-branch="' + b.id + '">';
+      html += '<div class="item-card-head">';
+      html += '<input class="mini-input" data-branch-label="' + b.id + '" placeholder="선택지 (예: 문을 두드린다)" value="' + escapeHtml(b.label) + '">';
+      html += '<button class="remove-btn" data-branch-del="' + b.id + '">' + ICONS.trash + '</button>';
+      html += '</div>';
+      html += '<textarea data-branch-text="' + b.id + '" placeholder="이 선택지를 골랐을 때의 전개">' + escapeHtml(b.text) + '</textarea>';
+      html += '</div>';
+    });
+    wrap.innerHTML = html;
+    wrap.querySelectorAll('textarea[data-branch-text]').forEach(function (t) {
+      t.style.cssText = 'width:100%; border:1px solid var(--line); border-radius:5px; padding:8px 9px; font-size:12.5px; min-height:56px; resize:vertical; outline:none;';
+    });
+
+    wrap.querySelectorAll('[data-branch-label]').forEach(function (input) {
+      input.addEventListener('input', function () {
+        findItem(block, input.getAttribute('data-branch-label')).label = input.value; saveData();
+      });
+    });
+    wrap.querySelectorAll('[data-branch-text]').forEach(function (input) {
+      input.addEventListener('input', function () {
+        findItem(block, input.getAttribute('data-branch-text')).text = input.value; saveData();
+      });
+    });
+    wrap.querySelectorAll('[data-branch-del]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        block.items = block.items.filter(function (b) { return b.id !== btn.getAttribute('data-branch-del'); });
+        saveData();
+        renderBranchList(scene, block);
+      });
+    });
+  }
+  function findItem(block, id) { return block.items.find(function (i) { return i.id === id; }); }
+
+  function renderCheckList(scene, block) {
+    var wrap = document.querySelector('[data-check-wrap="' + block.id + '"]');
+    if (!wrap) return;
+    var html = '';
+    block.items.forEach(function (c) {
+      html += '<div class="item-card" data-check="' + c.id + '">';
+      html += '<div class="item-card-head">';
+      html += '<input class="mini-input" data-check-name="' + c.id + '" placeholder="판정명 (예: 감정, 도서관 이용, HP)" value="' + escapeHtml(c.name) + '">';
+      html += '<button class="remove-btn" data-check-del="' + c.id + '">' + ICONS.trash + '</button>';
+      html += '</div>';
+      html += '<div class="outcome-grid">';
+      html += outcomeField(c.id, 'critSuccess', 'crit-success', '대성공', c.critSuccess);
+      html += outcomeField(c.id, 'success', 'success', '성공', c.success);
+      html += outcomeField(c.id, 'fail', 'fail', '실패', c.fail);
+      html += outcomeField(c.id, 'critFail', 'crit-fail', '대실패', c.critFail);
+      html += '</div>';
+      html += '</div>';
+    });
+    wrap.innerHTML = html;
+
+    wrap.querySelectorAll('[data-check-name]').forEach(function (input) {
+      input.addEventListener('input', function () {
+        findItem(block, input.getAttribute('data-check-name')).name = input.value; saveData();
+      });
+    });
+    ['critSuccess', 'success', 'fail', 'critFail'].forEach(function (key) {
+      wrap.querySelectorAll('[data-check-' + key + ']').forEach(function (input) {
+        input.addEventListener('input', function () {
+          findItem(block, input.getAttribute('data-check-' + key))[key] = input.value; saveData();
+        });
+      });
+    });
+    wrap.querySelectorAll('[data-check-del]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        block.items = block.items.filter(function (c) { return c.id !== btn.getAttribute('data-check-del'); });
+        saveData();
+        renderCheckList(scene, block);
+      });
+    });
+  }
+
+  function outcomeField(checkId, key, cls, label, value) {
+    return '<div class="outcome-field ' + cls + '">' +
+      '<span class="outcome-label ' + cls + '">' + label + '</span>' +
+      '<textarea data-check-' + key + '="' + checkId + '">' + escapeHtml(value) + '</textarea>' +
+      '</div>';
+  }
+
+  /* ---------- 플레이 모드 ---------- */
+
+  function renderPlayMode(main, scene) {
+    var scenario = getCurrentScenario();
+    var part = getCurrentPart();
+    var platform = currentPlatform();
+
+    var html = '';
+    html += '<div class="scene-header">';
+    html += '<div style="flex:1; min-width:0;">';
+    html += '<div class="breadcrumb">' + escapeHtml(platform ? platform.name : '') + ' / ' + escapeHtml(scenario.title) + ' / ' + escapeHtml(part.title) + '</div>';
+    html += '<h1 class="scene-play-title">' + escapeHtml(scene.title) + '</h1>';
+    html += '</div>';
+    html += '<div class="scene-header-actions"><button class="copy-btn" data-copy-all>' + ICONS.copy + ' 전체 복사</button></div>';
+    html += '</div>';
+
+    scene.blocks.forEach(function (block) {
+      var meta = BLOCK_TYPES[block.type] || BLOCK_TYPES.text;
+      if (block.type === 'text' || block.type === 'memo') {
+        html += '<div class="field-block' + (block.type === 'memo' ? ' keeper-box' : '') + '">';
+        html += '<div class="field-label-row"><span class="field-label"><span class="swatch" style="background:' + meta.color + '"></span>' + escapeHtml(block.label) + '</span><button class="copy-btn" data-copy-block="' + block.id + '">' + ICONS.copy + ' 복사</button></div>';
+        html += '<div class="field-play-box' + (block.content ? '' : ' is-empty') + '">' + escapeHtml(block.content) + '</div>';
+        html += '</div>';
+      } else if (block.type === 'branches' && block.items.length) {
+        html += '<div class="field-block">';
+        html += '<div class="field-label-row"><span class="field-label"><span class="swatch" style="background:' + meta.color + '"></span>' + escapeHtml(block.label) + '</span></div>';
+        block.items.forEach(function (b) {
+          html += '<div class="play-item-card">';
+          html += '<div class="play-item-title"><span>' + escapeHtml(b.label || '(제목 없음)') + '</span><button class="copy-btn" data-copy-raw="' + escapeHtml(b.text) + '">' + ICONS.copy + '</button></div>';
+          html += '<div class="play-item-body">' + escapeHtml(b.text) + '</div>';
+          html += '</div>';
+        });
+        html += '</div>';
+      } else if (block.type === 'checks' && block.items.length) {
+        html += '<div class="field-block">';
+        html += '<div class="field-label-row"><span class="field-label"><span class="swatch" style="background:' + meta.color + '"></span>' + escapeHtml(block.label) + '</span></div>';
+        block.items.forEach(function (c) {
+          html += '<div class="play-item-card">';
+          html += '<div class="play-item-title"><span>' + escapeHtml(c.name || '(판정명 없음)') + '</span></div>';
+          html += outcomeRow('crit-success', '대성공', c.critSuccess);
+          html += outcomeRow('success', '성공', c.success);
+          html += outcomeRow('fail', '실패', c.fail);
+          html += outcomeRow('crit-fail', '대실패', c.critFail);
+          html += '</div>';
+        });
+        html += '</div>';
+      } else if (block.type === 'npc') {
+        html += '<div class="field-block">';
+        html += '<div class="field-label-row"><span class="field-label"><span class="swatch" style="background:' + meta.color + '"></span>' + escapeHtml(block.label) + '</span></div>';
+        html += '<div class="npc-play-card">';
+        html += '<div class="npc-play-head">';
+        if (block.imageUrl) html += '<img class="npc-play-avatar" src="' + escapeHtml(block.imageUrl) + '" onerror="this.style.display=\'none\'">';
+        else html += '<div class="npc-play-avatar npc-play-avatar-empty"></div>';
+        html += '<div><div class="npc-play-name">' + escapeHtml(block.name || '(이름 없음)') + '</div>';
+        if (block.role) html += '<div class="npc-play-role">' + escapeHtml(block.role) + '</div>';
+        html += '</div></div>';
+        var traitLines = (block.traits || '').split('\n').filter(function (l) { return l.trim(); });
+        if (traitLines.length) {
+          html += '<ul class="npc-play-traits">';
+          traitLines.forEach(function (t) { html += '<li>' + escapeHtml(t) + '</li>'; });
+          html += '</ul>';
+        }
+        var dialogueLines = (block.lines || '').split('\n').filter(function (l) { return l.trim(); });
+        if (dialogueLines.length) {
+          dialogueLines.forEach(function (l) {
+            html += '<div class="npc-play-line"><span>' + escapeHtml(l) + '</span><button class="copy-btn" data-copy-raw="' + escapeHtml(l) + '">' + ICONS.copy + '</button></div>';
+          });
+        }
+        html += '</div></div>';
+      } else if (block.type === 'handout') {
+        html += '<div class="field-block">';
+        html += '<div class="field-label-row"><span class="field-label"><span class="swatch" style="background:' + meta.color + '"></span>' + escapeHtml(block.label) + '</span>';
+        if (block.content) html += '<button class="copy-btn" data-copy-block="' + block.id + '">' + ICONS.copy + ' 복사</button>';
+        html += '</div>';
+        html += '<div class="handout-play-card">';
+        if (block.imageUrl) html += '<img class="handout-play-image" src="' + escapeHtml(block.imageUrl) + '" onerror="this.style.display=\'none\'">';
+        if (block.content) html += '<div class="handout-play-content">' + escapeHtml(block.content) + '</div>';
+        if (!block.content && !block.imageUrl) html += '<div class="field-play-box is-empty"></div>';
+        html += '</div>';
+        if (block.gmNote) {
+          html += '<div class="handout-gmnote-play"><span class="handout-gmnote-tag">GM 전용</span>' + escapeHtml(block.gmNote) + '</div>';
+        }
+        html += '</div>';
+      }
+    });
+
+    // 이전 / 다음 씬 네비게이션
+    var flat = getFlatSceneList(scenario);
+    var curIdx = flat.findIndex(function (f) { return f.sceneId === scene.id; });
+    var prevItem = curIdx > 0 ? flat[curIdx - 1] : null;
+    var nextItem = curIdx > -1 && curIdx < flat.length - 1 ? flat[curIdx + 1] : null;
+    if (prevItem || nextItem) {
+      html += '<div class="scene-nav">';
+      html += prevItem
+        ? '<button class="scene-nav-btn scene-nav-prev" data-nav-part="' + prevItem.partId + '" data-nav-scene="' + prevItem.sceneId + '"><span class="scene-nav-dir">← 이전 씬</span><span class="scene-nav-title">' + escapeHtml(prevItem.sceneTitle) + '</span></button>'
+        : '<span></span>';
+      html += nextItem
+        ? '<button class="scene-nav-btn scene-nav-next" data-nav-part="' + nextItem.partId + '" data-nav-scene="' + nextItem.sceneId + '"><span class="scene-nav-dir">다음 씬 →</span><span class="scene-nav-title">' + escapeHtml(nextItem.sceneTitle) + '</span></button>'
+        : '<span></span>';
+      html += '</div>';
+    }
+
+    main.innerHTML = html;
+
+    main.querySelectorAll('[data-nav-scene]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        state.currentPartId = btn.getAttribute('data-nav-part');
+        state.currentSceneId = btn.getAttribute('data-nav-scene');
+        state.openParts[state.currentPartId] = true;
+        renderTree();
+        renderMain();
+        main.scrollTop = 0;
+      });
+    });
+
+    main.querySelectorAll('[data-copy-block]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var block = findBlock(scene, btn.getAttribute('data-copy-block'));
+        copyText(block ? block.content : '', btn);
+      });
+    });
+    main.querySelectorAll('[data-copy-raw]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        copyText(btn.getAttribute('data-copy-raw'), btn);
+      });
+    });
+    var copyAllBtn = main.querySelector('[data-copy-all]');
+    if (copyAllBtn) {
+      copyAllBtn.addEventListener('click', function () {
+        var lines = [scene.title, ''];
+        scene.blocks.forEach(function (block) {
+          if ((block.type === 'text' || block.type === 'memo') && block.content) {
+            lines.push('[' + block.label + ']', block.content, '');
+          }
+        });
+        copyText(lines.join('\n'), copyAllBtn);
+      });
+    }
+  }
+
+  function outcomeRow(cls, label, text) {
+    if (!text) return '';
+    return '<div class="play-outcome-row"><span class="play-outcome-tag ' + cls + '">' + label + '</span><span class="play-outcome-text">' + escapeHtml(text) + '</span></div>';
+  }
+
+  function copyText(text, btn) {
+    var done = function () {
+      var original = btn.innerHTML;
+      btn.classList.add('is-copied');
+      btn.innerHTML = ICONS.check + ' 복사됨';
+      setTimeout(function () { btn.classList.remove('is-copied'); btn.innerHTML = original; }, 1200);
+    };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text || '').then(done).catch(function () { fallbackCopy(text); done(); });
+    } else {
+      fallbackCopy(text);
+      done();
+    }
+  }
+  function fallbackCopy(text) {
+    var ta = document.createElement('textarea');
+    ta.value = text || '';
+    ta.style.position = 'fixed';
+    ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    ta.select();
+    try { document.execCommand('copy'); } catch (e) {}
+    document.body.removeChild(ta);
+  }
+
+  function insertAtCursor(textarea, text) {
+    if (!textarea) return;
+    var start = textarea.selectionStart, end = textarea.selectionEnd;
+    var val = textarea.value;
+    textarea.value = val.slice(0, start) + text + val.slice(end);
+    textarea.selectionStart = textarea.selectionEnd = start + text.length;
+    textarea.focus();
+    var event = new Event('input', { bubbles: true });
+    textarea.dispatchEvent(event);
+  }
+
+  /* ================= 모달 로직 ================= */
+
+  function openPrompt(title, initial, onOk) {
+    var modal = document.getElementById('prompt-modal');
+    document.getElementById('prompt-modal-title').textContent = title;
+    var input = document.getElementById('prompt-modal-input');
+    input.value = initial || '';
+    modal.hidden = false;
+    setTimeout(function () { input.focus(); input.select(); }, 30);
+
+    function close() { modal.hidden = true; cleanup(); }
+    function ok() { var v = input.value.trim(); close(); onOk(v); }
+    function key(e) { if (e.key === 'Enter') ok(); if (e.key === 'Escape') close(); }
+
+    function cleanup() {
+      document.getElementById('prompt-modal-ok').removeEventListener('click', ok);
+      document.getElementById('prompt-modal-cancel').removeEventListener('click', close);
+      input.removeEventListener('keydown', key);
+    }
+    document.getElementById('prompt-modal-ok').addEventListener('click', ok);
+    document.getElementById('prompt-modal-cancel').addEventListener('click', close);
+    input.addEventListener('keydown', key);
+  }
+
+  function openPlatformModal() {
+    var modal = document.getElementById('platform-modal');
+    var nameInput = document.getElementById('platform-name-input');
+    var swatchWrap = document.getElementById('platform-color-swatches');
+    var selectedColor = PLATFORM_COLORS[state.data.platforms.length % PLATFORM_COLORS.length];
+    nameInput.value = '';
+    swatchWrap.innerHTML = PLATFORM_COLORS.map(function (c) {
+      return '<span class="color-swatch' + (c === selectedColor ? ' is-selected' : '') + '" style="background:' + c + '" data-color="' + c + '"></span>';
+    }).join('');
+    swatchWrap.querySelectorAll('.color-swatch').forEach(function (sw) {
+      sw.addEventListener('click', function () {
+        selectedColor = sw.getAttribute('data-color');
+        swatchWrap.querySelectorAll('.color-swatch').forEach(function (s) { s.classList.remove('is-selected'); });
+        sw.classList.add('is-selected');
+      });
+    });
+    modal.hidden = false;
+    setTimeout(function () { nameInput.focus(); }, 30);
+
+    function close() { modal.hidden = true; cleanup(); }
+    function ok() {
+      var name = nameInput.value.trim();
+      if (!name) { close(); return; }
+      var p = { id: uid(), name: name, color: selectedColor, commands: [] };
+      state.data.platforms.push(p);
+      state.currentPlatformId = p.id;
+      saveData();
+      close();
+      render();
+    }
+    function cleanup() {
+      document.getElementById('platform-modal-ok').removeEventListener('click', ok);
+      document.getElementById('platform-modal-cancel').removeEventListener('click', close);
+    }
+    document.getElementById('platform-modal-ok').addEventListener('click', ok);
+    document.getElementById('platform-modal-cancel').addEventListener('click', close);
+  }
+
+  function openCommandModal() {
+    var platform = currentPlatform() || state.data.platforms[0];
+    if (!platform) { showToast('먼저 사이트를 추가해주세요'); return; }
+    var modal = document.getElementById('command-modal');
+    document.getElementById('command-modal-platform').textContent = platform.name;
+    renderCommandModalList(platform);
+    modal.hidden = false;
+
+    function close() { modal.hidden = true; render(); cleanup(); }
+    function cleanup() {
+      document.getElementById('command-modal-close').removeEventListener('click', close);
+      document.getElementById('command-modal-done').removeEventListener('click', close);
+    }
+    document.getElementById('command-modal-close').addEventListener('click', close);
+    document.getElementById('command-modal-done').addEventListener('click', close);
+    document.getElementById('add-command-btn').onclick = function () {
+      platform.commands.push({ id: uid(), label: '', snippet: '' });
+      saveData();
+      renderCommandModalList(platform);
+    };
+  }
+
+  function renderCommandModalList(platform) {
+    var wrap = document.getElementById('command-list');
+    var html = '';
+    platform.commands.forEach(function (c) {
+      html += '<div class="command-row" data-command="' + c.id + '">';
+      html += '<div style="flex:1; display:flex; flex-direction:column; gap:6px;">';
+      html += '<input type="text" placeholder="버튼에 표시될 이름 (예: 굵게)" data-cmd-label="' + c.id + '" value="' + escapeHtml(c.label) + '">';
+      html += '<input type="text" class="snippet" placeholder="실제로 삽입될 텍스트/코드" data-cmd-snippet="' + c.id + '" value="' + escapeHtml(c.snippet) + '">';
+      html += '</div>';
+      html += '<button class="remove-btn" data-cmd-del="' + c.id + '">' + ICONS.trash + '</button>';
+      html += '</div>';
+    });
+    if (!platform.commands.length) {
+      html = '<p style="font-size:12.5px; color:var(--faint);">아직 등록된 명령어가 없어요. 아래에서 추가해보세요.</p>';
+    }
+    wrap.innerHTML = html;
+
+    wrap.querySelectorAll('[data-cmd-label]').forEach(function (input) {
+      input.addEventListener('input', function () {
+        findCommand(platform, input.getAttribute('data-cmd-label')).label = input.value;
+        saveData();
+      });
+    });
+    wrap.querySelectorAll('[data-cmd-snippet]').forEach(function (input) {
+      input.addEventListener('input', function () {
+        findCommand(platform, input.getAttribute('data-cmd-snippet')).snippet = input.value;
+        saveData();
+      });
+    });
+    wrap.querySelectorAll('[data-cmd-del]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        platform.commands = platform.commands.filter(function (c) { return c.id !== btn.getAttribute('data-cmd-del'); });
+        saveData();
+        renderCommandModalList(platform);
+      });
+    });
+  }
+  function findCommand(platform, id) { return platform.commands.find(function (c) { return c.id === id; }); }
+
+  /* ---------- 찾기·바꾸기 ---------- */
+
+  function collectTextRefs() {
+    // { get, set } 형태로 모든 텍스트 필드에 대한 참조 목록을 만든다
+    var refs = [];
+    state.data.scenarios.forEach(function (scenario) {
+      scenario.parts.forEach(function (part) {
+        part.scenes.forEach(function (scene) {
+          (scene.blocks || []).forEach(function (block) {
+            if (block.type === 'text' || block.type === 'memo') {
+              refs.push({ get: function () { return block.content; }, set: function (v) { block.content = v; } });
+            } else if (block.type === 'branches') {
+              block.items.forEach(function (b) {
+                refs.push({ get: function () { return b.label; }, set: function (v) { b.label = v; } });
+                refs.push({ get: function () { return b.text; }, set: function (v) { b.text = v; } });
+              });
+            } else if (block.type === 'checks') {
+              block.items.forEach(function (c) {
+                refs.push({ get: function () { return c.name; }, set: function (v) { c.name = v; } });
+                ['critSuccess', 'success', 'fail', 'critFail'].forEach(function (k) {
+                  refs.push({ get: function () { return c[k]; }, set: function (v) { c[k] = v; } });
+                });
+              });
+            } else if (block.type === 'npc') {
+              ['name', 'role', 'traits', 'lines'].forEach(function (k) {
+                refs.push({ get: function () { return block[k]; }, set: function (v) { block[k] = v; } });
+              });
+            } else if (block.type === 'handout') {
+              ['content', 'gmNote'].forEach(function (k) {
+                refs.push({ get: function () { return block[k]; }, set: function (v) { block[k] = v; } });
+              });
+            }
+          });
+        });
+      });
+    });
+    return refs;
+  }
+
+  function countMatches(term) {
+    if (!term) return 0;
+    var refs = collectTextRefs();
+    var total = 0;
+    refs.forEach(function (r) {
+      var v = r.get() || '';
+      var idx = 0;
+      while (true) {
+        idx = v.indexOf(term, idx);
+        if (idx === -1) break;
+        total++;
+        idx += term.length;
+      }
+    });
+    return total;
+  }
+
+  function applyReplace(term, replacement) {
+    var refs = collectTextRefs();
+    var changed = 0;
+    refs.forEach(function (r) {
+      var v = r.get() || '';
+      if (v.indexOf(term) !== -1) {
+        r.set(v.split(term).join(replacement));
+        changed++;
+      }
+    });
+    saveData();
+    return changed;
+  }
+
+  function openReplaceModal() {
+    var modal = document.getElementById('replace-modal');
+    var findInput = document.getElementById('find-input');
+    var replaceInput = document.getElementById('replace-input');
+    var preview = document.getElementById('replace-preview');
+    findInput.value = ''; replaceInput.value = '';
+    preview.innerHTML = '검색어를 입력하면 몇 건 발견됐는지 여기 보여드려요.';
+    modal.hidden = false;
+    setTimeout(function () { findInput.focus(); }, 30);
+
+    function updatePreview() {
+      var term = findInput.value;
+      if (!term) { preview.innerHTML = '검색어를 입력하면 몇 건 발견됐는지 여기 보여드려요.'; return; }
+      var n = countMatches(term);
+      preview.innerHTML = '전체 시나리오에서 <b>' + n + '건</b> 발견됐어요.';
+    }
+    findInput.addEventListener('input', updatePreview);
+
+    function close() { modal.hidden = true; cleanup(); }
+    function ok() {
+      var term = findInput.value;
+      if (!term) { showToast('찾을 단어를 입력해주세요'); return; }
+      var n = countMatches(term);
+      if (!n) { showToast('일치하는 내용이 없어요'); return; }
+      if (!confirm(n + '건을 모두 바꿀까요? 되돌릴 수 없어요.')) return;
+      var changed = applyReplace(term, replaceInput.value);
+      close();
+      render();
+      showToast(changed + '개 항목에서 바꿨어요');
+    }
+    function cleanup() {
+      findInput.removeEventListener('input', updatePreview);
+      document.getElementById('replace-modal-close').removeEventListener('click', close);
+      document.getElementById('replace-modal-cancel').removeEventListener('click', close);
+      document.getElementById('replace-modal-ok').removeEventListener('click', ok);
+    }
+    document.getElementById('replace-modal-close').addEventListener('click', close);
+    document.getElementById('replace-modal-cancel').addEventListener('click', close);
+    document.getElementById('replace-modal-ok').addEventListener('click', ok);
+  }
+
+  /* ---------- 내보내기 / 불러오기 / 초기화 ---------- */
+
+  function exportData() {
+    var blob = new Blob([JSON.stringify(state.data, null, 2)], { type: 'application/json' });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    var date = new Date().toISOString().slice(0, 10);
+    a.href = url;
+    a.download = 'scenario-forge-backup-' + date + '.json';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    showToast('JSON 파일로 내보냈어요');
+  }
+
+  function importData(file) {
+    var reader = new FileReader();
+    reader.onload = function () {
+      try {
+        var parsed = JSON.parse(reader.result);
+        if (!parsed || !Array.isArray(parsed.platforms) || !Array.isArray(parsed.scenarios)) {
+          throw new Error('형식 오류');
+        }
+        if (!confirm('불러온 파일로 현재 데이터를 덮어씌울까요? 지금 데이터는 사라져요.')) return;
+        migrateData(parsed);
+        state.data = parsed;
+        state.currentPlatformId = null;
+        state.currentScenarioId = null;
+        state.currentPartId = null;
+        state.currentSceneId = null;
+        state.openParts = {};
+        ensureSelection();
+        saveData();
+        render();
+        showToast('불러오기 완료');
+      } catch (e) {
+        alert('올바른 시나리오 대장간 JSON 파일이 아니에요.');
+      }
+    };
+    reader.readAsText(file);
+  }
+
+  function resetAll() {
+    if (!confirm('모든 시나리오, 사이트, 명령어를 전부 초기화할까요? 이 작업은 되돌릴 수 없어요.')) return;
+    if (!confirm('정말로 전체 초기화하시겠어요? 마지막 확인이에요.')) return;
+    state.data = { platforms: [], scenarios: [] };
+    state.currentPlatformId = null;
+    state.currentScenarioId = null;
+    state.currentPartId = null;
+    state.currentSceneId = null;
+    state.openParts = {};
+    saveData();
+    render();
+    showToast('전체 초기화했어요');
+  }
+
+  /* ================= 이벤트 바인딩 ================= */
+
+  document.querySelectorAll('.mode-switch button').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      state.mode = btn.getAttribute('data-mode');
+      document.querySelectorAll('.mode-switch button').forEach(function (b) { b.classList.remove('is-active'); });
+      btn.classList.add('is-active');
+      renderMain();
+    });
+  });
+
+  document.getElementById('add-scenario-btn').addEventListener('click', function () {
+    if (!state.currentPlatformId) { showToast('먼저 사이트를 선택하거나 추가해주세요'); return; }
+    openPrompt('새 시나리오 이름', '', function (val) {
+      if (!val) return;
+      var scenario = { id: uid(), title: val, platformId: state.currentPlatformId, parts: [] };
+      state.data.scenarios.push(scenario);
+      state.currentScenarioId = scenario.id;
+      state.currentPartId = null;
+      state.currentSceneId = null;
+      saveData();
+      render();
+    });
+  });
+
+  document.getElementById('command-lib-btn').addEventListener('click', openCommandModal);
+  document.getElementById('find-replace-btn').addEventListener('click', openReplaceModal);
+  document.getElementById('export-btn').addEventListener('click', exportData);
+  document.getElementById('import-btn').addEventListener('click', function () {
+    document.getElementById('import-file-input').click();
+  });
+  document.getElementById('import-file-input').addEventListener('change', function (e) {
+    if (e.target.files && e.target.files[0]) importData(e.target.files[0]);
+    e.target.value = '';
+  });
+  document.getElementById('reset-btn').addEventListener('click', resetAll);
+
+  var sidebarToggle = document.getElementById('sidebar-toggle-btn');
+  function syncMobileToggle() {
+    var isMobile = window.innerWidth <= 860;
+    sidebarToggle.style.display = isMobile ? 'inline-flex' : 'none';
+  }
+  window.addEventListener('resize', syncMobileToggle);
+  syncMobileToggle();
+  sidebarToggle.addEventListener('click', function () {
+    document.getElementById('sidebar').classList.toggle('is-open');
+  });
+
+  /* ---------- 단축키 ---------- */
+  document.addEventListener('keydown', function (e) {
+    var mod = e.ctrlKey || e.metaKey;
+    if (!mod) return;
+    if (e.key === 's' || e.key === 'S') {
+      e.preventDefault();
+      saveData();
+      showToast('저장됨');
+    } else if (e.key === 'f' || e.key === 'F') {
+      e.preventDefault();
+      openReplaceModal();
+    }
+  });
+
+  /* ================= 초기 실행 ================= */
+  ensureSelection();
+  render();
+  updateSaveIndicator();
+})();
+</script>
+</body>
+</html>
