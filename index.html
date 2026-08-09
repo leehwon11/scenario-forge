@@ -2523,8 +2523,8 @@ textarea.handout-gmnote { background: var(--gold-soft); border-color: rgba(169, 
         html += '<div class="field-label-row"><span class="field-label"><span class="swatch" style="background:' + meta.color + '"></span>' + escapeHtml(block.label) + '</span></div>';
         block.items.forEach(function (b) {
           html += '<div class="play-item-card">';
-          html += '<div class="play-item-title"><span>' + escapeHtml(b.label || '(제목 없음)') + '</span><button class="copy-btn" data-copy-raw="' + escapeHtml(b.text) + '">' + ICONS.copy + '</button></div>';
-          html += '<div class="play-item-body">' + escapeHtml(b.text) + '</div>';
+          html += '<div class="play-item-title"><span>' + escapeHtml(b.label || '(제목 없음)') + '</span><button class="copy-btn" data-copy-raw="' + escapeHtml(b.text) + '">' + ICONS.copy + ' 전체</button></div>';
+          html += '<div class="play-item-body text-lines">' + renderLinesInline(b.text) + '</div>';
           html += '</div>';
         });
         html += '</div>';
@@ -2533,8 +2533,8 @@ textarea.handout-gmnote { background: var(--gold-soft); border-color: rgba(169, 
         html += '<div class="field-label-row"><span class="field-label"><span class="swatch" style="background:' + meta.color + '"></span>' + escapeHtml(block.label) + '</span></div>';
         block.items.forEach(function (b) {
           html += '<div class="play-item-card">';
-          html += '<div class="play-item-title"><span>' + (b.label ? escapeHtml(b.label) : '&nbsp;') + '</span><button class="copy-btn" data-copy-raw="' + escapeHtml(b.text) + '">' + ICONS.copy + '</button></div>';
-          html += '<div class="play-item-body" style="font-style:italic;">' + escapeHtml(b.text) + '</div>';
+          html += '<div class="play-item-title"><span>' + (b.label ? escapeHtml(b.label) : '&nbsp;') + '</span><button class="copy-btn" data-copy-raw="' + escapeHtml(b.text) + '">' + ICONS.copy + ' 전체</button></div>';
+          html += '<div class="play-item-body text-lines" style="font-style:italic;">' + renderLinesInline(b.text) + '</div>';
           html += '</div>';
         });
         html += '</div>';
@@ -2662,8 +2662,14 @@ textarea.handout-gmnote { background: var(--gold-soft); border-color: rgba(169, 
 
   function renderTextPlayBox(content) {
     if (!content) return '<div class="field-play-box is-empty"></div>';
-    var lines = content.split('\n');
-    var html = '<div class="field-play-box text-lines">';
+    return '<div class="field-play-box text-lines">' + renderLinesInline(content) + '</div>';
+  }
+
+  // 여러 줄 텍스트를 한 줄씩 나눠서, 줄마다 개별 복사 버튼을 붙여 렌더링
+  function renderLinesInline(text) {
+    if (!text) return '';
+    var lines = text.split('\n');
+    var html = '';
     lines.forEach(function (line) {
       if (!line.trim()) {
         html += '<div class="text-line-empty">&nbsp;</div>';
@@ -2671,13 +2677,12 @@ textarea.handout-gmnote { background: var(--gold-soft); border-color: rgba(169, 
       }
       html += '<div class="text-line"><span>' + escapeHtml(line) + '</span><button class="copy-btn line-copy-btn" data-copy-raw="' + escapeHtml(line) + '">' + ICONS.copy + '</button></div>';
     });
-    html += '</div>';
     return html;
   }
 
   function outcomeRow(cls, label, text) {
     if (!text) return '';
-    return '<div class="play-outcome-row"><span class="play-outcome-tag ' + cls + '">' + label + '</span><span class="play-outcome-text">' + escapeHtml(text) + '</span><button class="copy-btn" data-copy-raw="' + escapeHtml(text) + '">' + ICONS.copy + '</button></div>';
+    return '<div class="play-outcome-row"><span class="play-outcome-tag ' + cls + '">' + label + '</span><div class="play-outcome-text text-lines">' + renderLinesInline(text) + '</div></div>';
   }
 
   function copyText(text, btn) {
