@@ -781,7 +781,11 @@ input, textarea, select {
   background: var(--panel);
   padding: 14px;
   margin-bottom: 10px;
+  border-left: 3px solid var(--line);
 }
+.item-card-branch { border-left-color: #3a5a9c; }
+.item-card-line { border-left-color: #c1622e; border-left-style: dashed; }
+.item-card-check { border-left-color: var(--danger); }
 .item-card-head {
   display: flex;
   align-items: center;
@@ -870,6 +874,12 @@ input, textarea, select {
   padding: 12px 14px;
   margin-bottom: 10px;
 }
+.play-item-card-branch { background: linear-gradient(90deg, rgba(58, 90, 156, 0.05), transparent 40%); }
+.play-item-card-line {
+  border-left-style: dashed;
+  background: linear-gradient(90deg, rgba(193, 98, 46, 0.05), transparent 40%);
+}
+.play-item-card-check { background: linear-gradient(90deg, rgba(175, 74, 61, 0.05), transparent 40%); }
 .play-item-title {
   font-weight: 700;
   font-size: 13px;
@@ -879,6 +889,8 @@ input, textarea, select {
   justify-content: space-between;
   gap: 8px;
 }
+.play-item-title > span:first-child { display: inline-flex; align-items: center; gap: 6px; min-width: 0; }
+.item-type-icon { width: 14px; height: 14px; flex: 0 0 auto; opacity: 0.7; stroke-width: 1.8; }
 .play-item-body { font-size: 13px; line-height: 1.7; white-space: pre-wrap; color: var(--ink); }
 
 .play-outcome-row {
@@ -1430,7 +1442,10 @@ textarea.handout-gmnote { background: var(--gold-soft); border-color: rgba(169, 
     chev: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M9 6l6 6-6 6" stroke-linecap="round" stroke-linejoin="round"/></svg>',
     copy: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15V5a2 2 0 012-2h10"/></svg>',
     check: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M20 6L9 17l-5-5" stroke-linecap="round" stroke-linejoin="round"/></svg>',
-    grip: '<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="6" r="1.6"/><circle cx="15" cy="6" r="1.6"/><circle cx="9" cy="12" r="1.6"/><circle cx="15" cy="12" r="1.6"/><circle cx="9" cy="18" r="1.6"/><circle cx="15" cy="18" r="1.6"/></svg>'
+    grip: '<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="6" r="1.6"/><circle cx="15" cy="6" r="1.6"/><circle cx="9" cy="12" r="1.6"/><circle cx="15" cy="12" r="1.6"/><circle cx="9" cy="18" r="1.6"/><circle cx="15" cy="18" r="1.6"/></svg>',
+    branch: '<svg class="item-type-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="6" cy="6" r="2.4"/><circle cx="6" cy="18" r="2.4"/><circle cx="18" cy="12" r="2.4"/><path d="M6 8.4V15.6M8.2 7.3C11 8.6 13 10 15.8 11" stroke-linecap="round"/></svg>',
+    quote: '<svg class="item-type-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M7 8c-2.2 0-4 1.8-4 4 0 2 1.4 3.6 3.3 3.9-.2 1-.9 1.8-2 2.3v1.6c2.6-.4 4.7-2.6 4.7-5.6V8H7zm10 0c-2.2 0-4 1.8-4 4 0 2 1.4 3.6 3.3 3.9-.2 1-.9 1.8-2 2.3v1.6c2.6-.4 4.7-2.6 4.7-5.6V8h-2z"/></svg>',
+    dice: '<svg class="item-type-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="4" y="4" width="16" height="16" rx="3"/><circle cx="8.5" cy="8.5" r="1.2" fill="currentColor" stroke="none"/><circle cx="15.5" cy="8.5" r="1.2" fill="currentColor" stroke="none"/><circle cx="8.5" cy="15.5" r="1.2" fill="currentColor" stroke="none"/><circle cx="15.5" cy="15.5" r="1.2" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.2" fill="currentColor" stroke="none"/></svg>'
   };
 
   function uid() {
@@ -1986,15 +2001,15 @@ textarea.handout-gmnote { background: var(--gold-soft); border-color: rgba(169, 
   }
 
   var BLOCK_TYPES = {
-    truth: { label: '진상', color: '#5c2f3d' },
+    truth: { label: '진상', color: '#7a2e3d' },
     text: { label: '나레이션', color: 'var(--accent)' },
     memo: { label: '키퍼 메모', color: 'var(--gold)' },
-    lines: { label: '대사', color: '#2f5f8a' },
-    branches: { label: '선택지 분기', color: '#4a5a8a' },
+    lines: { label: '대사', color: '#c1622e' },
+    branches: { label: '선택지 분기', color: '#3a5a9c' },
     checks: { label: '판정 결과', color: 'var(--danger)' },
-    npc: { label: 'NPC 카드', color: '#7a5c8a' },
-    handout: { label: '핸드아웃', color: '#2f7d8a' },
-    bgm: { label: 'BGM', color: '#9c4f6b' }
+    npc: { label: 'NPC 카드', color: '#7a4c9c' },
+    handout: { label: '핸드아웃', color: '#1f8a8a' },
+    bgm: { label: 'BGM', color: '#c23c7a' }
   };
 
   function renderEditMode(main, scene) {
@@ -2372,7 +2387,7 @@ textarea.handout-gmnote { background: var(--gold-soft); border-color: rgba(169, 
     if (!wrap) return;
     var html = '';
     block.items.forEach(function (b) {
-      html += '<div class="item-card" data-branch="' + b.id + '">';
+      html += '<div class="item-card item-card-branch" data-branch="' + b.id + '">';
       html += '<div class="item-card-head">';
       html += '<input class="mini-input" data-branch-label="' + b.id + '" placeholder="선택지 (예: 문을 두드린다)" value="' + escapeHtml(b.label) + '">';
       html += '<button class="remove-btn" data-branch-del="' + b.id + '">' + ICONS.trash + '</button>';
@@ -2411,7 +2426,7 @@ textarea.handout-gmnote { background: var(--gold-soft); border-color: rgba(169, 
     if (!wrap) return;
     var html = '';
     block.items.forEach(function (b) {
-      html += '<div class="item-card" data-line="' + b.id + '">';
+      html += '<div class="item-card item-card-line" data-line="' + b.id + '">';
       html += '<div class="item-card-head">';
       html += '<input class="mini-input" data-line-label="' + b.id + '" placeholder="화자 (예: 등대지기, 나레이션 — 생략 가능)" value="' + escapeHtml(b.label) + '">';
       html += '<button class="remove-btn" data-line-del="' + b.id + '">' + ICONS.trash + '</button>';
@@ -2449,7 +2464,7 @@ textarea.handout-gmnote { background: var(--gold-soft); border-color: rgba(169, 
     if (!wrap) return;
     var html = '';
     block.items.forEach(function (c) {
-      html += '<div class="item-card" data-check="' + c.id + '">';
+      html += '<div class="item-card item-card-check" data-check="' + c.id + '">';
       html += '<div class="item-card-head">';
       html += '<input class="mini-input" data-check-name="' + c.id + '" placeholder="판정명 (예: 감정, 도서관 이용, HP)" value="' + escapeHtml(c.name) + '">';
       html += '<button class="remove-btn" data-check-del="' + c.id + '">' + ICONS.trash + '</button>';
@@ -2522,8 +2537,8 @@ textarea.handout-gmnote { background: var(--gold-soft); border-color: rgba(169, 
         html += '<div class="field-block' + indentCls + '">';
         html += '<div class="field-label-row"><span class="field-label"><span class="swatch" style="background:' + meta.color + '"></span>' + escapeHtml(block.label) + '</span></div>';
         block.items.forEach(function (b) {
-          html += '<div class="play-item-card">';
-          html += '<div class="play-item-title"><span>' + escapeHtml(b.label || '(제목 없음)') + '</span><button class="copy-btn" data-copy-raw="' + escapeHtml(b.text) + '">' + ICONS.copy + ' 전체</button></div>';
+          html += '<div class="play-item-card play-item-card-branch" style="border-left-color:' + meta.color + ';">';
+          html += '<div class="play-item-title"><span>' + ICONS.branch + escapeHtml(b.label || '(제목 없음)') + '</span><button class="copy-btn" data-copy-raw="' + escapeHtml(b.text) + '">' + ICONS.copy + ' 전체</button></div>';
           html += '<div class="play-item-body text-lines">' + renderLinesInline(b.text) + '</div>';
           html += '</div>';
         });
@@ -2532,8 +2547,8 @@ textarea.handout-gmnote { background: var(--gold-soft); border-color: rgba(169, 
         html += '<div class="field-block' + indentCls + '">';
         html += '<div class="field-label-row"><span class="field-label"><span class="swatch" style="background:' + meta.color + '"></span>' + escapeHtml(block.label) + '</span></div>';
         block.items.forEach(function (b) {
-          html += '<div class="play-item-card">';
-          html += '<div class="play-item-title"><span>' + (b.label ? escapeHtml(b.label) : '&nbsp;') + '</span><button class="copy-btn" data-copy-raw="' + escapeHtml(b.text) + '">' + ICONS.copy + ' 전체</button></div>';
+          html += '<div class="play-item-card play-item-card-line" style="border-left-color:' + meta.color + ';">';
+          html += '<div class="play-item-title"><span>' + ICONS.quote + (b.label ? escapeHtml(b.label) : '&nbsp;') + '</span><button class="copy-btn" data-copy-raw="' + escapeHtml(b.text) + '">' + ICONS.copy + ' 전체</button></div>';
           html += '<div class="play-item-body text-lines" style="font-style:italic;">' + renderLinesInline(b.text) + '</div>';
           html += '</div>';
         });
@@ -2542,8 +2557,8 @@ textarea.handout-gmnote { background: var(--gold-soft); border-color: rgba(169, 
         html += '<div class="field-block' + indentCls + '">';
         html += '<div class="field-label-row"><span class="field-label"><span class="swatch" style="background:' + meta.color + '"></span>' + escapeHtml(block.label) + '</span></div>';
         block.items.forEach(function (c) {
-          html += '<div class="play-item-card">';
-          html += '<div class="play-item-title"><span>' + escapeHtml(c.name || '(판정명 없음)') + '</span></div>';
+          html += '<div class="play-item-card play-item-card-check" style="border-left-color:' + meta.color + ';">';
+          html += '<div class="play-item-title"><span>' + ICONS.dice + escapeHtml(c.name || '(판정명 없음)') + '</span></div>';
           html += outcomeRow('crit-success', '대성공', c.critSuccess);
           html += outcomeRow('success', '성공', c.success);
           html += outcomeRow('fail', '실패', c.fail);
