@@ -3507,7 +3507,7 @@ textarea.handout-gmnote { background: var(--gold-soft); border-color: rgba(169, 
     html += '</div>';
 
     if (openEntry) {
-      html += '<div class="command-editor" data-lib-editor="' + openEntry.id + '">';
+      html += '<div class="npc-form" data-lib-editor="' + openEntry.id + '" style="margin-top:10px;">';
       if (tab === 'npcs') {
         html += '<div class="npc-form-row" style="margin-bottom:10px;">';
         html += '<div class="npc-avatar-edit"><img data-lib-preview="' + openEntry.id + '" src="' + escapeHtml(openEntry.imageUrl) + '" onerror="this.style.display=\'none\'"></div>';
