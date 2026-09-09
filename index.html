@@ -59,13 +59,15 @@ input, textarea, select {
 /* ============ 레이아웃 ============ */
 .app {
   display: grid;
-  grid-template-columns: 300px 1fr;
+  grid-template-columns: var(--sidebar-w, 300px) 1fr;
   grid-template-rows: 56px 1fr;
   grid-template-areas:
     "topbar topbar"
     "sidebar main";
   height: 100vh;
+  transition: grid-template-columns .15s ease;
 }
+.app.sidebar-collapsed { grid-template-columns: 0px 1fr; }
 
 .topbar {
   grid-area: topbar;
@@ -238,9 +240,52 @@ input, textarea, select {
   background: var(--panel);
   border-right: 1px solid var(--line);
   overflow-y: auto;
+  overflow-x: hidden;
   display: flex;
   flex-direction: column;
+  position: relative;
+  min-width: 0;
 }
+.app.sidebar-collapsed .sidebar { border-right: none; }
+.sidebar-inner { width: 300px; min-width: 300px; }
+.sidebar-resizer {
+  position: absolute;
+  top: 0; right: -3px; bottom: 0;
+  width: 6px;
+  cursor: col-resize;
+  z-index: 30;
+  background: transparent;
+}
+.sidebar-resizer:hover, .sidebar-resizer.is-dragging { background: var(--accent-soft); }
+.sidebar-collapse-btn {
+  position: absolute;
+  top: 8px; right: 8px;
+  z-index: 5;
+  border: 1px solid var(--line);
+  background: var(--panel);
+  color: var(--muted);
+  width: 22px; height: 22px;
+  border-radius: 5px;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.sidebar-collapse-btn:hover { color: var(--ink); border-color: var(--accent); }
+.sidebar-collapse-btn svg { width: 13px; height: 13px; stroke-width: 2; transition: transform .15s ease; }
+.app.sidebar-collapsed .sidebar-collapse-btn svg { transform: rotate(180deg); }
+.sidebar-reopen-btn {
+  display: none;
+  position: fixed;
+  left: 6px; top: 64px;
+  z-index: 25;
+  border: 1px solid var(--line);
+  background: var(--panel);
+  color: var(--muted);
+  width: 26px; height: 26px;
+  border-radius: 5px;
+  align-items: center; justify-content: center;
+  box-shadow: var(--shadow);
+}
+.app.sidebar-collapsed .sidebar-reopen-btn { display: inline-flex; }
+.app.sidebar-collapsed .sidebar-inner { visibility: hidden; }
 
 .platform-tabs {
   display: flex;
@@ -406,6 +451,9 @@ input, textarea, select {
 
 .part-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .part-count { font-family: var(--font-mono); font-size: 10.5px; color: var(--faint); }
+.part-progress { flex: 0 0 auto; width: 34px; height: 4px; border-radius: 2px; background: var(--line); overflow: hidden; margin-right: 2px; }
+.part-progress-fill { height: 100%; background: var(--accent); border-radius: 2px; transition: width .2s ease; }
+.part-block.is-complete .part-progress-fill { background: var(--gold); }
 
 .part-actions { display: none; gap: 2px; }
 .part-head:hover .part-actions { display: flex; }
@@ -428,10 +476,18 @@ input, textarea, select {
   cursor: pointer;
   font-size: 12.5px;
   color: var(--muted);
+  border-left: 2px solid transparent;
 }
 .scene-item:hover { background: var(--panel-alt); color: var(--ink); }
 .scene-item.is-active { background: var(--ink); color: #fff; }
+.scene-item.is-done { border-left-color: var(--accent); background: var(--accent-soft); }
+.scene-item.is-done.is-active { border-left-color: #fff; }
 .scene-item.is-done .scene-item-title { text-decoration: line-through; opacity: 0.6; }
+.scene-item.is-done .scene-done-badge {
+  flex: 0 0 auto; width: 14px; height: 14px; border-radius: 50%;
+  background: var(--accent); color: #fff; display: inline-flex; align-items: center; justify-content: center;
+}
+.scene-item.is-done .scene-done-badge svg { width: 9px; height: 9px; stroke-width: 3; }
 
 .scene-done-check {
   flex: 0 0 auto;
@@ -551,7 +607,7 @@ input, textarea, select {
   padding-top: 4px;
 }
 
-.field-block { margin-bottom: 26px; transition: opacity .15s ease; }
+.field-block { margin-bottom: 26px; transition: opacity .15s ease; padding-left: 10px; border-left: 3px solid var(--block-color, var(--line)); }
 .field-block.is-search-highlight {
   animation: search-flash 1.6s ease;
   border-radius: var(--radius);
@@ -604,7 +660,14 @@ input, textarea, select {
   flex: 1;
   min-width: 0;
 }
-.field-label .swatch { width: 8px; height: 8px; border-radius: 2px; flex: 0 0 auto; }
+.field-label .swatch { width: 8px; height: 8px; border-radius: 2px; flex: 0 0 auto; display: none; }
+.field-label .block-type-icon {
+  width: 20px; height: 20px; border-radius: 5px; flex: 0 0 auto;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: var(--block-color-soft, var(--panel-alt));
+  color: var(--block-color, var(--muted));
+}
+.field-label .block-type-icon svg { width: 12px; height: 12px; stroke-width: 2; }
 
 .block-label-input {
   border: none;
@@ -1225,11 +1288,72 @@ textarea.handout-gmnote { background: var(--gold-soft); border-color: rgba(169, 
 }
 .toast-undo-btn:hover { background: rgba(255,255,255,.15); }
 
+/* ============ 타임라인 뷰 ============ */
+.timeline-wrap { display: flex; flex-direction: column; gap: 4px; }
+.timeline-part { margin-bottom: 6px; }
+.timeline-part-title {
+  font-family: var(--font-display); font-weight: 700; font-size: 15px; color: var(--ink);
+  margin-bottom: 10px; display: flex; align-items: center; gap: 8px;
+}
+.timeline-part-title .part-count { font-family: var(--font-mono); font-size: 11px; color: var(--faint); font-weight: 500; }
+.timeline-row { display: flex; flex-wrap: wrap; align-items: stretch; gap: 0 2px; }
+.timeline-node {
+  display: flex; flex-direction: column; gap: 6px;
+  border: 1px solid var(--line); border-radius: var(--radius);
+  background: var(--panel); padding: 10px 12px; min-width: 150px; max-width: 190px;
+  cursor: pointer;
+}
+.timeline-node:hover { border-color: var(--accent); box-shadow: var(--shadow); }
+.timeline-node.is-active { border-color: var(--accent); background: var(--accent-soft); }
+.timeline-node.is-done { border-left: 3px solid var(--accent); }
+.timeline-node-title {
+  font-size: 12.5px; font-weight: 700; color: var(--ink); overflow: hidden;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+}
+.timeline-node-badges { display: flex; gap: 6px; flex-wrap: wrap; }
+.timeline-badge {
+  display: inline-flex; align-items: center; gap: 3px;
+  font-family: var(--font-mono); font-size: 10px; font-weight: 700;
+  padding: 1px 6px; border-radius: 999px; background: var(--panel-alt); color: var(--muted);
+  border: 1px solid var(--line);
+}
+.timeline-badge svg { width: 10px; height: 10px; vertical-align: -1px; }
+.timeline-badge.branch { color: #3a5a9c; border-color: rgba(58,90,156,.3); }
+.timeline-badge.check { color: var(--danger); border-color: var(--danger-soft); }
+.timeline-badge.done { color: var(--accent); border-color: rgba(63,109,82,.3); }
+.timeline-arrow {
+  display: flex; align-items: center; justify-content: center;
+  color: var(--faint); flex: 0 0 auto; padding: 0 6px; font-size: 16px;
+}
+.timeline-part-arrow-down {
+  display: flex; justify-content: flex-start; padding: 6px 0 6px 20px; color: var(--faint); font-size: 15px;
+}
+.timeline-empty { color: var(--faint); font-size: 13px; text-align: center; padding: 50px 10px; }
+@media (max-width: 640px) {
+  .timeline-node { min-width: 130px; max-width: 100%; flex: 1 1 130px; }
+}
+
+@media (max-width: 1024px) {
+  .app { grid-template-columns: 240px 1fr !important; }
+  .sidebar-inner { width: 240px; min-width: 240px; }
+  .topbar { flex-wrap: wrap; height: auto; min-height: 56px; padding: 8px 12px; }
+  .app { grid-template-rows: auto 1fr; }
+  .tbtn span.tbtn-label { display: none; }
+}
+
 @media (max-width: 860px) {
-  .app { grid-template-columns: 1fr; grid-template-areas: "topbar" "main"; }
-  .sidebar { position: fixed; inset: 56px 0 0 0; z-index: 40; transform: translateX(-100%); transition: transform .2s ease; }
+  .app, .app.sidebar-collapsed { grid-template-columns: 1fr !important; grid-template-areas: "topbar" "main"; }
+  .sidebar { position: fixed; inset: 56px 0 0 0; z-index: 40; transform: translateX(-100%); transition: transform .2s ease; width: 82vw; max-width: 320px; }
   .sidebar.is-open { transform: translateX(0); }
-  .main { padding: 20px 16px 60px; }
+  .sidebar-inner { width: 100%; min-width: 0; }
+  .sidebar-resizer, .sidebar-collapse-btn, .sidebar-reopen-btn { display: none !important; }
+  .main { padding: 16px 12px 60px; }
+  .command-bar { flex-wrap: wrap; }
+}
+
+@media (max-width: 520px) {
+  .topbar .brand-name { display: none; }
+  .mode-switch button { padding: 6px 8px; font-size: 11px; }
 }
 </style>
 </head>
@@ -1254,7 +1378,14 @@ textarea.handout-gmnote { background: var(--gold-soft); border-color: rgba(169, 
     <div class="mode-switch">
       <button data-mode="edit" class="is-active">편집</button>
       <button data-mode="play">플레이</button>
+      <button data-mode="timeline">타임라인</button>
     </div>
+    <button class="tbtn" id="undo-btn" title="실행 취소 (Ctrl+Z)" disabled>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M9 14l-4-4 4-4M5 10h9a5 5 0 010 10h-1" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </button>
+    <button class="tbtn" id="redo-btn" title="다시 실행 (Ctrl+Shift+Z)" disabled>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M15 14l4-4-4-4M19 10h-9a5 5 0 000 10h1" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </button>
     <button class="tbtn" id="find-replace-btn">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="11" cy="11" r="7" stroke-linecap="round"/><path d="M21 21l-4.3-4.3" stroke-linecap="round"/></svg>
       찾기·바꾸기
@@ -1275,6 +1406,10 @@ textarea.handout-gmnote { background: var(--gold-soft); border-color: rgba(169, 
   </header>
 
   <aside class="sidebar" id="sidebar">
+    <button class="sidebar-collapse-btn" id="sidebar-collapse-btn" title="사이드바 접기/펼치기">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M15 6l-6 6 6 6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </button>
+    <div class="sidebar-inner">
     <div class="platform-tabs" id="platform-tabs"></div>
 
     <div class="sidebar-section" id="recent-section" hidden>
@@ -1295,6 +1430,19 @@ textarea.handout-gmnote { background: var(--gold-soft); border-color: rgba(169, 
       </button>
     </div>
 
+    <div class="sidebar-section" style="flex:0 0 auto;">
+      <div class="sidebar-section-head">
+        <span class="sidebar-section-title">자료</span>
+        <button class="icon-btn" id="library-lib-btn" title="NPC · 아이템 · 장소 자료">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M4 19.5A2.5 2.5 0 016.5 17H20M4 19.5A2.5 2.5 0 006.5 22H20V4a2 2 0 00-2-2H6.5A2.5 2.5 0 004 4.5v15z" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+      </div>
+      <button class="add-scenario-btn" id="open-library-btn">
+        <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor"><path d="M12 5v14M5 12h14" stroke-linecap="round"/></svg>
+        NPC · 아이템 · 장소 관리
+      </button>
+    </div>
+
     <div class="sidebar-section" style="border-bottom:none; flex:1; display:flex; flex-direction:column; min-height:0;">
       <div class="sidebar-section-head">
         <span class="sidebar-section-title">구성</span>
@@ -1304,7 +1452,12 @@ textarea.handout-gmnote { background: var(--gold-soft); border-color: rgba(169, 
       </div>
       <div class="tree" id="tree"></div>
     </div>
+    </div>
+    <div class="sidebar-resizer" id="sidebar-resizer"></div>
   </aside>
+  <button class="sidebar-reopen-btn" id="sidebar-reopen-btn" title="사이드바 열기">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M9 6l6 6-6 6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+  </button>
 
   <main class="main" id="main"></main>
 </div>
@@ -1425,6 +1578,32 @@ textarea.handout-gmnote { background: var(--gold-soft); border-color: rgba(169, 
   </div>
 </div>
 
+<!-- NPC/아이템/장소 라이브러리 모달 -->
+<div class="modal-backdrop" id="library-modal" hidden>
+  <div class="modal" style="max-width:600px;">
+    <div class="modal-head">
+      <h3>NPC · 아이템 · 장소 관리</h3>
+      <button class="icon-btn" id="library-modal-close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M6 6l12 12M18 6L6 18" stroke-linecap="round"/></svg></button>
+    </div>
+    <div class="modal-body">
+      <div class="mode-switch" id="library-tab-switch" style="margin-bottom:14px;">
+        <button data-lib-tab="npcs" class="is-active">NPC</button>
+        <button data-lib-tab="items">아이템</button>
+        <button data-lib-tab="places">장소</button>
+      </div>
+      <p style="font-size:12px; color:var(--muted); margin:0 0 12px;" id="library-scene-hint"></p>
+      <div id="library-list"></div>
+      <button class="add-item-btn" id="library-add-btn" style="margin-top:6px;">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 5v14M5 12h14" stroke-linecap="round"/></svg>
+        새로 추가
+      </button>
+    </div>
+    <div class="modal-foot">
+      <button class="tbtn primary" id="library-modal-done">완료</button>
+    </div>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script>
@@ -1491,9 +1670,13 @@ textarea.handout-gmnote { background: var(--gold-soft); border-color: rgba(169, 
         }
       ],
       scenarios: [],
+      library: { npcs: [], items: [], places: [] },
       selection: { platformId: roll20Id, scenarioId: null, partId: null, sceneId: null }
     };
   }
+
+  var HISTORY_LIMIT = 50;
+  var HISTORY_DEBOUNCE_MS = 600;
 
   var state = {
     data: loadData(),
@@ -1503,7 +1686,13 @@ textarea.handout-gmnote { background: var(--gold-soft); border-color: rgba(169, 
     currentPartId: null,
     currentSceneId: null,
     openParts: {},
-    recentScenes: loadRecentScenes()
+    recentScenes: loadRecentScenes(),
+    history: [],
+    historyIndex: -1,
+    historyTimer: null,
+    isRestoringHistory: false,
+    libraryTab: 'npcs',
+    openLibraryId: null
   };
 
   function loadRecentScenes() {
@@ -1537,6 +1726,10 @@ textarea.handout-gmnote { background: var(--gold-soft); border-color: rgba(169, 
   // 예전 버전(본문/키퍼메모/분기/판정 고정 필드)으로 저장된 씬을
   // 자유 순서 블록(blocks) 구조로 자동 변환합니다.
   function migrateData(d) {
+    if (!d.library) d.library = { npcs: [], items: [], places: [] };
+    ['npcs', 'items', 'places'].forEach(function (k) {
+      if (!Array.isArray(d.library[k])) d.library[k] = [];
+    });
     (d.scenarios || []).forEach(function (scenario) {
       (scenario.parts || []).forEach(function (part) {
         (part.scenes || []).forEach(function (scene) {
@@ -1564,6 +1757,106 @@ textarea.handout-gmnote { background: var(--gold-soft); border-color: rgba(169, 
     } catch (e) {
       showToast('저장 실패: 브라우저 저장공간을 확인해주세요');
     }
+    scheduleHistoryPush();
+  }
+
+  /* ---------- 실행 취소 / 다시 실행 히스토리 ---------- */
+  function snapshotData() {
+    return JSON.stringify(state.data);
+  }
+
+  function pushHistorySnapshot() {
+    if (state.isRestoringHistory) return;
+    var snap = snapshotData();
+    if (state.historyIndex >= 0 && state.history[state.historyIndex] === snap) return;
+    state.history = state.history.slice(0, state.historyIndex + 1);
+    state.history.push(snap);
+    if (state.history.length > HISTORY_LIMIT) state.history.shift();
+    state.historyIndex = state.history.length - 1;
+    updateUndoRedoButtons();
+  }
+
+  function scheduleHistoryPush() {
+    if (state.isRestoringHistory) return;
+    clearTimeout(state.historyTimer);
+    state.historyTimer = setTimeout(pushHistorySnapshot, HISTORY_DEBOUNCE_MS);
+  }
+
+  function resetHistory() {
+    state.history = [snapshotData()];
+    state.historyIndex = 0;
+    updateUndoRedoButtons();
+  }
+
+  function updateUndoRedoButtons() {
+    var undoBtn = document.getElementById('undo-btn');
+    var redoBtn = document.getElementById('redo-btn');
+    if (!undoBtn || !redoBtn) return;
+    undoBtn.disabled = state.historyIndex <= 0;
+    redoBtn.disabled = state.historyIndex >= state.history.length - 1;
+  }
+
+  // undo/redo로 데이터가 통째로 바뀔 때, 현재 선택된 시나리오/파트/씬이
+  // 더 이상 존재하지 않으면 안전한 상태로 되돌린다.
+  function ensureSelectionValidity() {
+    if (state.currentPlatformId && !getPlatform(state.currentPlatformId)) {
+      state.currentPlatformId = null;
+    }
+    if (state.currentScenarioId) {
+      var sc = getScenario(state.currentScenarioId);
+      if (!sc) {
+        state.currentScenarioId = null;
+        state.currentPartId = null;
+        state.currentSceneId = null;
+      } else {
+        if (!state.currentPlatformId) state.currentPlatformId = sc.platformId;
+        if (state.currentPartId) {
+          var pt = getPart(sc, state.currentPartId);
+          if (!pt) {
+            state.currentPartId = null;
+            state.currentSceneId = null;
+          } else if (state.currentSceneId) {
+            var scn = getScene(sc, pt, state.currentSceneId);
+            if (!scn) state.currentSceneId = null;
+          }
+        }
+      }
+    }
+    ensureSelection();
+  }
+
+  function restoreHistoryIndex(idx) {
+    if (idx < 0 || idx >= state.history.length) return;
+    state.isRestoringHistory = true;
+    state.historyIndex = idx;
+    var snap = state.history[idx];
+    state.data = JSON.parse(snap);
+    migrateData(state.data);
+    ensureSelectionValidity();
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state.data));
+      updateSaveIndicator();
+    } catch (e) {}
+    render();
+    state.isRestoringHistory = false;
+    updateUndoRedoButtons();
+  }
+
+  function undo() {
+    clearTimeout(state.historyTimer);
+    var curSnap = snapshotData();
+    if (state.historyIndex >= 0 && state.history[state.historyIndex] !== curSnap) {
+      pushHistorySnapshot();
+    }
+    if (state.historyIndex <= 0) { showToast('더 이상 되돌릴 수 없어요'); return; }
+    restoreHistoryIndex(state.historyIndex - 1);
+    showToast('실행 취소');
+  }
+
+  function redo() {
+    if (state.historyIndex >= state.history.length - 1) { showToast('다시 실행할 내용이 없어요'); return; }
+    restoreHistoryIndex(state.historyIndex + 1);
+    showToast('다시 실행');
   }
 
   function updateSaveIndicator() {
@@ -1638,6 +1931,13 @@ textarea.handout-gmnote { background: var(--gold-soft); border-color: rgba(169, 
     if (!state.currentPlatformId && state.data.platforms.length) {
       state.currentPlatformId = state.data.platforms[0].id;
     }
+  }
+
+  function ensureLibrary() {
+    if (!state.data.library) state.data.library = { npcs: [], items: [], places: [] };
+    ['npcs', 'items', 'places'].forEach(function (k) {
+      if (!Array.isArray(state.data.library[k])) state.data.library[k] = [];
+    });
   }
 
   function moveInArray(arr, id, dir) {
@@ -1796,10 +2096,12 @@ textarea.handout-gmnote { background: var(--gold-soft); border-color: rgba(169, 
     scenario.parts.forEach(function (part, partIdx) {
       var isOpen = !!state.openParts[part.id];
       var doneCount = part.scenes.filter(function (s) { return s.done; }).length;
-      html += '<div class="part-block' + (isOpen ? ' is-open' : '') + '" data-part="' + part.id + '">';
+      var isPartComplete = part.scenes.length > 0 && doneCount === part.scenes.length;
+      html += '<div class="part-block' + (isOpen ? ' is-open' : '') + (isPartComplete ? ' is-complete' : '') + '" data-part="' + part.id + '">';
       html += '<div class="part-head" data-part-toggle="' + part.id + '">';
       html += '<span class="chev">' + ICONS.chev + '</span>';
       html += '<span class="part-title">' + escapeHtml(part.title) + '</span>';
+      html += '<span class="part-progress"><span class="part-progress-fill" style="width:' + (part.scenes.length ? Math.round(doneCount / part.scenes.length * 100) : 0) + '%"></span></span>';
       html += '<span class="part-count">' + doneCount + '/' + part.scenes.length + '</span>';
       html += '<span class="part-actions">' +
         '<button class="icon-btn" data-part-up="' + part.id + '" title="위로" ' + (partIdx === 0 ? 'disabled' : '') + '>↑</button>' +
@@ -1814,6 +2116,7 @@ textarea.handout-gmnote { background: var(--gold-soft); border-color: rgba(169, 
         var active = scene.id === state.currentSceneId && part.id === state.currentPartId;
         html += '<div class="scene-item' + (active ? ' is-active' : '') + (scene.done ? ' is-done' : '') + '" data-scene="' + scene.id + '" data-scene-part="' + part.id + '">' +
           '<input type="checkbox" class="scene-done-check" data-scene-done="' + scene.id + '" data-scene-done-part="' + part.id + '" ' + (scene.done ? 'checked' : '') + ' title="진행 완료 표시">' +
+          (scene.done ? '<span class="scene-done-badge"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M5 13l4 4L19 7" stroke-linecap="round" stroke-linejoin="round"/></svg></span>' : '') +
           '<span class="scene-item-title">' + escapeHtml(scene.title) + '</span>' +
           '<span class="scene-actions">' +
           '<button class="icon-btn" data-scene-up="' + scene.id + '" data-scene-up-part="' + part.id + '" title="위로" ' + (sceneIdx === 0 ? 'disabled' : '') + '>↑</button>' +
@@ -1979,6 +2282,21 @@ textarea.handout-gmnote { background: var(--gold-soft); border-color: rgba(169, 
 
   function renderMain() {
     var main = document.getElementById('main');
+    if (state.mode === 'timeline') {
+      var scenarioTl = getCurrentScenario();
+      if (!scenarioTl) {
+        main.innerHTML = '<div class="main-empty">' +
+          '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M4 19.5A2.5 2.5 0 016.5 17H20M4 19.5A2.5 2.5 0 006.5 22H20V4a2 2 0 00-2-2H6.5A2.5 2.5 0 004 4.5v15z" stroke-linecap="round" stroke-linejoin="round"/></svg>' +
+          '<h3>시나리오를 선택해주세요</h3>' +
+          '<p>왼쪽에서 시나리오를 고르면 전체 흐름을 타임라인으로 볼 수 있어요.</p>' +
+          '</div>';
+        document.title = '시나리오 대장간';
+        return;
+      }
+      document.title = scenarioTl.title + ' 타임라인 · 시나리오 대장간';
+      renderTimelineMode(main, scenarioTl);
+      return;
+    }
     var scene = getCurrentScene();
     if (!scene) {
       main.innerHTML = '<div class="main-empty">' +
@@ -2001,15 +2319,17 @@ textarea.handout-gmnote { background: var(--gold-soft); border-color: rgba(169, 
   }
 
   var BLOCK_TYPES = {
-    truth: { label: '진상', color: '#7a2e3d' },
-    text: { label: '나레이션', color: 'var(--accent)' },
-    memo: { label: '키퍼 메모', color: 'var(--gold)' },
-    lines: { label: '대사', color: '#c1622e' },
-    branches: { label: '선택지 분기', color: '#3a5a9c' },
-    checks: { label: '판정 결과', color: 'var(--danger)' },
-    npc: { label: 'NPC 카드', color: '#7a4c9c' },
-    handout: { label: '핸드아웃', color: '#1f8a8a' },
-    bgm: { label: 'BGM', color: '#c23c7a' }
+    truth: { label: '진상', color: '#7a2e3d', icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 2l2.6 5.9L21 9l-4.8 4 1.3 6.4L12 16.3 6.5 19.4l1.3-6.4L3 9l6.4-1.1z" stroke-linejoin="round"/></svg>' },
+    text: { label: '나레이션', color: 'var(--accent)', icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M4 6h16M4 12h16M4 18h10" stroke-linecap="round"/></svg>' },
+    memo: { label: '키퍼 메모', color: 'var(--gold)', icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M4 19.5A2.5 2.5 0 016.5 17H20M4 19.5A2.5 2.5 0 006.5 22H20V4a2 2 0 00-2-2H6.5A2.5 2.5 0 004 4.5v15z" stroke-linecap="round" stroke-linejoin="round"/></svg>' },
+    lines: { label: '대사', color: '#c1622e', icon: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M7 8c-2.2 0-4 1.8-4 4 0 2 1.4 3.6 3.3 3.9-.2 1-.9 1.8-2 2.3v1.6c2.6-.4 4.7-2.6 4.7-5.6V8H7zm10 0c-2.2 0-4 1.8-4 4 0 2 1.4 3.6 3.3 3.9-.2 1-.9 1.8-2 2.3v1.6c2.6-.4 4.7-2.6 4.7-5.6V8h-2z"/></svg>' },
+    branches: { label: '선택지 분기', color: '#3a5a9c', icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="6" cy="6" r="2.4"/><circle cx="6" cy="18" r="2.4"/><circle cx="18" cy="12" r="2.4"/><path d="M6 8.4V15.6M8.2 7.3C11 8.6 13 10 15.8 11" stroke-linecap="round"/></svg>' },
+    checks: { label: '판정 결과', color: 'var(--danger)', icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="4" y="4" width="16" height="16" rx="3"/><circle cx="8.5" cy="8.5" r="1" fill="currentColor"/><circle cx="15.5" cy="15.5" r="1" fill="currentColor"/></svg>' },
+    npc: { label: 'NPC 카드', color: '#7a4c9c', icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="8" r="3.4"/><path d="M5 20c1-3.6 4-5.6 7-5.6s6 2 7 5.6" stroke-linecap="round"/></svg>' },
+    handout: { label: '핸드아웃', color: '#1f8a8a', icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M4 4h12l4 4v12H4z" stroke-linejoin="round"/><path d="M16 4v4h4" stroke-linejoin="round"/></svg>' },
+    bgm: { label: 'BGM', color: '#c23c7a', icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M9 18V5l11-2v13" stroke-linejoin="round"/><circle cx="6" cy="18" r="3"/><circle cx="17" cy="16" r="3"/></svg>' },
+    item: { label: '아이템', color: '#8a6d1f', icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M21 16V8a2 2 0 00-1-1.7l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.7l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z" stroke-linejoin="round"/><path d="M3.3 7l8.7 5 8.7-5M12 22V12" stroke-linejoin="round"/></svg>' },
+    place: { label: '장소', color: '#2f6f8a', icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 22s7-6.5 7-12a7 7 0 10-14 0c0 5.5 7 12 7 12z" stroke-linejoin="round"/><circle cx="12" cy="10" r="2.4"/></svg>' }
   };
 
   function renderEditMode(main, scene) {
@@ -2050,6 +2370,7 @@ textarea.handout-gmnote { background: var(--gold-soft); border-color: rgba(169, 
         if (type === 'npc') { block.name = ''; block.imageUrl = ''; block.role = ''; block.traits = ''; block.lines = ''; }
         if (type === 'handout') { block.title = ''; block.content = ''; block.gmNote = ''; }
         if (type === 'bgm') { block.title = ''; block.url = ''; block.note = ''; }
+        if (type === 'item' || type === 'place') { block.name = ''; block.imageUrl = ''; block.description = ''; block.gmNote = ''; }
         scene.blocks.push(block);
         saveData();
         renderBlockList(scene, platform);
@@ -2074,10 +2395,10 @@ textarea.handout-gmnote { background: var(--gold-soft); border-color: rgba(169, 
     var html = '';
     scene.blocks.forEach(function (block, idx) {
       var meta = BLOCK_TYPES[block.type] || BLOCK_TYPES.text;
-      html += '<div class="field-block' + (block.indent ? ' is-indented' : '') + '" data-block="' + block.id + '" draggable="true">';
+      html += '<div class="field-block' + (block.indent ? ' is-indented' : '') + '" data-block="' + block.id + '" draggable="true" style="--block-color:' + meta.color + '">';
       html += '<div class="field-label-row">';
       html += '<span class="drag-handle" title="드래그해서 순서 바꾸기">' + ICONS.grip + '</span>';
-      html += '<span class="field-label"><span class="swatch" style="background:' + meta.color + '"></span>';
+      html += '<span class="field-label"><span class="block-type-icon" style="--block-color:' + meta.color + '" title="' + escapeHtml(meta.label) + '">' + (meta.icon || '') + '</span>';
       html += '<input class="block-label-input" data-block-label="' + block.id + '" value="' + escapeHtml(block.label) + '"></span>';
       html += '<span class="block-controls">';
       html += '<button class="icon-btn' + (block.indent ? ' is-active' : '') + '" data-block-indent="' + block.id + '" title="들여쓰기 (윗 블록에 딸린 메모처럼)">⇥</button>';
@@ -2124,6 +2445,19 @@ textarea.handout-gmnote { background: var(--gold-soft); border-color: rgba(169, 
         html += '<textarea data-handout-content="' + block.id + '" placeholder="편지, 신문기사, 사진 설명 등 플레이어에게 그대로 보여줄 텍스트">' + escapeHtml(block.content) + '</textarea>';
         html += '<label class="npc-sub-label">GM 전용 메모</label>';
         html += '<textarea data-handout-gmnote="' + block.id + '" class="handout-gmnote" placeholder="이 핸드아웃과 관련해서 GM만 알아야 할 정보">' + escapeHtml(block.gmNote) + '</textarea>';
+        html += '</div>';
+      } else if (block.type === 'item' || block.type === 'place') {
+        html += '<div class="npc-form" data-entity-form="' + block.id + '">';
+        html += '<div class="npc-form-row">';
+        html += '<div class="npc-avatar-edit"><img data-entity-preview="' + block.id + '" src="' + escapeHtml(block.imageUrl) + '" onerror="this.style.display=\'none\'"></div>';
+        html += '<div class="npc-form-fields">';
+        html += '<input type="text" data-entity-name="' + block.id + '" placeholder="' + (block.type === 'item' ? '아이템 이름' : '장소 이름') + '" value="' + escapeHtml(block.name) + '">';
+        html += '<input type="text" data-entity-image="' + block.id + '" placeholder="이미지 URL (선택)" value="' + escapeHtml(block.imageUrl) + '">';
+        html += '</div></div>';
+        html += '<label class="npc-sub-label">설명</label>';
+        html += '<textarea data-entity-description="' + block.id + '" placeholder="' + (block.type === 'item' ? '겉보기 특징, 플레이어에게 보여줄 설명' : '장소의 분위기, 플레이어에게 보여줄 설명') + '">' + escapeHtml(block.description) + '</textarea>';
+        html += '<label class="npc-sub-label">GM 전용 메모</label>';
+        html += '<textarea data-entity-gmnote="' + block.id + '" class="handout-gmnote" placeholder="' + (block.type === 'item' ? '진짜 정체, 숨겨진 효과 등' : '숨겨진 진상, 함정, 단서 등') + '">' + escapeHtml(block.gmNote) + '</textarea>';
         html += '</div>';
       } else if (block.type === 'bgm') {
         html += '<div class="npc-form" data-bgm-form="' + block.id + '">';
@@ -2267,6 +2601,35 @@ textarea.handout-gmnote { background: var(--gold-soft); border-color: rgba(169, 
       });
     });
 
+    // 아이템 / 장소 입력
+    wrap.querySelectorAll('[data-entity-name]').forEach(function (input) {
+      input.addEventListener('input', function () {
+        findBlock(scene, input.getAttribute('data-entity-name')).name = input.value;
+        saveData();
+      });
+    });
+    wrap.querySelectorAll('[data-entity-description]').forEach(function (input) {
+      input.addEventListener('input', function () {
+        findBlock(scene, input.getAttribute('data-entity-description')).description = input.value;
+        saveData();
+      });
+    });
+    wrap.querySelectorAll('[data-entity-gmnote]').forEach(function (input) {
+      input.addEventListener('input', function () {
+        findBlock(scene, input.getAttribute('data-entity-gmnote')).gmNote = input.value;
+        saveData();
+      });
+    });
+    wrap.querySelectorAll('[data-entity-image]').forEach(function (input) {
+      input.addEventListener('input', function () {
+        var block = findBlock(scene, input.getAttribute('data-entity-image'));
+        block.imageUrl = input.value;
+        saveData();
+        var preview = wrap.querySelector('[data-entity-preview="' + block.id + '"]');
+        if (preview) { preview.src = input.value; preview.style.display = ''; }
+      });
+    });
+
     // 명령어 바: 지금 클릭(포커스)한 칸 바로 위로 옮겨다님
     var floatBar = document.getElementById('floating-command-bar');
     function renderFloatBarContent() {
@@ -2301,10 +2664,29 @@ textarea.handout-gmnote { background: var(--gold-soft); border-color: rgba(169, 
 
       function positionFloatingBar(bar, target) {
         var r = target.getBoundingClientRect();
+        var topbarEl = document.querySelector('.topbar');
+        var minTop = (topbarEl ? topbarEl.getBoundingClientRect().bottom : 0) + 6;
+        var barH = bar.offsetHeight || 40;
         bar.style.position = 'fixed';
-        bar.style.left = Math.round(r.left) + 'px';
-        bar.style.top = Math.round(r.top - bar.offsetHeight - 6) + 'px';
-        bar.style.width = Math.round(r.width) + 'px';
+        var left = Math.round(r.left);
+        var width = Math.round(r.width);
+        var maxLeft = window.innerWidth - width - 8;
+        if (left > maxLeft) left = Math.max(8, maxLeft);
+        bar.style.left = left + 'px';
+        bar.style.width = width + 'px';
+        var topAbove = r.top - barH - 6;
+        var top;
+        if (topAbove >= minTop) {
+          // 입력칸 위에 놓을 공간이 충분하면 위에 배치
+          top = topAbove;
+        } else {
+          // 공간이 부족하면 입력칸 아래로 배치해 가리지 않게 함
+          top = Math.min(r.bottom + 6, window.innerHeight - barH - 8);
+          bar.classList.add('is-below');
+        }
+        if (topAbove >= minTop) bar.classList.remove('is-below');
+        top = Math.max(minTop, top);
+        bar.style.top = Math.round(top) + 'px';
       }
 
       wrap.addEventListener('focusin', function (e) {
@@ -2603,6 +2985,18 @@ textarea.handout-gmnote { background: var(--gold-soft); border-color: rgba(169, 
           html += '<div class="handout-gmnote-play"><span class="handout-gmnote-tag">GM 전용</span>' + escapeHtml(block.gmNote) + '</div>';
         }
         html += '</div>';
+      } else if (block.type === 'item' || block.type === 'place') {
+        html += '<div class="field-block' + indentCls + '">';
+        html += '<div class="field-label-row"><span class="field-label"><span class="swatch" style="background:' + meta.color + '"></span>' + escapeHtml(block.label) + '</span></div>';
+        html += '<div class="npc-play-card">';
+        html += '<div class="npc-play-head">';
+        if (block.imageUrl) html += '<img class="npc-play-avatar" style="border-radius:8px;" src="' + escapeHtml(block.imageUrl) + '" onerror="this.style.display=\'none\'">';
+        else html += '<div class="npc-play-avatar npc-play-avatar-empty" style="border-radius:8px;"></div>';
+        html += '<div><div class="npc-play-name">' + escapeHtml(block.name || (block.type === 'item' ? '(아이템 이름 없음)' : '(장소 이름 없음)')) + '</div></div>';
+        html += '</div>';
+        if (block.description) html += '<div class="field-play-box text-lines" style="margin-top:8px;">' + renderLinesInline(block.description) + '</div>';
+        if (block.gmNote) html += '<div class="handout-gmnote-play"><span class="handout-gmnote-tag">GM 전용</span>' + escapeHtml(block.gmNote) + '</div>';
+        html += '</div></div>';
       } else if (block.type === 'bgm') {
         var ytId = getYoutubeId(block.url);
         html += '<div class="field-block' + indentCls + '">';
@@ -2673,6 +3067,72 @@ textarea.handout-gmnote { background: var(--gold-soft); border-color: rgba(169, 
         copyText(lines.join('\n'), copyAllBtn);
       });
     }
+  }
+
+  /* ---------- 타임라인 / 플로우차트 뷰 ---------- */
+
+  function renderTimelineMode(main, scenario) {
+    var platform = currentPlatform();
+    var html = '';
+    html += '<div class="scene-header" style="border-bottom:none; margin-bottom:14px;">';
+    html += '<div style="flex:1; min-width:0;">';
+    html += '<div class="breadcrumb">' + escapeHtml(platform ? platform.name : '') + ' / ' + escapeHtml(scenario.title) + '</div>';
+    html += '<h1 class="scene-play-title">타임라인</h1>';
+    html += '</div></div>';
+
+    if (!scenario.parts.length) {
+      html += '<div class="timeline-empty">아직 파트가 없어요.<br>왼쪽에서 파트와 씬을 먼저 만들어주세요.</div>';
+      main.innerHTML = html;
+      return;
+    }
+
+    html += '<div class="timeline-wrap">';
+    scenario.parts.forEach(function (part, partIdx) {
+      var doneCount = part.scenes.filter(function (s) { return s.done; }).length;
+      html += '<div class="timeline-part">';
+      html += '<div class="timeline-part-title">' + escapeHtml(part.title) + '<span class="part-count">' + doneCount + '/' + part.scenes.length + '</span></div>';
+      if (!part.scenes.length) {
+        html += '<div class="timeline-empty" style="padding:16px 0; text-align:left;">이 파트엔 아직 씬이 없어요.</div>';
+      } else {
+        html += '<div class="timeline-row">';
+        part.scenes.forEach(function (scene, sceneIdx) {
+          var branchCount = 0, checkCount = 0;
+          (scene.blocks || []).forEach(function (b) {
+            if (b.type === 'branches') branchCount += (b.items || []).length;
+            if (b.type === 'checks') checkCount += (b.items || []).length;
+          });
+          var active = scene.id === state.currentSceneId && part.id === state.currentPartId;
+          html += '<div class="timeline-node' + (active ? ' is-active' : '') + (scene.done ? ' is-done' : '') + '" data-tl-part="' + part.id + '" data-tl-scene="' + scene.id + '">';
+          html += '<div class="timeline-node-title">' + escapeHtml(scene.title) + '</div>';
+          html += '<div class="timeline-node-badges">';
+          if (scene.done) html += '<span class="timeline-badge done">' + ICONS.check + ' 완료</span>';
+          if (branchCount) html += '<span class="timeline-badge branch">' + ICONS.branch + ' ' + branchCount + '</span>';
+          if (checkCount) html += '<span class="timeline-badge check">' + ICONS.dice + ' ' + checkCount + '</span>';
+          html += '</div></div>';
+          if (sceneIdx < part.scenes.length - 1) html += '<div class="timeline-arrow">→</div>';
+        });
+        html += '</div>';
+      }
+      if (partIdx < scenario.parts.length - 1) html += '<div class="timeline-part-arrow-down">↓</div>';
+      html += '</div>';
+    });
+    html += '</div>';
+
+    main.innerHTML = html;
+
+    main.querySelectorAll('[data-tl-scene]').forEach(function (node) {
+      node.addEventListener('click', function () {
+        state.currentPartId = node.getAttribute('data-tl-part');
+        state.currentSceneId = node.getAttribute('data-tl-scene');
+        state.openParts[state.currentPartId] = true;
+        state.mode = 'edit';
+        document.querySelectorAll('.mode-switch button[data-mode]').forEach(function (b) {
+          b.classList.toggle('is-active', b.getAttribute('data-mode') === 'edit');
+        });
+        renderTree();
+        renderMain();
+      });
+    });
   }
 
   function renderTextPlayBox(content) {
@@ -2967,6 +3427,173 @@ textarea.handout-gmnote { background: var(--gold-soft); border-color: rgba(169, 
   }
   function findCommand(platform, id) { return platform.commands.find(function (c) { return c.id === id; }); }
 
+  /* ---------- NPC / 아이템 / 장소 라이브러리 ---------- */
+
+  var LIBRARY_LABELS = { npcs: 'NPC', items: '아이템', places: '장소' };
+  var LIBRARY_BLOCK_TYPE = { npcs: 'npc', items: 'item', places: 'place' };
+
+  function makeLibraryEntry(tab) {
+    if (tab === 'npcs') return { id: uid(), name: '', imageUrl: '', role: '', traits: '', lines: '' };
+    return { id: uid(), name: '', imageUrl: '', description: '', gmNote: '' };
+  }
+
+  function openLibraryModal() {
+    ensureLibrary();
+    var modal = document.getElementById('library-modal');
+    modal.hidden = false;
+    renderLibraryTabs();
+    updateLibrarySceneHint();
+    renderLibraryList();
+
+    function close() { modal.hidden = true; cleanup(); render(); }
+    function cleanup() {
+      document.getElementById('library-modal-close').removeEventListener('click', close);
+      document.getElementById('library-modal-done').removeEventListener('click', close);
+    }
+    document.getElementById('library-modal-close').addEventListener('click', close);
+    document.getElementById('library-modal-done').addEventListener('click', close);
+
+    document.getElementById('library-add-btn').onclick = function () {
+      var lib = state.data.library[state.libraryTab];
+      var entry = makeLibraryEntry(state.libraryTab);
+      lib.push(entry);
+      state.openLibraryId = entry.id;
+      saveData();
+      renderLibraryList();
+    };
+  }
+
+  function renderLibraryTabs() {
+    var wrap = document.getElementById('library-tab-switch');
+    wrap.querySelectorAll('[data-lib-tab]').forEach(function (btn) {
+      btn.classList.toggle('is-active', btn.getAttribute('data-lib-tab') === state.libraryTab);
+      btn.onclick = function () {
+        state.libraryTab = btn.getAttribute('data-lib-tab');
+        state.openLibraryId = null;
+        renderLibraryTabs();
+        renderLibraryList();
+      };
+    });
+  }
+
+  function updateLibrarySceneHint() {
+    var hint = document.getElementById('library-scene-hint');
+    if (!hint) return;
+    var scene = getCurrentScene();
+    hint.textContent = scene
+      ? '지금 열려있는 씬(' + scene.title + ')에 바로 카드로 추가할 수 있어요.'
+      : '먼저 씬을 열어두면 여기서 바로 그 씬에 카드를 추가할 수 있어요.';
+  }
+
+  function renderLibraryList() {
+    var wrap = document.getElementById('library-list');
+    var tab = state.libraryTab;
+    var lib = state.data.library[tab];
+    var labelMap = LIBRARY_LABELS;
+    var typeMap = LIBRARY_BLOCK_TYPE;
+
+    if (!lib.length) {
+      wrap.innerHTML = '<p style="font-size:12.5px; color:var(--faint);">아직 등록된 ' + labelMap[tab] + '가 없어요. 아래에서 추가해보세요.</p>';
+      return;
+    }
+
+    var openId = state.openLibraryId;
+    var openEntry = lib.find(function (e) { return e.id === openId; });
+
+    var html = '<div class="command-chip-row">';
+    lib.forEach(function (e) {
+      html += '<button class="command-manage-chip' + (e.id === openId ? ' is-active' : '') + '" data-lib-chip="' + e.id + '">' + escapeHtml(e.name || '(이름 없음)') + '</button>';
+    });
+    html += '</div>';
+
+    if (openEntry) {
+      html += '<div class="command-editor" data-lib-editor="' + openEntry.id + '">';
+      if (tab === 'npcs') {
+        html += '<div class="npc-form-row" style="margin-bottom:10px;">';
+        html += '<div class="npc-avatar-edit"><img data-lib-preview="' + openEntry.id + '" src="' + escapeHtml(openEntry.imageUrl) + '" onerror="this.style.display=\'none\'"></div>';
+        html += '<div class="npc-form-fields">';
+        html += '<input type="text" data-lib-field="name" placeholder="이름" value="' + escapeHtml(openEntry.name) + '">';
+        html += '<input type="text" data-lib-field="role" placeholder="역할 / 한 줄 소개" value="' + escapeHtml(openEntry.role) + '">';
+        html += '<input type="text" data-lib-field="imageUrl" placeholder="이미지 URL (선택)" value="' + escapeHtml(openEntry.imageUrl) + '">';
+        html += '</div></div>';
+        html += '<label class="npc-sub-label" style="margin-top:0;">특징 (한 줄에 하나씩)</label>';
+        html += '<textarea data-lib-field="traits">' + escapeHtml(openEntry.traits) + '</textarea>';
+        html += '<label class="npc-sub-label">대사 예시 (한 줄에 하나씩)</label>';
+        html += '<textarea data-lib-field="lines">' + escapeHtml(openEntry.lines) + '</textarea>';
+      } else {
+        html += '<label class="npc-sub-label" style="margin-top:0;">이름</label>';
+        html += '<input type="text" data-lib-field="name" placeholder="이름" value="' + escapeHtml(openEntry.name) + '">';
+        html += '<label class="npc-sub-label">이미지 URL (선택)</label>';
+        html += '<input type="text" data-lib-field="imageUrl" placeholder="https://..." value="' + escapeHtml(openEntry.imageUrl) + '">';
+        html += '<label class="npc-sub-label">설명</label>';
+        html += '<textarea data-lib-field="description" placeholder="플레이어에게 보여줄 수 있는 설명">' + escapeHtml(openEntry.description) + '</textarea>';
+        html += '<label class="npc-sub-label">GM 전용 메모</label>';
+        html += '<textarea data-lib-field="gmNote" class="handout-gmnote" placeholder="진짜 정체, 효과, 숨겨진 정보 등">' + escapeHtml(openEntry.gmNote) + '</textarea>';
+      }
+      html += '<div style="display:flex; gap:8px; margin-top:10px; flex-wrap:wrap;">';
+      html += '<button class="tbtn primary" data-lib-insert="' + openEntry.id + '" ' + (getCurrentScene() ? '' : 'disabled') + '>' + ICONS.plus + ' 지금 씬에 카드로 추가</button>';
+      html += '<button class="tbtn danger" data-lib-del="' + openEntry.id + '">' + ICONS.trash + ' 삭제</button>';
+      html += '</div>';
+      html += '</div>';
+    } else {
+      html += '<p style="font-size:12px; color:var(--faint); margin:10px 2px 0;">위에서 항목을 눌러 정보를 수정하세요.</p>';
+    }
+
+    wrap.innerHTML = html;
+
+    wrap.querySelectorAll('[data-lib-chip]').forEach(function (chip) {
+      chip.addEventListener('click', function () {
+        var id = chip.getAttribute('data-lib-chip');
+        state.openLibraryId = (state.openLibraryId === id) ? null : id;
+        renderLibraryList();
+      });
+    });
+    wrap.querySelectorAll('[data-lib-field]').forEach(function (input) {
+      input.addEventListener('input', function () {
+        var key = input.getAttribute('data-lib-field');
+        openEntry[key] = input.value;
+        saveData();
+        if (key === 'name') {
+          var chip = wrap.querySelector('[data-lib-chip="' + openEntry.id + '"]');
+          if (chip) chip.textContent = input.value || '(이름 없음)';
+        }
+        if (key === 'imageUrl') {
+          var preview = wrap.querySelector('[data-lib-preview="' + openEntry.id + '"]');
+          if (preview) { preview.src = input.value; preview.style.display = ''; }
+        }
+      });
+    });
+    wrap.querySelectorAll('[data-lib-insert]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var scene = getCurrentScene();
+        if (!scene) { showToast('먼저 씬을 열어주세요'); return; }
+        var blockType = typeMap[tab];
+        var block = { id: uid(), type: blockType, label: BLOCK_TYPES[blockType].label };
+        if (blockType === 'npc') {
+          block.name = openEntry.name; block.imageUrl = openEntry.imageUrl; block.role = openEntry.role;
+          block.traits = openEntry.traits; block.lines = openEntry.lines;
+        } else {
+          block.name = openEntry.name; block.imageUrl = openEntry.imageUrl;
+          block.description = openEntry.description; block.gmNote = openEntry.gmNote;
+        }
+        scene.blocks.push(block);
+        saveData();
+        showToast('"' + (openEntry.name || labelMap[tab]) + '" 카드를 씬에 추가했어요');
+        if (state.mode === 'edit') renderMain();
+      });
+    });
+    wrap.querySelectorAll('[data-lib-del]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        if (!confirm('"' + (openEntry.name || '이 항목') + '"을(를) 라이브러리에서 삭제할까요?')) return;
+        state.data.library[tab] = lib.filter(function (e) { return e.id !== btn.getAttribute('data-lib-del'); });
+        state.openLibraryId = null;
+        saveData();
+        renderLibraryList();
+      });
+    });
+    autoResizeAllTextareas(wrap);
+  }
+
   /* ---------- 찾기·바꾸기 ---------- */
 
   function getAllScenesFlat() {
@@ -3010,6 +3637,10 @@ textarea.handout-gmnote { background: var(--gold-soft); border-color: rgba(169, 
         ['title', 'note'].forEach(function (k) {
           refs.push({ block: block, get: function () { return block[k]; }, set: function (v) { block[k] = v; } });
         });
+      } else if (block.type === 'item' || block.type === 'place') {
+        ['name', 'description', 'gmNote'].forEach(function (k) {
+          refs.push({ block: block, get: function () { return block[k]; }, set: function (v) { block[k] = v; } });
+        });
       }
     });
     return refs;
@@ -3043,6 +3674,8 @@ textarea.handout-gmnote { background: var(--gold-soft); border-color: rgba(169, 
       texts.push(block.title, block.content, block.gmNote);
     } else if (block.type === 'bgm') {
       texts.push(block.title, block.note);
+    } else if (block.type === 'item' || block.type === 'place') {
+      texts.push(block.name, block.description, block.gmNote);
     }
     return texts;
   }
@@ -3352,6 +3985,8 @@ textarea.handout-gmnote { background: var(--gold-soft); border-color: rgba(169, 
         state.currentSceneId = null;
         state.openParts = {};
         ensureSelection();
+        ensureLibrary();
+        resetHistory();
         saveData();
         render();
         showToast('불러오기 완료');
@@ -3365,12 +4000,13 @@ textarea.handout-gmnote { background: var(--gold-soft); border-color: rgba(169, 
   function resetAll() {
     if (!confirm('모든 시나리오, 사이트, 명령어를 전부 초기화할까요? 이 작업은 되돌릴 수 없어요.')) return;
     if (!confirm('정말로 전체 초기화하시겠어요? 마지막 확인이에요.')) return;
-    state.data = { platforms: [], scenarios: [] };
+    state.data = { platforms: [], scenarios: [], library: { npcs: [], items: [], places: [] } };
     state.currentPlatformId = null;
     state.currentScenarioId = null;
     state.currentPartId = null;
     state.currentSceneId = null;
     state.openParts = {};
+    resetHistory();
     saveData();
     render();
     showToast('전체 초기화했어요');
@@ -3402,6 +4038,10 @@ textarea.handout-gmnote { background: var(--gold-soft); border-color: rgba(169, 
   });
 
   document.getElementById('command-lib-btn').addEventListener('click', openCommandModal);
+  document.getElementById('library-lib-btn').addEventListener('click', openLibraryModal);
+  document.getElementById('open-library-btn').addEventListener('click', openLibraryModal);
+  document.getElementById('undo-btn').addEventListener('click', undo);
+  document.getElementById('redo-btn').addEventListener('click', redo);
   document.getElementById('find-replace-btn').addEventListener('click', openReplaceModal);
   document.getElementById('export-btn').addEventListener('click', exportData);
   document.getElementById('import-btn').addEventListener('click', function () {
@@ -3422,6 +4062,66 @@ textarea.handout-gmnote { background: var(--gold-soft); border-color: rgba(169, 
   syncMobileToggle();
   sidebarToggle.addEventListener('click', function () {
     document.getElementById('sidebar').classList.toggle('is-open');
+  });
+
+  /* ---------- 사이드바 리사이즈 · 접기/펼치기 ---------- */
+  var SIDEBAR_W_KEY = 'scenario-forge-sidebar-w';
+  var SIDEBAR_COLLAPSED_KEY = 'scenario-forge-sidebar-collapsed';
+  var appEl = document.querySelector('.app');
+  var sidebarInner = document.querySelector('.sidebar-inner');
+  (function () {
+    var savedW = null, savedCollapsed = false;
+    try {
+      savedW = localStorage.getItem(SIDEBAR_W_KEY);
+      savedCollapsed = localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === '1';
+    } catch (e) {}
+    if (savedW) {
+      document.documentElement.style.setProperty('--sidebar-w', savedW + 'px');
+      if (sidebarInner) sidebarInner.style.width = savedW + 'px';
+    }
+    if (savedCollapsed) appEl.classList.add('sidebar-collapsed');
+  })();
+
+  function setSidebarWidth(px) {
+    px = Math.max(200, Math.min(520, px));
+    document.documentElement.style.setProperty('--sidebar-w', px + 'px');
+    if (sidebarInner) sidebarInner.style.width = px + 'px';
+    try { localStorage.setItem(SIDEBAR_W_KEY, px); } catch (e) {}
+  }
+
+  function setSidebarCollapsed(collapsed) {
+    appEl.classList.toggle('sidebar-collapsed', collapsed);
+    try { localStorage.setItem(SIDEBAR_COLLAPSED_KEY, collapsed ? '1' : '0'); } catch (e) {}
+  }
+
+  var resizer = document.getElementById('sidebar-resizer');
+  if (resizer) {
+    resizer.addEventListener('mousedown', function (e) {
+      e.preventDefault();
+      resizer.classList.add('is-dragging');
+      document.body.style.userSelect = 'none';
+      function onMove(ev) { setSidebarWidth(ev.clientX); }
+      function onUp() {
+        resizer.classList.remove('is-dragging');
+        document.body.style.userSelect = '';
+        document.removeEventListener('mousemove', onMove);
+        document.removeEventListener('mouseup', onUp);
+      }
+      document.addEventListener('mousemove', onMove);
+      document.addEventListener('mouseup', onUp);
+    });
+  }
+  var collapseBtn = document.getElementById('sidebar-collapse-btn');
+  if (collapseBtn) collapseBtn.addEventListener('click', function () { setSidebarCollapsed(true); });
+  var reopenBtn = document.getElementById('sidebar-reopen-btn');
+  if (reopenBtn) reopenBtn.addEventListener('click', function () { setSidebarCollapsed(false); });
+
+  document.addEventListener('keydown', function (e) {
+    var mod = e.ctrlKey || e.metaKey;
+    if (mod && (e.key === 'b' || e.key === 'B')) {
+      e.preventDefault();
+      setSidebarCollapsed(!appEl.classList.contains('sidebar-collapsed'));
+    }
   });
 
   /* ---------- 글자 크기 조절 ---------- */
@@ -3458,11 +4158,22 @@ textarea.handout-gmnote { background: var(--gold-soft); border-color: rgba(169, 
     } else if (e.key === 'f' || e.key === 'F') {
       e.preventDefault();
       openReplaceModal();
+    } else if ((e.key === 'z' || e.key === 'Z') && !e.shiftKey) {
+      e.preventDefault();
+      undo();
+    } else if ((e.key === 'z' || e.key === 'Z') && e.shiftKey) {
+      e.preventDefault();
+      redo();
+    } else if (e.key === 'y' || e.key === 'Y') {
+      e.preventDefault();
+      redo();
     }
   });
 
   /* ================= 초기 실행 ================= */
   ensureSelection();
+  ensureLibrary();
+  resetHistory();
   render();
   updateSaveIndicator();
 })();
