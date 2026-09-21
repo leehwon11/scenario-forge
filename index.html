@@ -381,6 +381,51 @@ input, textarea, select {
   white-space: nowrap;
 }
 
+.ending-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 9px;
+  border-radius: var(--radius);
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--ink);
+}
+.ending-item:hover { background: var(--panel-alt); }
+.ending-item.is-active { background: var(--accent-soft); color: var(--accent-ink); font-weight: 700; }
+.ending-item-dot { width: 8px; height: 8px; border-radius: 50%; flex: 0 0 auto; }
+.ending-item-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ending-item-type { flex: 0 0 auto; font-size: 10px; font-weight: 700; color: var(--faint); font-family: var(--font-mono); }
+.ending-item-actions { display: none; gap: 1px; flex: 0 0 auto; }
+.ending-item:hover .ending-item-actions { display: flex; }
+
+.ending-type-pills { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 18px; }
+.ending-type-pill {
+  border: 1px solid var(--line);
+  background: var(--panel-alt);
+  color: var(--muted);
+  padding: 6px 13px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+}
+.ending-type-pill:hover { border-color: var(--line-strong); }
+.ending-type-pill.is-active { color: #fff; }
+
+.timeline-endings-row { display: flex; flex-wrap: wrap; gap: 10px; }
+.timeline-ending-node {
+  display: flex; flex-direction: column; gap: 4px;
+  border: 1px solid var(--line); border-radius: var(--radius);
+  border-top: 3px solid var(--line);
+  background: var(--panel); padding: 10px 12px; min-width: 150px; max-width: 200px;
+  cursor: pointer;
+}
+.timeline-ending-node:hover { box-shadow: var(--shadow); }
+.timeline-ending-node.is-active { background: var(--accent-soft); }
+.timeline-ending-title { font-size: 12.5px; font-weight: 700; color: var(--ink); }
+.timeline-ending-type { font-size: 10px; font-weight: 700; font-family: var(--font-mono); }
+
 .recent-item {
   display: flex;
   align-items: baseline;
@@ -1430,6 +1475,17 @@ textarea.handout-gmnote { background: var(--gold-soft); border-color: rgba(169, 
       </button>
     </div>
 
+    <div class="sidebar-section" id="endings-section" hidden>
+      <div class="sidebar-section-head">
+        <span class="sidebar-section-title">엔딩</span>
+      </div>
+      <div id="endings-list"></div>
+      <button class="add-scenario-btn" id="add-ending-btn">
+        <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor"><path d="M12 5v14M5 12h14" stroke-linecap="round"/></svg>
+        새 엔딩
+      </button>
+    </div>
+
     <div class="sidebar-section" style="flex:0 0 auto;">
       <div class="sidebar-section-head">
         <span class="sidebar-section-title">자료</span>
@@ -1685,6 +1741,7 @@ textarea.handout-gmnote { background: var(--gold-soft); border-color: rgba(169, 
     currentScenarioId: null,
     currentPartId: null,
     currentSceneId: null,
+    currentEndingId: null,
     openParts: {},
     recentScenes: loadRecentScenes(),
     history: [],
@@ -1731,6 +1788,12 @@ textarea.handout-gmnote { background: var(--gold-soft); border-color: rgba(169, 
       if (!Array.isArray(d.library[k])) d.library[k] = [];
     });
     (d.scenarios || []).forEach(function (scenario) {
+      if (!Array.isArray(scenario.endings)) scenario.endings = [];
+      scenario.endings.forEach(function (ending) {
+        if (!Array.isArray(ending.blocks)) ending.blocks = [];
+        if (typeof ending.condition !== 'string') ending.condition = '';
+        if (!ending.endingType) ending.endingType = 'normal';
+      });
       (scenario.parts || []).forEach(function (part) {
         (part.scenes || []).forEach(function (scene) {
           if (Array.isArray(scene.blocks)) return;
@@ -1821,6 +1884,9 @@ textarea.handout-gmnote { background: var(--gold-soft); border-color: rgba(169, 
           }
         }
       }
+    }
+    if (state.currentEndingId && !getCurrentEnding()) {
+      state.currentEndingId = null;
     }
     ensureSelection();
   }
@@ -1925,6 +1991,16 @@ textarea.handout-gmnote { background: var(--gold-soft); border-color: rgba(169, 
     var part = getCurrentPart();
     return part && getScene(getCurrentScenario(), part, state.currentSceneId);
   }
+  function getEndings() {
+    var sc = getCurrentScenario();
+    if (!sc) return [];
+    if (!Array.isArray(sc.endings)) sc.endings = [];
+    return sc.endings;
+  }
+  function getCurrentEnding() {
+    if (!state.currentEndingId) return null;
+    return getEndings().find(function (e) { return e.id === state.currentEndingId; }) || null;
+  }
 
   /* ---------- 초기 선택 ---------- */
   function ensureSelection() {
@@ -1966,6 +2042,7 @@ textarea.handout-gmnote { background: var(--gold-soft); border-color: rgba(169, 
     renderPlatformTabs();
     renderRecentList();
     renderScenarioList();
+    renderEndingsList();
     renderTree();
     renderMain();
   }
@@ -1987,6 +2064,7 @@ textarea.handout-gmnote { background: var(--gold-soft); border-color: rgba(169, 
         state.currentScenarioId = null;
         state.currentPartId = null;
         state.currentSceneId = null;
+        state.currentEndingId = null;
         render();
       });
     });
@@ -2028,6 +2106,7 @@ textarea.handout-gmnote { background: var(--gold-soft); border-color: rgba(169, 
         state.currentScenarioId = el.getAttribute('data-recent-scenario');
         state.currentPartId = el.getAttribute('data-recent-part');
         state.currentSceneId = el.getAttribute('data-recent-scene');
+        state.currentEndingId = null;
         state.openParts[state.currentPartId] = true;
         render();
       });
@@ -2057,6 +2136,7 @@ textarea.handout-gmnote { background: var(--gold-soft); border-color: rgba(169, 
         state.currentScenarioId = el.getAttribute('data-scenario');
         state.currentPartId = null;
         state.currentSceneId = null;
+        state.currentEndingId = null;
         render();
       });
     });
@@ -2073,11 +2153,90 @@ textarea.handout-gmnote { background: var(--gold-soft); border-color: rgba(169, 
           state.currentScenarioId = null;
           state.currentPartId = null;
           state.currentSceneId = null;
+          state.currentEndingId = null;
         }
         saveData();
         render();
         showUndoToast('"' + sc.title + '" 시나리오', function () {
           state.data.scenarios.splice(idx, 0, sc);
+          saveData();
+          render();
+        });
+      });
+    });
+  }
+
+  function renderEndingsList() {
+    var section = document.getElementById('endings-section');
+    var wrap = document.getElementById('endings-list');
+    if (!section || !wrap) return;
+    var scenario = getCurrentScenario();
+    if (!scenario) { section.hidden = true; return; }
+    section.hidden = false;
+    var endings = getEndings();
+
+    if (!endings.length) {
+      wrap.innerHTML = '<div class="tree-empty" style="padding:10px 4px;">아직 등록된 엔딩이 없어요.</div>';
+    } else {
+      var html = '';
+      endings.forEach(function (e, idx) {
+        var meta = ENDING_TYPES[e.endingType] || ENDING_TYPES.normal;
+        var active = e.id === state.currentEndingId;
+        html += '<div class="ending-item' + (active ? ' is-active' : '') + '" data-ending="' + e.id + '">';
+        html += '<span class="ending-item-dot" style="background:' + meta.color + '"></span>';
+        html += '<span class="ending-item-title">' + escapeHtml(e.title || '(제목 없음)') + '</span>';
+        html += '<span class="ending-item-type">' + meta.label + '</span>';
+        html += '<span class="ending-item-actions">' +
+          '<button class="icon-btn" data-ending-up="' + e.id + '" title="위로" ' + (idx === 0 ? 'disabled' : '') + '>↑</button>' +
+          '<button class="icon-btn" data-ending-down="' + e.id + '" title="아래로" ' + (idx === endings.length - 1 ? 'disabled' : '') + '>↓</button>' +
+          '<button class="icon-btn" data-ending-del="' + e.id + '" title="삭제">' + ICONS.trash + '</button>' +
+          '</span>';
+        html += '</div>';
+      });
+      wrap.innerHTML = html;
+    }
+
+    wrap.querySelectorAll('[data-ending]').forEach(function (el) {
+      el.addEventListener('click', function (ev) {
+        if (ev.target.closest('.ending-item-actions')) return;
+        state.currentEndingId = el.getAttribute('data-ending');
+        state.currentSceneId = null;
+        state.currentPartId = null;
+        renderTree();
+        renderEndingsList();
+        renderMain();
+      });
+    });
+    wrap.querySelectorAll('[data-ending-up]').forEach(function (btn) {
+      btn.addEventListener('click', function (ev) {
+        ev.stopPropagation();
+        moveInArray(endings, btn.getAttribute('data-ending-up'), -1);
+        saveData();
+        renderEndingsList();
+      });
+    });
+    wrap.querySelectorAll('[data-ending-down]').forEach(function (btn) {
+      btn.addEventListener('click', function (ev) {
+        ev.stopPropagation();
+        moveInArray(endings, btn.getAttribute('data-ending-down'), 1);
+        saveData();
+        renderEndingsList();
+      });
+    });
+    wrap.querySelectorAll('[data-ending-del]').forEach(function (btn) {
+      btn.addEventListener('click', function (ev) {
+        ev.stopPropagation();
+        var id = btn.getAttribute('data-ending-del');
+        var idx = endings.findIndex(function (e) { return e.id === id; });
+        if (idx === -1) return;
+        var removed = endings[idx];
+        if (!confirm('"' + (removed.title || '이 엔딩') + '"을(를) 삭제할까요?')) return;
+        endings.splice(idx, 1);
+        if (state.currentEndingId === id) state.currentEndingId = null;
+        saveData();
+        render();
+        showUndoToast('"' + (removed.title || '엔딩') + '" 엔딩', function () {
+          endings.splice(idx, 0, removed);
           saveData();
           render();
         });
@@ -2192,6 +2351,7 @@ textarea.handout-gmnote { background: var(--gold-soft); border-color: rgba(169, 
         if (ev.target.closest('.scene-actions') || ev.target.closest('.scene-done-check')) return;
         state.currentPartId = el.getAttribute('data-scene-part');
         state.currentSceneId = el.getAttribute('data-scene');
+        state.currentEndingId = null;
         renderTree();
         renderMain();
       });
@@ -2258,6 +2418,7 @@ textarea.handout-gmnote { background: var(--gold-soft); border-color: rgba(169, 
           state.openParts[partId] = true;
           state.currentPartId = partId;
           state.currentSceneId = scene.id;
+          state.currentEndingId = null;
           saveData();
           render();
         });
@@ -2297,6 +2458,13 @@ textarea.handout-gmnote { background: var(--gold-soft); border-color: rgba(169, 
       renderTimelineMode(main, scenarioTl);
       return;
     }
+    var ending = getCurrentEnding();
+    if (ending) {
+      document.title = ending.title + ' (엔딩) · 시나리오 대장간';
+      if (state.mode === 'edit') renderEndingEditMode(main, ending);
+      else renderEndingPlayMode(main, ending);
+      return;
+    }
     var scene = getCurrentScene();
     if (!scene) {
       main.innerHTML = '<div class="main-empty">' +
@@ -2317,6 +2485,14 @@ textarea.handout-gmnote { background: var(--gold-soft); border-color: rgba(169, 
     var sc = getCurrentScenario();
     return sc && getPlatform(sc.platformId);
   }
+
+  var ENDING_TYPES = {
+    normal: { label: '노멀 엔딩', color: '#667066' },
+    good: { label: '해피 엔딩', color: '#a97a3a' },
+    bad: { label: '배드 엔딩', color: '#af4a3d' },
+    true: { label: '트루 엔딩', color: '#3f6d52' },
+    special: { label: '특수 엔딩', color: '#7a4c9c' }
+  };
 
   var BLOCK_TYPES = {
     truth: { label: '진상', color: '#7a2e3d', icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 2l2.6 5.9L21 9l-4.8 4 1.3 6.4L12 16.3 6.5 19.4l1.3-6.4L3 9l6.4-1.1z" stroke-linejoin="round"/></svg>' },
@@ -2378,6 +2554,92 @@ textarea.handout-gmnote { background: var(--gold-soft); border-color: rgba(169, 
     });
 
     renderBlockList(scene, platform);
+  }
+
+  function renderEndingTypePills(ending) {
+    var wrap = document.getElementById('ending-type-pills');
+    if (!wrap) return;
+    var html = '';
+    Object.keys(ENDING_TYPES).forEach(function (key) {
+      var meta = ENDING_TYPES[key];
+      var active = (ending.endingType || 'normal') === key;
+      html += '<button class="ending-type-pill' + (active ? ' is-active' : '') + '" data-ending-type="' + key + '"' +
+        (active ? ' style="background:' + meta.color + '; border-color:' + meta.color + ';"' : '') + '>' + meta.label + '</button>';
+    });
+    wrap.innerHTML = html;
+    wrap.querySelectorAll('[data-ending-type]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        ending.endingType = btn.getAttribute('data-ending-type');
+        saveData();
+        renderEndingTypePills(ending);
+        renderEndingsList();
+      });
+    });
+  }
+
+  function renderEndingEditMode(main, ending) {
+    var scenario = getCurrentScenario();
+    var platform = currentPlatform();
+
+    var html = '';
+    html += '<div class="scene-header">';
+    html += '<div style="flex:1; min-width:0;">';
+    html += '<div class="breadcrumb">' + escapeHtml(platform ? platform.name : '') + ' / ' + escapeHtml(scenario.title) + ' / 엔딩</div>';
+    html += '<input type="text" class="scene-title-input" id="ending-title-input" value="' + escapeHtml(ending.title) + '">';
+    html += '</div>';
+    html += '</div>';
+
+    html += '<div class="ending-type-pills" id="ending-type-pills"></div>';
+
+    html += '<div class="field-block truth-box" data-block="__condition__" style="padding-left:10px;">';
+    html += '<div class="field-label-row"><span class="field-label"><span class="block-type-icon" style="--block-color:#5c2f3d">' +
+      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M9 11l3 3L22 4M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11" stroke-linecap="round" stroke-linejoin="round"/></svg>' +
+      '</span>도달 조건</span></div>';
+    html += '<textarea class="field-textarea" id="ending-condition-input" placeholder="이 엔딩에 도달하려면 어떤 선택을 해야 하는지, 어떤 조건이 필요한지 적어주세요.">' + escapeHtml(ending.condition) + '</textarea>';
+    html += '</div>';
+
+    html += '<div class="command-bar" id="floating-command-bar" hidden></div>';
+    html += '<div id="block-list"></div>';
+    html += '<div class="add-block-bar">';
+    Object.keys(BLOCK_TYPES).forEach(function (type) {
+      html += '<button class="add-item-btn add-block-btn" data-add-block="' + type + '" style="width:auto; flex:1;">' + ICONS.plus + ' ' + BLOCK_TYPES[type].label + '</button>';
+    });
+    html += '</div>';
+
+    main.innerHTML = html;
+
+    document.getElementById('ending-title-input').addEventListener('input', function (e) {
+      ending.title = e.target.value;
+      saveData();
+      renderEndingsList();
+    });
+
+    var condInput = document.getElementById('ending-condition-input');
+    condInput.addEventListener('input', function () {
+      ending.condition = condInput.value;
+      saveData();
+    });
+    autoResizeTextarea(condInput);
+
+    renderEndingTypePills(ending);
+
+    main.querySelectorAll('[data-add-block]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var type = btn.getAttribute('data-add-block');
+        var block = { id: uid(), type: type, label: BLOCK_TYPES[type].label };
+        if (type === 'text' || type === 'memo' || type === 'truth') block.content = '';
+        if (type === 'branches' || type === 'checks' || type === 'lines') block.items = [];
+        if (type === 'npc') { block.name = ''; block.imageUrl = ''; block.role = ''; block.traits = ''; block.lines = ''; }
+        if (type === 'handout') { block.title = ''; block.content = ''; block.gmNote = ''; }
+        if (type === 'bgm') { block.title = ''; block.url = ''; block.note = ''; }
+        if (type === 'item' || type === 'place') { block.name = ''; block.imageUrl = ''; block.description = ''; block.gmNote = ''; }
+        ending.blocks.push(block);
+        saveData();
+        renderBlockList(ending, platform);
+      });
+    });
+
+    renderBlockList(ending, platform);
   }
 
   function moveBlock(scene, blockId, dir) {
@@ -2892,21 +3154,9 @@ textarea.handout-gmnote { background: var(--gold-soft); border-color: rgba(169, 
 
   /* ---------- 플레이 모드 ---------- */
 
-  function renderPlayMode(main, scene) {
-    var scenario = getCurrentScenario();
-    var part = getCurrentPart();
-    var platform = currentPlatform();
-
+  function renderBlocksPlayHtml(blocks) {
     var html = '';
-    html += '<div class="scene-header">';
-    html += '<div style="flex:1; min-width:0;">';
-    html += '<div class="breadcrumb">' + escapeHtml(platform ? platform.name : '') + ' / ' + escapeHtml(scenario.title) + ' / ' + escapeHtml(part.title) + '</div>';
-    html += '<h1 class="scene-play-title">' + escapeHtml(scene.title) + '</h1>';
-    html += '</div>';
-    html += '<div class="scene-header-actions"><button class="copy-btn" data-copy-all>' + ICONS.copy + ' 전체 복사</button></div>';
-    html += '</div>';
-
-    scene.blocks.forEach(function (block) {
+    (blocks || []).forEach(function (block) {
       var meta = BLOCK_TYPES[block.type] || BLOCK_TYPES.text;
       var indentCls = block.indent ? ' is-indented' : '';
       if (block.type === 'text' || block.type === 'memo' || block.type === 'truth') {
@@ -3014,6 +3264,24 @@ textarea.handout-gmnote { background: var(--gold-soft); border-color: rgba(169, 
         html += '</div></div>';
       }
     });
+    return html;
+  }
+
+  function renderPlayMode(main, scene) {
+    var scenario = getCurrentScenario();
+    var part = getCurrentPart();
+    var platform = currentPlatform();
+
+    var html = '';
+    html += '<div class="scene-header">';
+    html += '<div style="flex:1; min-width:0;">';
+    html += '<div class="breadcrumb">' + escapeHtml(platform ? platform.name : '') + ' / ' + escapeHtml(scenario.title) + ' / ' + escapeHtml(part.title) + '</div>';
+    html += '<h1 class="scene-play-title">' + escapeHtml(scene.title) + '</h1>';
+    html += '</div>';
+    html += '<div class="scene-header-actions"><button class="copy-btn" data-copy-all>' + ICONS.copy + ' 전체 복사</button></div>';
+    html += '</div>';
+
+    html += renderBlocksPlayHtml(scene.blocks);
 
     // 이전 / 다음 씬 네비게이션
     var flat = getFlatSceneList(scenario);
@@ -3069,6 +3337,58 @@ textarea.handout-gmnote { background: var(--gold-soft); border-color: rgba(169, 
     }
   }
 
+  function renderEndingPlayMode(main, ending) {
+    var scenario = getCurrentScenario();
+    var platform = currentPlatform();
+    var meta = ENDING_TYPES[ending.endingType] || ENDING_TYPES.normal;
+
+    var html = '';
+    html += '<div class="scene-header">';
+    html += '<div style="flex:1; min-width:0;">';
+    html += '<div class="breadcrumb">' + escapeHtml(platform ? platform.name : '') + ' / ' + escapeHtml(scenario.title) + ' / 엔딩</div>';
+    html += '<h1 class="scene-play-title">' + escapeHtml(ending.title) +
+      ' <span style="font-family: var(--font-mono); font-size:13px; font-weight:700; color:' + meta.color + '; vertical-align:middle;">— ' + meta.label + '</span></h1>';
+    html += '</div>';
+    html += '<div class="scene-header-actions"><button class="copy-btn" data-copy-all>' + ICONS.copy + ' 전체 복사</button></div>';
+    html += '</div>';
+
+    if (ending.condition) {
+      html += '<div class="field-block truth-box" style="margin-bottom:26px;">';
+      html += '<div class="field-label-row"><span class="field-label"><span class="swatch" style="background:#5c2f3d"></span>도달 조건</span></div>';
+      html += renderTextPlayBox(ending.condition);
+      html += '</div>';
+    }
+
+    html += renderBlocksPlayHtml(ending.blocks);
+
+    main.innerHTML = html;
+
+    main.querySelectorAll('[data-copy-block]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var block = findBlock(ending, btn.getAttribute('data-copy-block'));
+        copyText(block ? block.content : '', btn);
+      });
+    });
+    main.querySelectorAll('[data-copy-raw]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        copyText(btn.getAttribute('data-copy-raw'), btn);
+      });
+    });
+    var copyAllBtn = main.querySelector('[data-copy-all]');
+    if (copyAllBtn) {
+      copyAllBtn.addEventListener('click', function () {
+        var lines = [ending.title, ''];
+        if (ending.condition) lines.push('[도달 조건]', ending.condition, '');
+        ending.blocks.forEach(function (block) {
+          if ((block.type === 'text' || block.type === 'memo' || block.type === 'truth') && block.content) {
+            lines.push('[' + block.label + ']', block.content, '');
+          }
+        });
+        copyText(lines.join('\n'), copyAllBtn);
+      });
+    }
+  }
+
   /* ---------- 타임라인 / 플로우차트 뷰 ---------- */
 
   function renderTimelineMode(main, scenario) {
@@ -3080,7 +3400,7 @@ textarea.handout-gmnote { background: var(--gold-soft); border-color: rgba(169, 
     html += '<h1 class="scene-play-title">타임라인</h1>';
     html += '</div></div>';
 
-    if (!scenario.parts.length) {
+    if (!scenario.parts.length && !(scenario.endings || []).length) {
       html += '<div class="timeline-empty">아직 파트가 없어요.<br>왼쪽에서 파트와 씬을 먼저 만들어주세요.</div>';
       main.innerHTML = html;
       return;
@@ -3116,14 +3436,48 @@ textarea.handout-gmnote { background: var(--gold-soft); border-color: rgba(169, 
       if (partIdx < scenario.parts.length - 1) html += '<div class="timeline-part-arrow-down">↓</div>';
       html += '</div>';
     });
+
+    var endings = (scenario.endings || []);
+    if (endings.length) {
+      html += '<div class="timeline-part-arrow-down">↓</div>';
+      html += '<div class="timeline-part">';
+      html += '<div class="timeline-part-title">엔딩<span class="part-count">' + endings.length + '개</span></div>';
+      html += '<div class="timeline-endings-row">';
+      endings.forEach(function (ending) {
+        var meta = ENDING_TYPES[ending.endingType] || ENDING_TYPES.normal;
+        var active = ending.id === state.currentEndingId;
+        html += '<div class="timeline-ending-node' + (active ? ' is-active' : '') + '" data-tl-ending="' + ending.id + '" style="border-top-color:' + meta.color + ';">';
+        html += '<div class="timeline-ending-title">' + escapeHtml(ending.title || '(제목 없음)') + '</div>';
+        html += '<div class="timeline-ending-type" style="color:' + meta.color + ';">' + meta.label + '</div>';
+        html += '</div>';
+      });
+      html += '</div></div>';
+    }
+
     html += '</div>';
 
     main.innerHTML = html;
+
+    main.querySelectorAll('[data-tl-ending]').forEach(function (node) {
+      node.addEventListener('click', function () {
+        state.currentEndingId = node.getAttribute('data-tl-ending');
+        state.currentSceneId = null;
+        state.currentPartId = null;
+        state.mode = 'edit';
+        document.querySelectorAll('.mode-switch button[data-mode]').forEach(function (b) {
+          b.classList.toggle('is-active', b.getAttribute('data-mode') === 'edit');
+        });
+        renderTree();
+        renderEndingsList();
+        renderMain();
+      });
+    });
 
     main.querySelectorAll('[data-tl-scene]').forEach(function (node) {
       node.addEventListener('click', function () {
         state.currentPartId = node.getAttribute('data-tl-part');
         state.currentSceneId = node.getAttribute('data-tl-scene');
+        state.currentEndingId = null;
         state.openParts[state.currentPartId] = true;
         state.mode = 'edit';
         document.querySelectorAll('.mode-switch button[data-mode]').forEach(function (b) {
@@ -3608,6 +3962,22 @@ textarea.handout-gmnote { background: var(--gold-soft); border-color: rgba(169, 
     return out;
   }
 
+  function getAllEndingsFlat() {
+    var out = [];
+    state.data.scenarios.forEach(function (scenario) {
+      (scenario.endings || []).forEach(function (ending) {
+        out.push({ scenario: scenario, ending: ending });
+      });
+    });
+    return out;
+  }
+
+  function collectEndingTextRefs(ending) {
+    var refs = collectSceneTextRefs(ending);
+    refs.push({ block: null, get: function () { return ending.condition; }, set: function (v) { ending.condition = v; } });
+    return refs;
+  }
+
   function collectSceneTextRefs(scene) {
     var refs = [];
     (scene.blocks || []).forEach(function (block) {
@@ -3648,14 +4018,19 @@ textarea.handout-gmnote { background: var(--gold-soft); border-color: rgba(169, 
 
   function collectTextRefs(sceneOnly) {
     // { get, set } 형태로 텍스트 필드에 대한 참조 목록을 만든다.
-    // sceneOnly가 true면 현재 열려있는 씬 안에서만 찾는다.
+    // sceneOnly가 true면 현재 열려있는 씬(또는 엔딩) 안에서만 찾는다.
     if (sceneOnly) {
+      var ending = getCurrentEnding();
+      if (ending) return collectEndingTextRefs(ending);
       var scene = getCurrentScene();
       return scene ? collectSceneTextRefs(scene) : [];
     }
     var refs = [];
     getAllScenesFlat().forEach(function (e) {
       refs = refs.concat(collectSceneTextRefs(e.scene));
+    });
+    getAllEndingsFlat().forEach(function (e) {
+      refs = refs.concat(collectEndingTextRefs(e.ending));
     });
     return refs;
   }
@@ -3703,22 +4078,50 @@ textarea.handout-gmnote { background: var(--gold-soft); border-color: rgba(169, 
         });
       });
       if (count > 0) {
-        results.push({ scenario: scenario, part: part, scene: scene, count: count, snippet: snippet });
+        results.push({ kind: 'scene', scenario: scenario, part: part, scene: scene, count: count, snippet: snippet });
+      }
+    });
+    getAllEndingsFlat().forEach(function (e) {
+      var scenario = e.scenario, ending = e.ending;
+      var count = 0;
+      var snippet = '';
+      if (ending.title && ending.title.toLowerCase().indexOf(lowerTerm) > -1) count++;
+      var texts = [ending.condition];
+      (ending.blocks || []).forEach(function (block) { texts = texts.concat(collectBlockTexts(block)); });
+      texts.forEach(function (t) {
+        if (!t) return;
+        var idx = t.toLowerCase().indexOf(lowerTerm);
+        if (idx === -1) return;
+        count++;
+        if (!snippet) {
+          var start = Math.max(0, idx - 16);
+          var end = Math.min(t.length, idx + term.length + 30);
+          snippet = (start > 0 ? '…' : '') + t.slice(start, end) + (end < t.length ? '…' : '');
+        }
+      });
+      if (count > 0) {
+        results.push({ kind: 'ending', scenario: scenario, ending: ending, count: count, snippet: snippet });
       }
     });
     return results;
   }
 
-  // 지금 열려있는 씬 "안에서만" 검색 - 블록 단위로 결과를 반환
-  function searchWithinScene(scene, term) {
+  // 지금 열려있는 씬(또는 엔딩) "안에서만" 검색 - 블록 단위로 결과를 반환
+  function searchWithinScene(entry, term) {
     var results = [];
-    if (!scene || !term) return results;
+    if (!entry || !term) return results;
     var lowerTerm = term.toLowerCase();
-    (scene.blocks || []).forEach(function (block) {
-      var meta = BLOCK_TYPES[block.type] || BLOCK_TYPES.text;
+    var blocks = (entry.blocks || []).slice();
+    if (typeof entry.condition === 'string' && entry.condition) {
+      blocks = [{ id: '__condition__', type: '__condition__', label: '도달 조건' }].concat(blocks);
+    }
+    blocks.forEach(function (block) {
+      var isCondition = block.type === '__condition__';
+      var meta = isCondition ? { color: '#5c2f3d' } : (BLOCK_TYPES[block.type] || BLOCK_TYPES.text);
       var count = 0;
       var snippet = '';
-      collectBlockTexts(block).forEach(function (t) {
+      var texts = isCondition ? [entry.condition] : collectBlockTexts(block);
+      texts.forEach(function (t) {
         if (!t) return;
         var idx = 0;
         while (true) {
@@ -3788,7 +4191,12 @@ textarea.handout-gmnote { background: var(--gold-soft); border-color: rgba(169, 
     var findPanel = document.getElementById('find-panel');
     var replacePanel = document.getElementById('replace-panel');
     var okBtn = document.getElementById('replace-modal-ok');
-    var currentScene = getCurrentScene();
+    var currentEnding = getCurrentEnding();
+    var currentScene = currentEnding || getCurrentScene();
+    var sceneScopeLabel = currentEnding ? '현재 엔딩' : '현재 씬';
+    document.querySelectorAll('#find-scope-switch [data-scope="scene"], #replace-scope-switch [data-scope="scene"]').forEach(function (b) {
+      b.textContent = sceneScopeLabel;
+    });
 
     var findScope = currentScene ? 'scene' : 'all';
     var replaceScope = currentScene ? 'scene' : 'all';
@@ -3819,8 +4227,8 @@ textarea.handout-gmnote { background: var(--gold-soft); border-color: rgba(169, 
     function replaceScopeGet() { return replaceScope; }
     function replaceScopeSet(v) {
       replaceScope = v;
-      replaceScopeDesc.textContent = v === 'scene' ? '지금 열려있는 씬 안에서만 바꿉니다.' : '모든 시나리오의 본문·키퍼 메모·분기·판정 내용에서 한꺼번에 바꿉니다.';
-      okBtn.textContent = v === 'scene' ? '이 씬에서 바꾸기' : '전체 바꾸기';
+      replaceScopeDesc.textContent = v === 'scene' ? ('지금 열려있는 ' + sceneScopeLabel.replace('현재 ', '') + ' 안에서만 바꿉니다.') : '모든 시나리오의 본문·키퍼 메모·분기·판정 내용에서 한꺼번에 바꿉니다.';
+      okBtn.textContent = v === 'scene' ? (sceneScopeLabel + '에서 바꾸기') : '전체 바꾸기';
     }
 
     setupScopeSwitch('find-scope-switch', findScopeGet, findScopeSet, function () { updateFindResults(); });
@@ -3857,15 +4265,15 @@ textarea.handout-gmnote { background: var(--gold-soft); border-color: rgba(169, 
     function updateFindResults() {
       var term = findOnlyInput.value.trim();
       if (!term) {
-        findResults.innerHTML = '<p style="font-size:12.5px; color:var(--faint); margin:8px 2px 0;">검색어를 입력하면 ' + (findScope === 'scene' ? '이 씬 안에서' : '이 단어가 들어간 씬들을') + ' 보여드려요.</p>';
+        findResults.innerHTML = '<p style="font-size:12.5px; color:var(--faint); margin:8px 2px 0;">검색어를 입력하면 ' + (findScope === 'scene' ? (sceneScopeLabel + ' 안에서') : '이 단어가 들어간 씬·엔딩들을') + ' 보여드려요.</p>';
         return;
       }
 
       if (findScope === 'scene') {
-        if (!currentScene) { findResults.innerHTML = '<p style="font-size:12.5px; color:var(--faint); margin:8px 2px 0;">먼저 씬을 선택해주세요.</p>'; return; }
+        if (!currentScene) { findResults.innerHTML = '<p style="font-size:12.5px; color:var(--faint); margin:8px 2px 0;">먼저 씬이나 엔딩을 선택해주세요.</p>'; return; }
         var blockResults = searchWithinScene(currentScene, term);
-        if (!blockResults.length) { findResults.innerHTML = '<p style="font-size:12.5px; color:var(--faint); margin:8px 2px 0;">이 씬 안에서 일치하는 내용이 없어요.</p>'; return; }
-        var html2 = '<p style="font-size:11.5px; color:var(--muted); margin:8px 2px 8px;">이 씬에서 ' + blockResults.length + '개 블록에서 발견됐어요</p>';
+        if (!blockResults.length) { findResults.innerHTML = '<p style="font-size:12.5px; color:var(--faint); margin:8px 2px 0;">' + sceneScopeLabel + ' 안에서 일치하는 내용이 없어요.</p>'; return; }
+        var html2 = '<p style="font-size:11.5px; color:var(--muted); margin:8px 2px 8px;">' + sceneScopeLabel + '에서 ' + blockResults.length + '개 블록에서 발견됐어요</p>';
         blockResults.forEach(function (r) {
           html2 += '<div class="find-result-item" data-find-block="' + r.block.id + '">';
           html2 += '<div class="find-result-head"><span class="find-result-title"><span class="swatch" style="background:' + r.color + '; display:inline-block; width:8px; height:8px; border-radius:2px; margin-right:6px;"></span>' + escapeHtml(r.blockLabel) + '</span><span class="find-result-count">' + r.count + '건</span></div>';
@@ -3884,22 +4292,36 @@ textarea.handout-gmnote { background: var(--gold-soft); border-color: rgba(169, 
         findResults.innerHTML = '<p style="font-size:12.5px; color:var(--faint); margin:8px 2px 0;">일치하는 내용이 없어요.</p>';
         return;
       }
-      var html = '<p style="font-size:11.5px; color:var(--muted); margin:8px 2px 8px;">' + results.length + '개 씬에서 발견됐어요</p>';
+      var html = '<p style="font-size:11.5px; color:var(--muted); margin:8px 2px 8px;">' + results.length + '개 항목에서 발견됐어요</p>';
       results.forEach(function (r) {
-        html += '<div class="find-result-item" data-find-platform="' + r.scenario.platformId + '" data-find-scenario="' + r.scenario.id + '" data-find-part="' + r.part.id + '" data-find-scene="' + r.scene.id + '">';
-        html += '<div class="find-result-head"><span class="find-result-title">' + escapeHtml(r.scene.title) + '</span><span class="find-result-count">' + r.count + '건</span></div>';
-        html += '<div class="find-result-path">' + escapeHtml(r.scenario.title) + ' / ' + escapeHtml(r.part.title) + '</div>';
+        if (r.kind === 'ending') {
+          var meta = ENDING_TYPES[r.ending.endingType] || ENDING_TYPES.normal;
+          html += '<div class="find-result-item" data-find-kind="ending" data-find-platform="' + r.scenario.platformId + '" data-find-scenario="' + r.scenario.id + '" data-find-ending="' + r.ending.id + '">';
+          html += '<div class="find-result-head"><span class="find-result-title"><span class="swatch" style="background:' + meta.color + '; display:inline-block; width:8px; height:8px; border-radius:2px; margin-right:6px;"></span>' + escapeHtml(r.ending.title || '(제목 없음)') + '</span><span class="find-result-count">' + r.count + '건</span></div>';
+          html += '<div class="find-result-path">' + escapeHtml(r.scenario.title) + ' / 엔딩 · ' + meta.label + '</div>';
+        } else {
+          html += '<div class="find-result-item" data-find-kind="scene" data-find-platform="' + r.scenario.platformId + '" data-find-scenario="' + r.scenario.id + '" data-find-part="' + r.part.id + '" data-find-scene="' + r.scene.id + '">';
+          html += '<div class="find-result-head"><span class="find-result-title">' + escapeHtml(r.scene.title) + '</span><span class="find-result-count">' + r.count + '건</span></div>';
+          html += '<div class="find-result-path">' + escapeHtml(r.scenario.title) + ' / ' + escapeHtml(r.part.title) + '</div>';
+        }
         if (r.snippet) html += '<div class="find-result-snippet">' + highlightTerm(r.snippet, term) + '</div>';
         html += '</div>';
       });
       findResults.innerHTML = html;
-      findResults.querySelectorAll('[data-find-scene]').forEach(function (el) {
+      findResults.querySelectorAll('[data-find-kind]').forEach(function (el) {
         el.addEventListener('click', function () {
           state.currentPlatformId = el.getAttribute('data-find-platform');
           state.currentScenarioId = el.getAttribute('data-find-scenario');
-          state.currentPartId = el.getAttribute('data-find-part');
-          state.currentSceneId = el.getAttribute('data-find-scene');
-          state.openParts[state.currentPartId] = true;
+          if (el.getAttribute('data-find-kind') === 'ending') {
+            state.currentEndingId = el.getAttribute('data-find-ending');
+            state.currentPartId = null;
+            state.currentSceneId = null;
+          } else {
+            state.currentPartId = el.getAttribute('data-find-part');
+            state.currentSceneId = el.getAttribute('data-find-scene');
+            state.currentEndingId = null;
+            state.openParts[state.currentPartId] = true;
+          }
           state.mode = 'edit';
           document.querySelectorAll('.mode-switch button[data-mode]').forEach(function (b) {
             b.classList.toggle('is-active', b.getAttribute('data-mode') === 'edit');
@@ -3983,6 +4405,7 @@ textarea.handout-gmnote { background: var(--gold-soft); border-color: rgba(169, 
         state.currentScenarioId = null;
         state.currentPartId = null;
         state.currentSceneId = null;
+        state.currentEndingId = null;
         state.openParts = {};
         ensureSelection();
         ensureLibrary();
@@ -4005,6 +4428,7 @@ textarea.handout-gmnote { background: var(--gold-soft); border-color: rgba(169, 
     state.currentScenarioId = null;
     state.currentPartId = null;
     state.currentSceneId = null;
+    state.currentEndingId = null;
     state.openParts = {};
     resetHistory();
     saveData();
@@ -4027,11 +4451,30 @@ textarea.handout-gmnote { background: var(--gold-soft); border-color: rgba(169, 
     if (!state.currentPlatformId) { showToast('먼저 사이트를 선택하거나 추가해주세요'); return; }
     openPrompt('새 시나리오 이름', '', function (val) {
       if (!val) return;
-      var scenario = { id: uid(), title: val, platformId: state.currentPlatformId, parts: [] };
+      var scenario = { id: uid(), title: val, platformId: state.currentPlatformId, parts: [], endings: [] };
       state.data.scenarios.push(scenario);
       state.currentScenarioId = scenario.id;
       state.currentPartId = null;
       state.currentSceneId = null;
+      state.currentEndingId = null;
+      saveData();
+      render();
+    });
+  });
+
+  document.getElementById('add-ending-btn').addEventListener('click', function () {
+    if (!state.currentScenarioId) { showToast('먼저 시나리오를 선택하거나 만들어주세요'); return; }
+    openPrompt('새 엔딩 이름', '', function (val) {
+      if (!val) return;
+      var endings = getEndings();
+      var ending = {
+        id: uid(), title: val, endingType: 'normal', condition: '',
+        blocks: [{ id: uid(), type: 'text', label: '엔딩 나레이션', content: '' }]
+      };
+      endings.push(ending);
+      state.currentEndingId = ending.id;
+      state.currentSceneId = null;
+      state.currentPartId = null;
       saveData();
       render();
     });
