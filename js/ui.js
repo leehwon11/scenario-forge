@@ -1,0 +1,7 @@
+import{esc}from'./config.js';
+export const $=id=>document.getElementById(id);
+export function toast(msg,dur=1600){const t=$('toast');t.textContent=msg;t.classList.add('show');clearTimeout(toast._t);toast._t=setTimeout(()=>t.classList.remove('show'),dur)}
+export function autoResize(el){el.style.height='auto';el.style.height=(el.scrollHeight+2)+'px'}
+export function autoResizeAll(root){(root||document).querySelectorAll('textarea').forEach(autoResize)}
+export function openPrompt(title,initial,cb){const bg=document.createElement('div');bg.className='modal-bg';bg.innerHTML=`<div class="modal" style="max-width:380px"><div class="modal-head"><h3>${esc(title)}</h3></div><div class="modal-body"><input type="text" class="form-input" id="prompt-inp" value="${esc(initial||'')}"></div><div class="modal-foot"><button class="btn" id="prompt-cancel">취소</button><button class="btn primary" id="prompt-ok">확인</button></div></div>`;$('modal-root').appendChild(bg);const inp=bg.querySelector('#prompt-inp');setTimeout(()=>{inp.focus();inp.select()},30);const close=()=>bg.remove();bg.querySelector('#prompt-ok').onclick=()=>{close();cb(inp.value.trim())};bg.querySelector('#prompt-cancel').onclick=close;inp.onkeydown=e=>{if(e.key==='Enter'){close();cb(inp.value.trim())}if(e.key==='Escape')close()};bg.onclick=e=>{if(e.target===bg)close()}}
+export function md(text){let s=esc(text);s=s.replace(/\*\*\*([^*]+)\*\*\*/g,'<b><i>$1</i></b>');s=s.replace(/\*\*([^*]+)\*\*/g,'<b>$1</b>');s=s.replace(/\*([^*]+)\*/g,'<i>$1</i>');return s}
