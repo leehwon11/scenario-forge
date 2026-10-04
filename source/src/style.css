@@ -72,3 +72,11 @@ button:focus-visible,select:focus-visible,input[type=checkbox]:focus-visible{out
   .hide-m{display:none!important}
   .main{padding:16px 14px 80px!important}
 }
+/* play 화면: 줄별 복사 */
+.tline{display:flex;align-items:flex-start;gap:8px;padding:1px 4px;margin:0 -4px;border-radius:5px}
+.tline:hover{background:var(--sf2)}
+.tline-t{flex:1;min-width:0;white-space:pre-wrap;word-break:break-word}
+.tline .line-copy{opacity:.35;transition:opacity .12s;margin-top:2px}
+.tline:hover .line-copy,.tline .line-copy:focus-visible,.tline .line-copy.copied{opacity:1}
+.copybtn:hover{border-color:var(--blue)!important;color:var(--blue)!important}
+@media (hover:none){.tline .line-copy{opacity:.8}}

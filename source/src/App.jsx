@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
-import { Search,Plus,Trash2,Check,ChevronDown,ChevronUp,ChevronLeft,ChevronRight,Undo2,Redo2,Sun,Moon,CloudUpload,CloudDownload,FileDown,FileUp,FolderPlus,Settings,BookOpen,Eye,EyeOff,Pencil,ArrowUp,ArrowDown,CopyPlus,PanelLeftClose,PanelLeftOpen,MoreHorizontal,Cloud,LogIn,LogOut,RefreshCw,AlertTriangle,ExternalLink,Music,GripVertical,Menu,CircleCheck,Circle } from "lucide-react";
+import { Search,Plus,Trash2,Check,ChevronDown,ChevronUp,ChevronLeft,ChevronRight,Undo2,Redo2,Sun,Moon,CloudUpload,CloudDownload,FileDown,FileUp,FolderPlus,Settings,BookOpen,Eye,EyeOff,Pencil,ArrowUp,ArrowDown,CopyPlus,PanelLeftClose,PanelLeftOpen,MoreHorizontal,Cloud,LogIn,LogOut,RefreshCw,GitBranch,MessageSquareQuote,Dice5,AlertTriangle,ExternalLink,Music,GripVertical,Menu,CircleCheck,Circle } from "lucide-react";
 import { renderR20, renderCoco } from './r20.js'
 import { SK,BT,DEF_ET,PLAT_C,uid,mdR,forExport,download,mig,defData,dropConns,eachText,eachEntry,countIn,allScenes,findTarget,clueUsage,moveIdx } from './data.js'
 import { getItem,setItem,announceSave,onOtherTabSave } from './store.js'
@@ -7,7 +7,7 @@ import { friendly,getUser,onAuth,signIn,signUp,signOut,resetPw,updatePw,fetchRow
 
 const bodyOf=d=>JSON.stringify(forExport(d));
 const hashStr=s=>{let h=5381;for(let i=0;i<s.length;i++)h=(h*33+s.charCodeAt(i))|0;return s.length+':'+(h>>>0).toString(36)};
-import { Btn,IB,Inp,TA,SecTitle,Label,Modal,useToast,useMedia,CopyBtn,useDialog,DialogProvider } from './ui.jsx'
+import { Btn,IB,Inp,TA,SecTitle,Label,Modal,useToast,useMedia,CopyBtn,Lines,useDialog,DialogProvider } from './ui.jsx'
 import { FlowV } from './flow.jsx'
 
 const isTextField=el=>el&&(el.tagName==='TEXTAREA'||(el.tagName==='INPUT'&&!['checkbox','color','file','button'].includes(el.type))||el.isContentEditable);
@@ -481,58 +481,78 @@ function EndingP({ending,sc,plat,mode,gm,up,sel,toast,setMdl,go}){
   </div>;
 }
 // ===== PLAY VIEW =====
+// BGM: 유튜브 링크는 바로 재생 가능한 플레이어로, 음악 파일은 오디오 플레이어로
+const ytId=u=>u?.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/|youtube\.com\/shorts\/)([\w-]{11})/)?.[1]||null;
+const isAudio=u=>/\.(mp3|ogg|wav|m4a|flac|aac)(\?.*)?$/i.test(u||'');
+// 씬 전체 복사용 텍스트: 화면에 보이는(GM 토글 반영) 글 블록만 모음
+function sceneText(entry,gm,isR20){const out=[entry.title,''];
+  for(const b of entry.blocks||[]){const gmOnly=['memo','truth','clue','session-log'].includes(b.type);if(gmOnly&&!gm)continue;
+    if(['text','memo','truth','session-log'].includes(b.type)&&b.content?.trim())out.push(`[${b.label}]`,b.content,'');
+    if(b.type==='lines'&&b.items?.length){out.push(`[${b.label}]`);for(const it of b.items)if(it.text)for(const l of it.text.split('\n'))if(l.trim())out.push(isR20&&it.label?`/as "${it.label}" ${l}`:(it.label?it.label+': ':'')+l);out.push('')}
+    if(b.type==='handout'&&b.content?.trim())out.push(`[${b.title||b.label}]`,b.content,'')}
+  return out.join('\n').trim()}
 function PlayV({entry,sc,pt,plat,gm,isSc,nav}){
   const isR20=plat?.name.toLowerCase().includes('roll20');
+  const asLine=name=>l=>isR20&&name?`/as "${name}" ${l}`:l;
   const renderB=(b)=>{const m=BT[b.type]||BT.text;const isGm=['memo','truth','clue','session-log'].includes(b.type);
     if(isGm&&!gm)return null;
-    const wrap=(color,children,copy)=><div key={b.id} style={{marginBottom:16,paddingLeft:12,borderLeft:`2px solid ${color}`,position:'relative'}}>
+    const wrap=(color,children,copy,copyLabel='전체 복사')=><div key={b.id} style={{marginBottom:16,paddingLeft:12,borderLeft:`2px solid ${color}`,position:'relative'}}>
       <div style={{position:'absolute',left:-5,top:8,width:8,height:8,borderRadius:'50%',border:`2px solid ${color}`,background:'var(--bg2)'}}/>
-      <div style={{fontFamily:'JetBrains Mono,monospace',fontSize:10,fontWeight:600,color:'var(--tx3)',marginBottom:4}}>// {b.label||m.l}{copy&&<CopyBtn text={copy}/>}</div>{children}</div>;
+      <div style={{display:'flex',alignItems:'center',gap:4,fontFamily:'JetBrains Mono,monospace',fontSize:10,fontWeight:600,color:'var(--tx3)',marginBottom:4,minHeight:20}}>
+        <span style={{flex:1}}>// {b.label||m.l}{isGm&&<span style={{marginLeft:6,color:'var(--gold)'}}>GM</span>}</span>{copy&&<CopyBtn text={copy} label={copyLabel} title="블록 전체 복사"/>}</div>{children}</div>;
     const card={border:'1px solid var(--bdr)',borderRadius:8,background:'var(--sf1)',padding:12};
+    const itemHead=(icon,title,copy)=><div style={{display:'flex',alignItems:'center',gap:6,fontWeight:700,fontSize:12,marginBottom:4,color:'var(--tx1)'}}>
+      {icon}<span style={{flex:1,minWidth:0}}>{title||<span style={{color:'var(--tx3)',fontWeight:400}}>(제목 없음)</span>}</span>{copy&&<CopyBtn text={copy} label="전체" title="전체 복사"/>}</div>;
     const gmNote=v=>gm&&v?<div style={{marginTop:8,border:'1px solid rgba(210,153,34,.15)',background:'var(--goldA)',borderRadius:6,padding:'8px 10px',fontSize:12,whiteSpace:'pre-wrap'}}>
       <span style={{fontFamily:'JetBrains Mono,monospace',fontSize:10,fontWeight:700,color:'var(--gold)',border:'1px solid var(--gold)',borderRadius:99,padding:'0 5px',marginRight:6}}>GM</span>{v}</div>:null;
-    if(['text','memo','truth','session-log'].includes(b.type))return wrap(m.c,b.content?<div style={{border:'1px solid var(--bdr)',borderRadius:8,background:'var(--sf1)',padding:'10px 14px',fontSize:13,lineHeight:1.7}}>
-      {b.content.split('\n').map((l,i)=>l.trim()?<div key={i} dangerouslySetInnerHTML={{__html:mdR(l)}}/>:<div key={i} style={{height:6}}/>)}</div>
-      :<div style={{color:'var(--tx3)',fontSize:12}}>empty</div>,b.type==='text'&&b.content?b.content:null);
+    if(['text','memo','truth','session-log'].includes(b.type)){const bg={memo:'var(--goldA)',truth:'var(--coralA)','session-log':'var(--purpleA)'}[b.type]||'var(--sf1)';
+      return wrap(m.c,b.content?<div style={{border:'1px solid var(--bdr)',borderRadius:8,background:bg,padding:'10px 14px',fontSize:13,lineHeight:1.7}}><Lines text={b.content} render={mdR}/></div>
+        :<div style={{color:'var(--tx3)',fontSize:12}}>(비어 있음)</div>,b.content||null)}
     if(b.type==='clue'){const cl=sc?.clues.find(c=>c.id===b.clueId);return wrap('var(--teal)',<div>
-      {cl&&<span style={{display:'inline-flex',alignItems:'center',gap:3,background:'var(--tealA)',color:'var(--teal)',padding:'2px 8px',borderRadius:12,fontFamily:'JetBrains Mono,monospace',fontSize:10,fontWeight:600,marginBottom:6}}>🔗 {cl.name}</span>}
-      {b.content&&<div style={{border:'1px solid var(--bdr)',borderRadius:8,background:'var(--tealA)',padding:'10px 14px',fontSize:13,lineHeight:1.7}}>{b.content}</div>}
-    </div>)}
-    if(b.type==='npc')return wrap('var(--purple)',<div style={{border:'1px solid var(--bdr)',borderRadius:8,background:'var(--sf1)',padding:12}}>
+      {cl&&<span style={{display:'inline-flex',alignItems:'center',gap:3,background:'var(--tealA)',color:'var(--teal)',padding:'2px 8px',borderRadius:12,fontFamily:'JetBrains Mono,monospace',fontSize:10,fontWeight:600,marginBottom:6}}>🔗 {cl.name}{cl.isRedHerring&&' (미끼)'}</span>}
+      {b.content&&<div style={{border:'1px solid var(--bdr)',borderRadius:8,background:'var(--tealA)',padding:'10px 14px',fontSize:13,lineHeight:1.7}}><Lines text={b.content}/></div>}
+    </div>,b.content||null)}
+    if(b.type==='npc')return wrap('var(--purple)',<div style={card}>
       <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:6}}>
-        {b.imageUrl&&<img src={b.imageUrl} style={{width:38,height:38,borderRadius:'50%',objectFit:'cover',border:'1px solid var(--bdr)'}} onError={e=>{e.target.style.display='none'}}/>}
-        <div><div style={{fontFamily:'Instrument Serif,serif',fontSize:16,color:'var(--tx1)'}}>{b.name||'?'}</div>{b.role&&<div style={{fontSize:11,color:'var(--tx3)'}}>{b.role}</div>}</div>
+        {b.imageUrl&&<img src={b.imageUrl} alt="" style={{width:44,height:44,borderRadius:'50%',objectFit:'cover',border:'1px solid var(--bdr)'}} onError={e=>{e.target.style.display='none'}}/>}
+        <div style={{flex:1,minWidth:0}}><div style={{fontFamily:'Instrument Serif,serif',fontSize:17,color:'var(--tx1)'}}>{b.name||'?'}</div>{b.role&&<div style={{fontSize:11,color:'var(--tx3)'}}>{b.role}</div>}</div>
+        {b.name&&<CopyBtn text={b.name} label="이름" title="이름 복사"/>}
       </div>
       {b.traits&&<ul style={{paddingLeft:16,fontSize:12,lineHeight:1.7,margin:0}}>{b.traits.split('\n').filter(l=>l.trim()).map((t,i)=><li key={i}>{t}</li>)}</ul>}
-      {b.lines?.trim()&&<div style={{marginTop:6,borderTop:'1px dashed var(--bdr)',paddingTop:6}}>{b.lines.split('\n').filter(l=>l.trim()).map((l,i)=>
-        <div key={i} style={{fontSize:13,fontStyle:'italic',padding:'2px 0'}}>“{l}”<CopyBtn text={isR20&&b.name?`/as "${b.name}" ${l}`:l}/></div>)}</div>}
+      {b.lines?.trim()&&<div style={{marginTop:6,borderTop:'1px dashed var(--bdr)',paddingTop:6,fontSize:13,fontStyle:'italic'}}><Lines text={b.lines} wrap={asLine(b.name)}/></div>}
     </div>);
     if(b.type==='item'||b.type==='place')return wrap(m.c,<div style={card}>
       <div style={{display:'flex',gap:10}}>
-        {b.imageUrl&&<img src={b.imageUrl} style={{width:64,height:64,borderRadius:6,objectFit:'cover',border:'1px solid var(--bdr)',flexShrink:0}} onError={e=>{e.target.style.display='none'}}/>}
-        <div style={{minWidth:0}}><div style={{fontFamily:'Instrument Serif,serif',fontSize:16,color:'var(--tx1)'}}>{b.name||'?'}</div>
-          {b.description&&<div style={{fontSize:13,lineHeight:1.7,whiteSpace:'pre-wrap'}}>{b.description}</div>}</div></div>
-      {gmNote(b.gmNote)}</div>);
-    if(b.type==='bgm')return wrap(m.c,<div style={{...card,display:'flex',alignItems:'center',gap:8,flexWrap:'wrap'}}>
-      <Music size={14} style={{color:'var(--coral)'}}/><span style={{fontWeight:600,color:'var(--tx1)'}}>{b.title||'(제목 없음)'}</span>
-      {/^https?:\/\//i.test(b.url||'')&&<a href={b.url} target="_blank" rel="noopener noreferrer" style={{display:'inline-flex',alignItems:'center',gap:3,fontSize:11,color:'var(--blue)'}}><ExternalLink size={11}/>열기</a>}
-      {b.note&&<div style={{flexBasis:'100%',fontSize:12,color:'var(--tx3)',whiteSpace:'pre-wrap'}}>{b.note}</div>}</div>);
+        {b.imageUrl&&<img src={b.imageUrl} alt="" style={{width:64,height:64,borderRadius:6,objectFit:'cover',border:'1px solid var(--bdr)',flexShrink:0}} onError={e=>{e.target.style.display='none'}}/>}
+        <div style={{flex:1,minWidth:0}}><div style={{fontFamily:'Instrument Serif,serif',fontSize:17,color:'var(--tx1)'}}>{b.name||'?'}</div>
+          {b.description&&<div style={{fontSize:13,lineHeight:1.7}}><Lines text={b.description}/></div>}</div></div>
+      {gmNote(b.gmNote)}</div>,b.description||null);
+    if(b.type==='bgm'){const yt=ytId(b.url);return wrap(m.c,<div style={card}>
+      <div style={{display:'flex',alignItems:'center',gap:8,flexWrap:'wrap'}}>
+        <Music size={14} style={{color:'var(--coral)'}}/><span style={{fontWeight:600,color:'var(--tx1)',flex:1}}>{b.title||'(제목 없음)'}</span>
+        {b.url&&<CopyBtn text={b.url} label="링크" title="링크 복사"/>}
+        {/^https?:\/\//i.test(b.url||'')&&<a href={b.url} target="_blank" rel="noopener noreferrer" style={{display:'inline-flex',alignItems:'center',gap:3,fontSize:11,color:'var(--blue)'}}><ExternalLink size={11}/>열기</a>}</div>
+      {yt&&<div style={{marginTop:8,position:'relative',paddingTop:'56.25%',borderRadius:6,overflow:'hidden',background:'#000'}}>
+        <iframe src={`https://www.youtube-nocookie.com/embed/${yt}`} title={b.title||'BGM'} allow="autoplay; encrypted-media" allowFullScreen loading="lazy" style={{position:'absolute',inset:0,width:'100%',height:'100%',border:0}}/></div>}
+      {!yt&&isAudio(b.url)&&<audio controls src={b.url} style={{width:'100%',marginTop:8}}/>}
+      {b.note&&<div style={{marginTop:6,fontSize:12,color:'var(--tx3)',whiteSpace:'pre-wrap'}}>{b.note}</div>}</div>)}
     if(b.type==='handout')return wrap('var(--teal)',<div style={{border:'1px solid var(--bdr)',borderRadius:8,overflow:'hidden',background:'var(--sf1)'}}>
       {b.title&&<div style={{padding:'10px 14px 0',fontFamily:'Instrument Serif,serif',fontWeight:700,fontSize:15}}>{b.title}</div>}
-      {b.imageUrl&&<img src={b.imageUrl} style={{maxWidth:'100%',borderRadius:4,margin:'6px 14px'}} onError={e=>{e.target.style.display='none'}}/>}
-      {b.content&&<div style={{padding:'10px 14px',whiteSpace:'pre-wrap',fontSize:13,lineHeight:1.8}}>{b.content}</div>}
-      {gm&&b.gmNote&&<div style={{margin:'0 10px 10px',border:'1px solid rgba(210,153,34,.15)',background:'var(--goldA)',borderRadius:6,padding:'8px 10px',fontSize:12,whiteSpace:'pre-wrap'}}>
-        <span style={{fontFamily:'JetBrains Mono,monospace',fontSize:10,fontWeight:700,color:'var(--gold)',border:'1px solid var(--gold)',borderRadius:99,padding:'0 5px',marginRight:6}}>GM</span>{b.gmNote}</div>}
-    </div>);
-    if((b.type==='branches'||b.type==='lines')&&b.items?.length)return wrap(m.c,<div>{b.items.map(it=><div key={it.id} style={{border:'1px solid var(--bdr)',borderRadius:8,background:'var(--sf1)',padding:10,marginBottom:6,borderLeft:`3px solid ${m.c}`}}>
-      <div style={{fontWeight:700,fontSize:12,marginBottom:3}}>{it.label}</div>
-      {it.text&&<div style={{fontSize:13,whiteSpace:'pre-wrap',fontStyle:b.type==='lines'?'italic':'normal'}}>{it.text}{b.type==='lines'&&<CopyBtn text={isR20&&it.label?`/as "${it.label}" ${it.text}`:it.text}/>}</div>}
-    </div>)}</div>);
-    if(b.type==='checks'&&b.items?.length)return wrap('var(--red)',<div>{b.items.map(c=><div key={c.id} style={{border:'1px solid var(--bdr)',borderRadius:8,background:'var(--sf1)',padding:10,marginBottom:6}}>
-      <div style={{fontWeight:700,fontSize:12,marginBottom:4}}>{c.name||'?'}</div>
-      {[['대성공',c.critSuccess,'var(--gold)'],['성공',c.success,'var(--green)'],['실패',c.fail,'var(--tx4)'],['대실패',c.critFail,'var(--red)']].map(([lb,v,cl])=>
-        v?<div key={lb} style={{display:'flex',gap:8,padding:'3px 0',borderTop:'1px dashed var(--bdr)',fontSize:12}}>
-          <span style={{flex:'0 0 50px',fontFamily:'JetBrains Mono,monospace',fontSize:10,fontWeight:700,color:cl}}>{lb}</span><span style={{flex:1,whiteSpace:'pre-wrap'}}>{v}</span></div>:null)}
+      {b.imageUrl&&<img src={b.imageUrl} alt="" style={{maxWidth:'calc(100% - 28px)',borderRadius:4,margin:'6px 14px'}} onError={e=>{e.target.style.display='none'}}/>}
+      {b.content&&<div style={{padding:'10px 14px',fontSize:13,lineHeight:1.8}}><Lines text={b.content}/></div>}
+      {gm&&b.gmNote&&<div style={{margin:'0 10px 10px'}}>{gmNote(b.gmNote)}</div>}
+    </div>,b.content||null,'복사');
+    if(b.type==='branches'&&b.items?.length)return wrap(m.c,<div>{b.items.map(it=><div key={it.id} style={{...card,padding:10,marginBottom:6,borderLeft:`3px solid ${m.c}`}}>
+      {itemHead(<GitBranch size={12} style={{color:m.c,flexShrink:0}}/>,it.label,it.text||null)}
+      {it.text&&<div style={{fontSize:13,lineHeight:1.7}}><Lines text={it.text}/></div>}</div>)}</div>);
+    if(b.type==='lines'&&b.items?.length)return wrap(m.c,<div>{b.items.map(it=><div key={it.id} style={{...card,padding:10,marginBottom:6,borderLeft:`3px solid ${m.c}`}}>
+      {itemHead(<MessageSquareQuote size={12} style={{color:m.c,flexShrink:0}}/>,it.label,it.text?it.text.split('\n').filter(l=>l.trim()).map(asLine(it.label)).join('\n'):null)}
+      {it.text&&<div style={{fontSize:13,lineHeight:1.7,fontStyle:'italic'}}><Lines text={it.text} wrap={asLine(it.label)}/></div>}</div>)}</div>);
+    if(b.type==='checks'&&b.items?.length)return wrap('var(--red)',<div>{b.items.map(c=><div key={c.id} style={{...card,padding:10,marginBottom:6}}>
+      {itemHead(<Dice5 size={12} style={{color:'var(--red)',flexShrink:0}}/>,c.name)}
+      {[['대성공',c.critSuccess,'var(--gold)'],['성공',c.success,'var(--green)'],['실패',c.fail,'var(--tx3)'],['대실패',c.critFail,'var(--red)']].map(([lb,v,cl])=>
+        v?<div key={lb} style={{display:'flex',gap:8,padding:'4px 0',borderTop:'1px dashed var(--bdr)',fontSize:12,lineHeight:1.6}}>
+          <span style={{flex:'0 0 50px',fontFamily:'JetBrains Mono,monospace',fontSize:10,fontWeight:700,color:cl,paddingTop:2}}>{lb}</span><div style={{flex:1,minWidth:0}}><Lines text={v}/></div></div>:null)}
     </div>)}</div>);
     return null;
   };
@@ -540,6 +560,7 @@ function PlayV({entry,sc,pt,plat,gm,isSc,nav}){
     <div style={{fontFamily:'JetBrains Mono,monospace',fontSize:10,color:'var(--tx3)',marginBottom:4}}>{plat?.name||''} / {sc?.title} / {pt?.title||'endings'}</div>
     <div style={{display:'flex',alignItems:'flex-start',gap:10,marginBottom:8}}>
       <h1 style={{fontFamily:'Instrument Serif,serif',fontSize:28,fontWeight:400,color:'var(--tx1)',flex:1,minWidth:0}}>{entry.title}</h1>
+      <span style={{marginTop:10}}><CopyBtn text={sceneText(entry,gm,isR20)} label="전체 복사" title="이 씬의 글 전체 복사 (GM 블록은 GM 모드일 때만)"/></span>
       {nav&&<Btn onClick={nav.toggleDone} style={{marginTop:6,...(nav.done?{borderColor:'var(--green)',color:'var(--green)',background:'var(--greenA)'}:{})}} title="씬 진행 완료 표시">
         {nav.done?<CircleCheck size={13}/>:<Circle size={13}/>}{nav.done?'완료됨':'완료로 표시'}</Btn>}
     </div>

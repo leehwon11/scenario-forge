@@ -39,11 +39,24 @@ export function useToast(){const[m,setM]=useState(null);const t=useRef();
 export function useMedia(q){const[m,setM]=useState(()=>typeof matchMedia!=='undefined'&&matchMedia(q).matches);
   useEffect(()=>{const mq=matchMedia(q);const h=()=>setM(mq.matches);mq.addEventListener('change',h);return()=>mq.removeEventListener('change',h)},[q]);return m}
 
-// 원문 복사 버튼 (채팅창에 바로 붙여넣기용)
-export function CopyBtn({text}){const[ok,setOk]=useState(false);
-  return<button title="원문 복사" onClick={()=>{navigator.clipboard?.writeText(text).then(()=>{setOk(true);setTimeout(()=>setOk(false),1200)})}}
-    style={{display:'inline-flex',alignItems:'center',gap:3,marginLeft:6,padding:'0 6px',borderRadius:10,border:'1px solid var(--bdr)',fontFamily:'JetBrains Mono,monospace',fontSize:10,fontWeight:600,color:ok?'var(--green)':'var(--tx3)',cursor:'pointer',verticalAlign:'middle'}}>
-    {ok?<Check size={10}/>:<Copy size={10}/>}{ok?'복사됨':'복사'}</button>}
+// 클립보드 복사 (http 환경 등 Clipboard API가 없을 때는 예전 방식으로)
+export async function copyText(text){
+  try{if(navigator.clipboard?.writeText){await navigator.clipboard.writeText(text);return true}}catch(e){}
+  const ta=document.createElement('textarea');ta.value=text;ta.style.cssText='position:fixed;opacity:0;top:0;left:0';document.body.appendChild(ta);ta.select();
+  let ok=false;try{ok=document.execCommand('copy')}catch(e){}document.body.removeChild(ta);return ok}
+// 원문 복사 버튼. icon: 아이콘만 (줄별 복사용)
+export function CopyBtn({text,label='복사',icon,className,title='원문 복사'}){const[ok,setOk]=useState(false);
+  return<button title={title} aria-label={title} className={'copybtn'+(className?' '+className:'')+(ok?' copied':'')} onClick={async e=>{e.stopPropagation();if(await copyText(text)){setOk(true);setTimeout(()=>setOk(false),1200)}}}
+    style={icon?{display:'inline-flex',alignItems:'center',justifyContent:'center',width:22,height:20,borderRadius:6,border:'1px solid var(--bdr)',color:ok?'var(--green)':'var(--tx3)',flexShrink:0,cursor:'pointer'}
+      :{display:'inline-flex',alignItems:'center',gap:3,marginLeft:6,padding:'0 7px',borderRadius:10,border:'1px solid var(--bdr)',fontFamily:'JetBrains Mono,monospace',fontSize:10,fontWeight:600,color:ok?'var(--green)':'var(--tx3)',cursor:'pointer',verticalAlign:'middle',flexShrink:0}}>
+    {ok?<Check size={11}/>:<Copy size={11}/>}{!icon&&(ok?'복사됨':label)}</button>}
+// 여러 줄 텍스트를 줄 단위로 보여주고, 줄마다 복사 버튼 (마우스를 올리면 진하게)
+// render: 줄 표시 방식(기본: 그대로), wrap: 복사할 문자열 가공 (예: Roll20 /as 접두어)
+export function Lines({text,render,wrap=l=>l,style}){
+  if(!text)return null;
+  return<div style={style}>{text.split('\n').map((l,i)=>l.trim()
+    ?<div key={i} className="tline">{render?<span className="tline-t" dangerouslySetInnerHTML={{__html:render(l)}}/>:<span className="tline-t">{l}</span>}<CopyBtn text={wrap(l)} icon className="line-copy" title="이 줄 복사"/></div>
+    :<div key={i} style={{height:8}}/>)}</div>}
 
 // ===== 앱 내부 대화상자 (브라우저 기본 prompt/confirm/alert 대체) =====
 const DlgCtx=createContext(null);
