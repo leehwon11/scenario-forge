@@ -145,3 +145,28 @@ mark.hl{background:var(--goldA);color:var(--tx1);box-shadow:0 0 0 1px var(--gold
 .found-btn{font-size:10.5px;font-weight:600;padding:1px 8px;border-radius:10px;border:1px solid var(--bdr2);color:var(--tx3)}
 .found-btn:hover{border-color:var(--teal);color:var(--teal)}
 .found-btn.on{border-color:var(--teal);background:var(--tealA);color:var(--teal)}
+/* ===== 사용법 ===== */
+.help-btn{width:24px;height:24px;border-radius:50%;border:1.5px solid var(--bdr2);color:var(--tx2);font-weight:800;font-size:13px;line-height:1;flex-shrink:0;display:flex;align-items:center;justify-content:center}
+.help-btn:hover{border-color:var(--blue);color:var(--blue);background:var(--blueA)}
+.help{display:flex;gap:16px;min-height:360px}
+.help-nav{display:flex;flex-direction:column;gap:2px;flex-shrink:0;width:118px}
+.help-nav button{text-align:left;padding:6px 10px;border-radius:6px;font-size:12px;font-weight:600;color:var(--tx3)}
+.help-nav button:hover{color:var(--tx1);background:var(--sf2)}
+.help-nav button.on{color:var(--blue);background:var(--blueA)}
+.help-body{flex:1;min-width:0;font-size:13px;line-height:1.75;color:var(--tx2)}
+.help-body h4{font-size:12.5px;color:var(--tx1);margin:14px 0 4px}
+.help-body h4:first-child{margin-top:0}
+.help-body ul{padding-left:18px;margin:0}
+.help-body li{margin:2px 0}
+.help-body code{font-family:'JetBrains Mono',monospace;font-size:11.5px;background:var(--sf2);border:1px solid var(--bdr);border-radius:4px;padding:0 4px}
+.help-b{color:var(--tx1);font-weight:700}
+.help-lead{margin:0 0 10px;color:var(--tx1)}
+.help-steps{list-style:none;padding:0;margin:0 0 6px}
+.help-step{display:flex;gap:10px;align-items:flex-start;margin:6px 0}
+.help-n{flex-shrink:0;width:20px;height:20px;border-radius:50%;background:var(--blueA);color:var(--blue);font-weight:700;font-size:11px;display:flex;align-items:center;justify-content:center;margin-top:3px}
+.help-tip{margin-top:12px;padding:8px 12px;border-radius:8px;background:var(--goldA);border:1px solid var(--gold);color:var(--tx1);font-size:12px;line-height:1.6}
+.help-gm{font-family:'JetBrains Mono',monospace;font-size:9px;font-weight:700;color:var(--gold);border:1px solid var(--gold);border-radius:8px;padding:0 4px}
+.help-keys{border-collapse:collapse;width:100%;font-size:12.5px}
+.help-keys td{padding:6px 8px;border-bottom:1px solid var(--bdr);vertical-align:top}
+.help-keys td:first-child{white-space:nowrap;width:1%}
+@media (max-width:600px){.help{flex-direction:column;gap:10px;min-height:0}.help-nav{flex-direction:row;flex-wrap:wrap;width:auto}.help-nav button{padding:4px 8px}}
