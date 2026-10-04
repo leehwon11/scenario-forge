@@ -5,7 +5,7 @@ import { CocoP,R20P } from './ChatPreview.jsx'
 import { PlayV } from './PlayView.jsx'
 
 // ===== SCENE PANEL =====
-export function SceneP({scene,pt,sc,plat,mode,gm,up,sel,toast,isR20,isCoco,r20On,setR20On,go}){
+export function SceneP({scene,pt,sc,plat,mode,gm,up,sel,toast,isR20,isCoco,r20On,setR20On,go,setMdl,session}){
   const uS=fn=>up(d=>{const s=d.scenarios.find(x=>x.id===sel.sid).parts.find(x=>x.id===sel.ptid).scenes.find(x=>x.id===sel.scid);fn(s)});
   const lastFocusRef=useRef(null);
   // Insert command snippet at cursor
@@ -75,7 +75,8 @@ export function SceneP({scene,pt,sc,plat,mode,gm,up,sel,toast,isR20,isCoco,r20On
         onClick={()=>insertCmd(`[텍스트](#" style="color:${hex};text-decoration:none;)`)}
         style={{width:20,height:20,borderRadius:'50%',border:'2px solid var(--bdr)',background:hex,cursor:'pointer',padding:0}}
         title={hex}/>)}
+      <span style={{marginLeft:'auto',fontSize:10,color:'var(--tx3)',alignSelf:'center'}}>글 입력 중 <kbd className="kbd">/</kbd> 로도 넣을 수 있어요</span>
     </div>}
-    <div data-block-list><BL entry={scene} upE={fn=>uS(s=>{fn(s)})} sc={sc}/></div>
+    <div data-block-list><BL entry={scene} upE={fn=>uS(s=>{fn(s)})} sc={sc} plat={plat} onManage={()=>setMdl('cmd')}/></div>
   </div>;
 }

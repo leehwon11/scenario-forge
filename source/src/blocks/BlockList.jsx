@@ -1,52 +1,72 @@
-import { useRef } from "react";
-import { ArrowDown,ArrowUp,ChevronDown,ChevronUp,CopyPlus,GripVertical,Plus,Trash2 } from "lucide-react";
+import { useRef, useState, useEffect } from "react";
+import { ArrowDown,ArrowUp,ChevronDown,ChevronUp,CopyPlus,GripVertical,ListIndentDecrease,ListIndentIncrease,Plus,Trash2 } from "lucide-react";
 import { useDrop } from '../components/dnd.js'
-import { Btn,IB,Inp,TA } from '../components/ui.jsx'
+import { Btn,IB,Inp,TA,useAct } from '../components/ui.jsx'
 import { BT,moveIdx,uid } from '../lib/data.js'
+import { SlashMenu } from './SlashMenu.jsx'
 
 // ===== BLOCK LIST =====
-export function BL({entry,upE,sc}){
-  const{over,src,dst}=useDrop();const refs=useRef({});
+export function BL({entry,upE,sc,plat,onManage}){
+  const{over,src,dst}=useDrop();const refs=useRef({});const root=useRef(null);const{removed}=useAct();
   const moveB=(fromId,beforeId)=>{if(fromId===beforeId)return;upE(e=>{const i=e.blocks.findIndex(x=>x.id===fromId);const j=beforeId?e.blocks.findIndex(x=>x.id===beforeId):e.blocks.length;if(i>=0)moveIdx(e.blocks,i,j)})};
   // 블록 전체가 아닌 손잡이에서만 드래그 시작 (텍스트 선택 방해 방지)
   const grip=b=>{const g=src({kind:'block',id:b.id,owner:entry.id});return<span className="grip" title="끌어서 순서 변경" {...g}
     onDragStart={e=>{g.onDragStart(e);const el=refs.current[b.id];if(el)e.dataTransfer.setDragImage(el,10,10)}}><GripVertical size={13}/></span>};
   const acc=d=>d.kind==='block'&&d.owner===entry.id;
   const upB=(bid,fn)=>upE(e=>{const b=e.blocks.find(x=>x.id===bid);if(b)fn(b)});
-  const addB=(type)=>upE(e=>{const nb={id:uid(),type,label:BT[type].l};
+  const addB=(type)=>{const nb={id:uid(),type,label:BT[type].l};
     if(['text','memo','truth','session-log','clue'].includes(type))nb.content='';if(type==='clue')nb.clueId='';
     if(['branches','checks','lines'].includes(type))nb.items=[];
     if(type==='npc'){nb.name='';nb.imageUrl='';nb.role='';nb.traits='';nb.lines=''}
     if(type==='handout'){nb.title='';nb.content='';nb.gmNote='';nb.imageUrl=''}
     if(type==='bgm'){nb.title='';nb.url='';nb.note=''}
     if(type==='item'||type==='place'){nb.name='';nb.imageUrl='';nb.description='';nb.gmNote=''}
-    e.blocks.push(nb)});
-  return<div>
+    upE(e=>{e.blocks.push(nb)});return nb.id};
+  // 새 블록으로 스크롤 + 첫 입력칸에 포커스
+  const added=useRef(null);
+  useEffect(()=>{const id=added.current;if(!id)return;added.current=null;const el=refs.current[id];if(el){el.scrollIntoView({block:'nearest',behavior:'smooth'});el.querySelector('textarea,input:not(.ghost)')?.focus()}});
+  return<div ref={root}>
+    <SlashMenu rootRef={root} cmds={plat?.commands||[]} colors={plat?.savedColors||[]} onManage={onManage}/>
     {entry.blocks.map((b,i)=>{const m=BT[b.type]||BT.text;
-      if(b.collapsed)return<div key={b.id} ref={el=>refs.current[b.id]=el} {...dst(b.id,acc,d=>moveB(d.id,b.id))} className={over===b.id?'drag-over-top':''} style={{marginBottom:8,paddingLeft:12,borderLeft:`2px solid ${m.c}`,opacity:.6,position:'relative'}}>
+      if(b.collapsed)return<div key={b.id} ref={el=>refs.current[b.id]=el} {...dst(b.id,acc,d=>moveB(d.id,b.id))} className={'rail'+(over===b.id?' drag-over-top':'')} style={{marginBottom:8,borderLeftColor:m.c,opacity:.6,marginLeft:b.indent?28:0}}>
         <div className="rail-dot" style={{borderColor:m.c,top:6}}/>
         <div style={{display:'flex',alignItems:'center',gap:5}}>{grip(b)}
           <span style={{fontFamily:'JetBrains Mono,monospace',fontSize:10,fontWeight:600,color:'var(--tx3)',flex:1}}>// {b.label} <span style={{color:'var(--tx3)',fontSize:10}}>▸ 접힘</span></span>
-          <IB I={ChevronDown} s={12} title="펼치기" onClick={()=>upB(b.id,x=>{x.collapsed=false})}/><IB I={CopyPlus} s={12} title="블록 복제" onClick={()=>upE(e=>{const cp=JSON.parse(JSON.stringify(b));cp.id=uid();cp.label+=' (복사)';e.blocks.splice(i+1,0,cp)})}/><IB I={Trash2} s={12} danger title="블록 삭제" onClick={()=>upE(e=>{e.blocks=e.blocks.filter(x=>x.id!==b.id)})}/>
+          <IB I={ChevronDown} s={12} title="펼치기" onClick={()=>upB(b.id,x=>{x.collapsed=false})}/><IB I={CopyPlus} s={12} title="블록 복제" onClick={()=>upE(e=>{const cp=JSON.parse(JSON.stringify(b));cp.id=uid();cp.label+=' (복사)';e.blocks.splice(i+1,0,cp)})}/><IB I={Trash2} s={12} danger title="블록 삭제" onClick={()=>removed(`블록 "${b.label}"`,()=>upE(e=>{e.blocks=e.blocks.filter(x=>x.id!==b.id)}))}/>
         </div></div>;
-      return<div key={b.id} ref={el=>refs.current[b.id]=el} {...dst(b.id,acc,d=>moveB(d.id,b.id))} className={over===b.id?'drag-over-top':''} className="rail" style={{marginBottom:16,borderLeftColor:m.c,marginLeft:b.indent?24:0}}>
+      return<div key={b.id} ref={el=>refs.current[b.id]=el} {...dst(b.id,acc,d=>moveB(d.id,b.id))} className={'rail'+(over===b.id?' drag-over-top':'')} style={{marginBottom:16,borderLeftColor:m.c,marginLeft:b.indent?28:0}}>
         <div className="rail-dot" style={{borderColor:m.c}}/>
         <div style={{display:'flex',alignItems:'center',gap:4,marginBottom:5}}>{grip(b)}
           <input className="ghost" aria-label="블록 이름" value={b.label} onChange={e=>upB(b.id,x=>{x.label=e.target.value})}
             style={{fontFamily:'JetBrains Mono,monospace',fontSize:11,fontWeight:600,color:'var(--tx3)',border:'none',background:'transparent',padding:'1px 4px',flex:1,minWidth:0,outline:'none'}}/>
+          <IB I={b.indent?ListIndentDecrease:ListIndentIncrease} s={12} title={b.indent?'들여쓰기 해제':'들여쓰기 (하위 내용 표시)'} onClick={()=>upB(b.id,x=>{x.indent=!x.indent})}/>
           <IB I={ChevronUp} s={12} onClick={()=>upB(b.id,x=>{x.collapsed=true})} title="접기"/>
           <IB I={ArrowUp} s={12} title="위로" disabled={i===0} onClick={()=>upE(e=>{[e.blocks[i-1],e.blocks[i]]=[e.blocks[i],e.blocks[i-1]]})}/>
           <IB I={ArrowDown} s={12} title="아래로" disabled={i===entry.blocks.length-1} onClick={()=>upE(e=>{[e.blocks[i],e.blocks[i+1]]=[e.blocks[i+1],e.blocks[i]]})}/>
           <IB I={CopyPlus} s={12} title="블록 복제" onClick={()=>upE(e=>{const cp=JSON.parse(JSON.stringify(b));cp.id=uid();cp.label+=' (복사)';e.blocks.splice(i+1,0,cp)})}/>
-          <IB I={Trash2} s={12} danger title="블록 삭제" onClick={()=>upE(e=>{e.blocks=e.blocks.filter(x=>x.id!==b.id)})}/>
+          <IB I={Trash2} s={12} danger title="블록 삭제" onClick={()=>removed(`블록 "${b.label}"`,()=>upE(e=>{e.blocks=e.blocks.filter(x=>x.id!==b.id)}))}/>
         </div>
         <BB b={b} upB={upB} sc={sc} upE={upE} i={i}/>
       </div>})}
-    <div {...dst('end',acc,d=>moveB(d.id,null))} style={{display:'flex',flexWrap:'wrap',gap:4,marginTop:8,paddingTop:14,borderTop:over==='end'?'2px solid var(--blue)':'1px dashed var(--bdr)'}}>
-      {Object.entries(BT).map(([t,{l,I}])=><button key={t} onClick={()=>addB(t)}
-        style={{padding:'5px 11px',borderRadius:6,fontSize:11,fontWeight:600,color:'var(--tx3)',background:'transparent',border:'1px dashed var(--bdr)',cursor:'pointer',display:'flex',alignItems:'center',gap:4,transition:'all .1s'}}>
-        <I size={10}/>{l}</button>)}
+    <div {...dst('end',acc,d=>moveB(d.id,null))} style={{marginTop:8,paddingTop:12,borderTop:over==='end'?'2px solid var(--blue)':'1px dashed var(--bdr)'}}>
+      <AddBlock onAdd={t=>{added.current=addB(t)}}/>
     </div></div>}
+
+// 블록 종류 설명 (추가 메뉴용)
+const BDESC={text:'플레이어에게 읽어줄 지문',memo:'GM만 보는 메모',truth:'숨겨진 사실·배경',clue:'단서 목록과 연결',lines:'화자별 대사',branches:'플레이어 선택과 전개',
+  checks:'대성공~대실패 결과',npc:'인물 카드',handout:'플레이어에게 주는 자료',bgm:'배경 음악 링크',item:'아이템 카드',place:'장소 카드','session-log':'세션 중 기록'};
+const GMONLY=new Set(['memo','truth','clue','session-log']);
+// "+ 블록 추가" 하나로 모은 메뉴
+export function AddBlock({onAdd}){const[open,setOpen]=useState(false);const box=useRef();
+  useEffect(()=>{if(!open)return;const h=e=>{if(!box.current?.contains(e.target))setOpen(false)};const k=e=>{if(e.key==='Escape')setOpen(false)};
+    document.addEventListener('mousedown',h);document.addEventListener('keydown',k);return()=>{document.removeEventListener('mousedown',h);document.removeEventListener('keydown',k)}},[open]);
+  return<div ref={box} style={{position:'relative',display:'inline-block'}}>
+    <Btn onClick={()=>setOpen(!open)} aria-expanded={open} aria-haspopup="menu" style={{borderStyle:'dashed'}}><Plus size={12}/>블록 추가</Btn>
+    {open&&<div role="menu" className="add-menu">
+      {Object.entries(BT).map(([t,{l,c,I}])=><button key={t} role="menuitem" className="add-item" onClick={()=>{setOpen(false);onAdd(t)}}>
+        <span className="add-ic" style={{color:c,borderColor:c}}><I size={13}/></span>
+        <span style={{minWidth:0}}><b>{l}{GMONLY.has(t)&&<span className="add-gm">GM</span>}</b><small>{BDESC[t]}</small></span></button>)}
+    </div>}</div>}
 
 export function BB({b,upB,sc,upE,i}){
   const up=fn=>upB(b.id,fn);

@@ -1,7 +1,7 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { AlertTriangle,BookOpen,Cloud,FileDown,FileUp,LogIn,Menu,Moon,MoreHorizontal,PanelLeftClose,PanelLeftOpen,Redo2,Search,Sun,Undo2 } from "lucide-react";
 import { Sidebar } from './components/Sidebar.jsx'
-import { Btn,DialogProvider,IB,useDialog,useMedia,useToast } from './components/ui.jsx'
+import { ActCtx,Btn,DialogProvider,IB,useDialog,useMedia,useToast } from './components/ui.jsx'
 import { fetchRow,fetchStamp,forcePush,friendly,getUser,onAuth,pushRow } from './lib/cloud.js'
 import { SK,defData,download,forExport,mig,uid } from './lib/data.js'
 import { announceSave,getItem,onOtherTabSave,setItem } from './lib/store.js'
@@ -37,6 +37,12 @@ function AppInner(){
   const[zoom,setZoomS]=useState(()=>{try{return parseFloat(localStorage.getItem(SK+'-zoom'))||1}catch(e){return 1}});
   const setZoom=z=>{setZoomS(z);try{localStorage.setItem(SK+'-zoom',z)}catch(e){}};
   const[r20On,setR20On]=useState(false);
+  // 사이드바 너비 (끌어서 조절, 더블클릭하면 기본값) — 이 기기에 기억
+  const[sbW,setSbW]=useState(()=>{try{return Math.min(480,Math.max(200,parseInt(localStorage.getItem(SK+'-sbw'))||260))}catch(e){return 260}});
+  const startResize=e=>{e.preventDefault();const x0=e.clientX,w0=sbW;let w=w0;
+    const mv=ev=>{w=Math.min(480,Math.max(200,w0+(ev.clientX-x0)/zoom));setSbW(w)};
+    const upH=()=>{document.removeEventListener('pointermove',mv);document.removeEventListener('pointerup',upH);document.body.style.cursor='';try{localStorage.setItem(SK+'-sbw',Math.round(w))}catch(err){}};
+    document.body.style.cursor='col-resize';document.addEventListener('pointermove',mv);document.addEventListener('pointerup',upH)};
   const[conflict,setConflict]=useState(null);const[menu,setMenu]=useState(false); // conflict: {kind:'tab'} | {kind:'server',row}
   const[user,setUser]=useState(null);const[authReady,setAuthReady]=useState(false);
   const[sync,setSync]=useState({s:'off'}); // off | pending | syncing | ok | offline | err
@@ -124,6 +130,9 @@ function AppInner(){
   useEffect(()=>{if(isMobile)setSb(false)},[isMobile]);
 
   const up=useCallback(fn=>{setD(p=>{const n=JSON.parse(JSON.stringify(p));fn(n);return n})},[]);
+  // 삭제처럼 되돌릴 일이 잦은 변경: 실행 후 "되돌리기" 버튼이 있는 알림
+  const removed=useCallback((label,fn)=>{const before=Dref.current;fn();toast(label+' 삭제됨',6000,{label:'되돌리기',fn:()=>{setD(before);toast('되돌렸습니다')}})},[toast]);
+  const act=useMemo(()=>({toast,removed}),[toast,removed]);
   // 데이터 전체 교체 (가져오기·다른 탭 내용) — 테마·선택 상태도 함께 맞춤
   const replaceD=useCallback((nd,keepSel)=>{setD(nd);setThm(nd.theme||'dark');
     setSel(s=>keepSel&&nd.platforms.some(p=>p.id===s.pid)?s:{pid:nd.platforms?.[0]?.id||null,sid:null,ptid:null,scid:null,eid:null})},[]);
@@ -171,8 +180,8 @@ function AppInner(){
   const cloudTitle=(user?`클라우드 (${user.email}) — `:'로그인 — ')+SY[1];
   const sidebarProps={D,sel,go,setSel,up,sc,plat,op,setOp,setMdl,toast,dlg,setSb,isMobile};
 
-  return(<>
-    <div style={{display:'grid',gridTemplateColumns:isMobile?'1fr':sbOpen?'260px 1fr':'0 1fr',gridTemplateRows:'44px auto 1fr',height:`calc(100vh / ${zoom})`,zoom,transition:'grid-template-columns .15s'}}>
+  return(<ActCtx.Provider value={act}>
+    <div style={{display:'grid',gridTemplateColumns:isMobile?'1fr':sbOpen?`${sbW}px 1fr`:'0 1fr',gridTemplateRows:'44px auto 1fr',height:`calc(100vh / ${zoom})`,zoom,position:'relative',transition:'grid-template-columns .15s'}}>
       {/* TOPBAR */}
       <div className="no-print topbar" style={{gridColumn:'1/-1',display:'flex',alignItems:'center',gap:6,padding:'0 12px',background:'var(--sf1)',borderBottom:'1px solid var(--bdr)',overflowX:'auto'}}>
         {(!sbOpen||isMobile)&&<IB I={isMobile?Menu:PanelLeftOpen} onClick={()=>setSb(!sbOpen)} title="사이드바 열기"/>}
@@ -231,12 +240,14 @@ function AppInner(){
         {sbOpen&&!isMobile&&<IB I={PanelLeftClose} onClick={()=>setSb(false)} title="사이드바 닫기" style={{position:'absolute',top:6,right:6,zIndex:5}}/>}
         <Sidebar {...sidebarProps}/>
       </div>
+      {!isMobile&&sbOpen&&<div className="sb-resize no-print" role="separator" aria-orientation="vertical" aria-label="사이드바 너비 조절" title="끌어서 너비 조절 · 더블클릭하면 기본값"
+        onPointerDown={startResize} onDoubleClick={()=>{setSbW(260);try{localStorage.setItem(SK+'-sbw',260)}catch(e){}}} style={{left:sbW-3}}/>}
 
       {/* MAIN */}
       <div className="main" style={{overflowY:'auto',padding:'22px 30px 80px',background:'var(--bg2)',minHeight:0,minWidth:0}}>
         {mode==='flow'&&sc?<FlowV sc={sc} sel={sel} setSel={go} setMode={setMode}/>
         :ending?<EndingP ending={ending} sc={sc} plat={plat} mode={mode} gm={gm} up={up} sel={sel} toast={toast} setMdl={setMdl} go={go}/>
-        :scene?<SceneP scene={scene} pt={pt} sc={sc} plat={plat} mode={mode} gm={gm} up={up} sel={sel} toast={toast} isR20={isR20} isCoco={isCoco} r20On={r20On} setR20On={setR20On} go={go}/>
+        :scene?<SceneP scene={scene} pt={pt} sc={sc} plat={plat} mode={mode} gm={gm} up={up} sel={sel} toast={toast} isR20={isR20} isCoco={isCoco} r20On={r20On} setR20On={setR20On} go={go} setMdl={setMdl}/>
         :sc?<OverviewP sc={sc} plat={plat} up={up} sel={sel} toast={toast} exportSingle={exportSingle} mergeImp={mergeImp} setMdl={setMdl} go={go}/>
         :<div style={{height:'100%',display:'flex',alignItems:'center',justifyContent:'center',flexDirection:'column',gap:10,color:'var(--tx3)',textAlign:'center'}}>
           <BookOpen size={32} strokeWidth={1.5} style={{opacity:.5}}/><h3 style={{fontFamily:'JetBrains Mono,monospace',fontSize:14,color:'var(--tx2)'}}>{D.scenarios.some(s=>s.platformId===sel.pid)?'시나리오를 선택하세요':'새 시나리오를 만들어 보세요'}</h3>
@@ -245,12 +256,12 @@ function AppInner(){
     </div>
     {/* MODALS */}
     {(modal==='account'||modal==='account-recovery')&&<AccountM user={user} sync={sync} SY={SY} recovery={modal==='account-recovery'} syncNow={()=>{setConflict(c=>c?.kind==='server'?c:null);syncNow()}} toast={toast} onClose={()=>setMdl(null)}/>}
-    {modal==='find'&&<FindM D={D} up={up} setSel={go} setMode={setMode} onClose={()=>setMdl(null)} toast={toast}/>}
+    {modal==='find'&&<FindM D={D} up={up} sel={sel} setSel={go} setMode={setMode} onClose={()=>setMdl(null)} toast={toast}/>}
     {(modal==='platform'||modal?.type==='platform')&&<PlatM D={D} up={up} setSel={setSel} sel={sel} editId={modal?.id} onClose={()=>setMdl(null)} toast={toast}/>}
     {modal==='cmd'&&<CmdM plat={plat} up={up} sel={sel} onClose={()=>setMdl(null)}/>}
     {modal==='lib'&&<LibM sc={sc} up={up} sel={sel} scene={scene} onClose={()=>setMdl(null)} toast={toast}/>}
     {modal==='endingTypes'&&<ETM sc={sc} up={up} sel={sel} onClose={()=>setMdl(null)}/>}
     {modal?.type==='clueEdit'&&<ClueEditM sc={sc} clueId={modal.clueId} up={up} sel={sel} onClose={()=>setMdl(null)} go={go}/>}
     {Toast}
-  </>);
+  </ActCtx.Provider>);
 }

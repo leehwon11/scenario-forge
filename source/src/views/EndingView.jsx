@@ -20,6 +20,6 @@ export function EndingP({ending,sc,plat,mode,gm,up,sel,toast,setMdl,go}){
       <span className="rail-label">// condition</span>
       <TA value={ending.condition||''} onChange={v=>uE(en=>{en.condition=v})} placeholder="도달 조건" bg="var(--coralA)"/>
     </div>
-    <BL entry={ending} upE={fn=>uE(en=>{fn(en)})} sc={sc}/>
+    <BL entry={ending} upE={fn=>uE(en=>{fn(en)})} sc={sc} plat={plat} onManage={()=>setMdl('cmd')}/>
   </div>;
 }

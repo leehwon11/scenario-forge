@@ -34,10 +34,16 @@ export const Modal=({title,onClose,children,footer,width=520})=>{
       <div style={{padding:'14px 16px',overflowY:'auto',flex:1}}>{children}</div>
       {footer&&<div style={{display:'flex',justifyContent:'flex-end',gap:6,padding:'10px 16px',borderTop:'1px solid var(--bdr)'}}>{footer}</div>}</div></div>};
 
+// 토스트: action={label,fn}을 주면 버튼이 붙는다 (예: 삭제 후 "되돌리기")
 export function useToast(){const[m,setM]=useState(null);const t=useRef();
-  const show=useCallback((msg,dur=1600)=>{clearTimeout(t.current);setM(msg);t.current=setTimeout(()=>setM(null),dur)},[]);
-  const T=m?<div role="status" style={{position:'fixed',bottom:20,left:'50%',transform:'translateX(-50%)',background:'var(--tx1)',color:'var(--bg)',padding:'8px 16px',borderRadius:20,fontSize:12,fontWeight:600,zIndex:200,maxWidth:'calc(100vw - 32px)'}}>{m}</div>:null;
+  const show=useCallback((msg,dur=1600,action=null)=>{clearTimeout(t.current);setM({msg,action});t.current=setTimeout(()=>setM(null),dur)},[]);
+  const T=m?<div role="status" aria-live="polite" className="toast">{m.msg}
+    {m.action&&<button onClick={()=>{clearTimeout(t.current);setM(null);m.action.fn()}} className="toast-act">{m.action.label}</button>}</div>:null;
   return{show,T}}
+
+// 앱 전역 동작 (토스트, 되돌릴 수 있는 삭제) — 깊은 컴포넌트에서 props 없이 사용
+export const ActCtx=createContext({toast:()=>{},removed:()=>{}});
+export const useAct=()=>useContext(ActCtx);
 
 export function useMedia(q){const[m,setM]=useState(()=>typeof matchMedia!=='undefined'&&matchMedia(q).matches);
   useEffect(()=>{const mq=matchMedia(q);const h=()=>setM(mq.matches);mq.addEventListener('change',h);return()=>mq.removeEventListener('change',h)},[q]);return m}

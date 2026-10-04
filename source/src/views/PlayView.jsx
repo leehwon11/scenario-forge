@@ -18,7 +18,7 @@ export function PlayV({entry,sc,pt,plat,gm,isSc,nav}){
   const asLine=name=>l=>isR20&&name?`/as "${name}" ${l}`:l;
   const renderB=(b)=>{const m=BT[b.type]||BT.text;const isGm=['memo','truth','clue','session-log'].includes(b.type);
     if(isGm&&!gm)return null;
-    const wrap=(color,children,copy,copyLabel='전체 복사')=><div key={b.id} className="rail" style={{marginBottom:16,borderLeftColor:color}}>
+    const wrap=(color,children,copy,copyLabel='전체 복사')=><div key={b.id} className="rail" style={{marginBottom:16,borderLeftColor:color,marginLeft:b.indent?28:0}}>
       <div className="rail-dot" style={{borderColor:color}}/>
       <div style={{display:'flex',alignItems:'center',gap:4,fontFamily:'JetBrains Mono,monospace',fontSize:10,fontWeight:600,color:'var(--tx3)',marginBottom:4,minHeight:20}}>
         <span style={{flex:1}}>// {b.label||m.l}{isGm&&<span style={{marginLeft:6,color:'var(--gold)'}}>GM</span>}</span>{copy&&<CopyBtn text={copy} label={copyLabel} title="블록 전체 복사"/>}</div>{children}</div>;
