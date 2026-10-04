@@ -1,0 +1,39 @@
+
+:root,[data-theme="dark"]{
+--bg:#0a0c10;--bg2:#0e1117;--sf1:#161b22;--sf2:#1c2129;--sf3:#21262d;--sf4:#282e36;
+--bdr:#30363d;--bdr2:#444c56;--tx1:#e6edf3;--tx2:#c9d1d9;--tx3:#8b949e;--tx4:#484f58;
+--blue:#58a6ff;--blue2:#1f6feb;--blueA:rgba(88,166,255,.1);
+--green:#3fb950;--greenA:rgba(63,185,80,.1);
+--gold:#d29922;--goldA:rgba(210,153,34,.08);
+--red:#f85149;--redA:rgba(248,81,73,.08);
+--purple:#bc8cff;--purpleA:rgba(188,140,255,.08);
+--teal:#39d2c0;--tealA:rgba(57,210,192,.08);
+--coral:#f97583;--coralA:rgba(249,117,131,.08);
+}
+[data-theme="light"]{
+--bg:#f6f8fa;--bg2:#fff;--sf1:#fff;--sf2:#f6f8fa;--sf3:#eaeef2;--sf4:#d8dee4;
+--bdr:#d0d7de;--bdr2:#afb8c1;--tx1:#1f2328;--tx2:#424a53;--tx3:#656d76;--tx4:#8c959f;
+--blue:#0969da;--blue2:#0550ae;--blueA:rgba(9,105,218,.06);
+--green:#1a7f37;--greenA:rgba(26,127,55,.06);
+--gold:#9a6700;--goldA:rgba(154,103,0,.06);
+--red:#cf222e;--redA:rgba(207,34,46,.06);
+--purple:#8250df;--purpleA:rgba(130,80,223,.06);
+--teal:#0d7d6c;--tealA:rgba(13,125,108,.06);
+--coral:#cf222e;--coralA:rgba(207,34,46,.06);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body,#root{height:100%;font-family:'DM Sans',system-ui,sans-serif;background:var(--bg);color:var(--tx2);font-size:13px;line-height:1.5;-webkit-font-smoothing:antialiased}
+::selection{background:var(--blueA)}
+button{font-family:inherit;cursor:pointer;border:none;background:none}
+input,textarea,select{font-family:inherit;color:inherit}
+textarea{resize:none;overflow:hidden}
+.r20chat{background:#f4f3ee;font-family:'Helvetica Neue',Arial,sans-serif;font-size:13px;color:#333;max-height:300px;overflow-y:auto;border-radius:0 0 6px 6px}
+.r20msg{padding:6px 10px;border-bottom:1px solid #e8e6df}
+.r20msg.desc{background:#e0ddd5;text-align:center;font-weight:bold;font-style:italic}
+.r20chat a{text-decoration:none;color:inherit}
+.iroll{display:inline-block;background:#fef8e3;border:1px solid #e8d48a;border-radius:3px;padding:0 4px;font-weight:bold;color:#7a5c1f;font-size:12px}
+.iroll.crit{border-color:#4a4;color:#272}.iroll.fumble{border-color:#c44;color:#922}
+.query{background:#fff8d0;border:1px dashed #c8b840;border-radius:2px;padding:0 3px;font-size:11px;color:#8a7020;font-style:italic}
+.apibtn{display:inline-block;background:#ce0f69;color:#fff;padding:1px 6px;border-radius:3px;font-size:12px;font-weight:bold}
+.r20img{max-width:100%;border-radius:3px;margin:3px 0;display:block}
+@media print{.no-print{display:none!important}}
