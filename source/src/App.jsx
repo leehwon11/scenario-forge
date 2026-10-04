@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
-import { AlertTriangle,BookOpen,Cloud,FileDown,FileUp,LogIn,Menu,Moon,MoreHorizontal,PanelLeftClose,PanelLeftOpen,Redo2,Search,Sun,Undo2,Swords } from "lucide-react";
+import { AlertTriangle,BookOpen,Cloud,FileDown,FileUp,LogIn,Menu,Moon,MoreHorizontal,PanelLeftClose,PanelLeftOpen,Redo2,Search,Sun,Undo2,Swords,CircleQuestionMark } from "lucide-react";
 import { Sidebar } from './components/Sidebar.jsx'
 import { ActCtx,Btn,DialogProvider,IB,useDialog,useMedia,useToast } from './components/ui.jsx'
 import { fetchRow,fetchStamp,forcePush,friendly,getUser,onAuth,pushRow } from './lib/cloud.js'
@@ -11,6 +11,7 @@ import { CmdM } from './modals/CommandModal.jsx'
 import { ETM } from './modals/EndingTypeModal.jsx'
 import { FindM } from './modals/FindModal.jsx'
 import { PCModal } from './modals/PCModal.jsx'
+import { HelpModal } from './modals/HelpModal.jsx'
 import { SessionPanel } from './views/SessionPanel.jsx'
 import { LibM } from './modals/LibraryModal.jsx'
 import { PlatM } from './modals/PlatformModal.jsx'
@@ -147,7 +148,8 @@ function AppInner(){
     // 입력 중에는 브라우저 기본 실행 취소(글자 단위)를 그대로 쓴다
     if((k==='z'||k==='y')&&isTextField(e.target))return;
     if(k==='z'&&!e.shiftKey){e.preventDefault();undo()}else if((k==='z'&&e.shiftKey)||k==='y'){e.preventDefault();redo()}
-    else if(k==='f'){e.preventDefault();setMdl('find')}};document.addEventListener('keydown',h);return()=>document.removeEventListener('keydown',h)},[undo,redo]);
+    else if(k==='f'){e.preventDefault();setMdl('find')}};
+    const hq=e=>{if(e.key==='?'&&!e.ctrlKey&&!e.metaKey&&!isTextField(e.target)&&!document.querySelector('[role=dialog]')){e.preventDefault();setMdl('help')}};document.addEventListener('keydown',hq);document.addEventListener('keydown',h);return()=>{document.removeEventListener('keydown',h);document.removeEventListener('keydown',hq)}},[undo,redo]);
 
   if(loading||!D)return<div style={{display:'flex',alignItems:'center',justifyContent:'center',height:'100%',color:'var(--tx3)'}}>로딩 중...</div>;
 
@@ -220,12 +222,13 @@ function AppInner(){
         </div></>}
         <input type="file" id="imp" accept=".json" hidden onChange={e=>{if(e.target.files[0])importAll(e.target.files[0]);e.target.value=''}}/>
         {!isMobile&&<IB I={theme==='dark'?Sun:Moon} onClick={toggleTheme} title="테마 전환"/>}
+        {!isMobile&&<button className="help-btn" onClick={()=>setMdl('help')} title="사용법 (?)" aria-label="사용법">?</button>}
       </div>
 
       {/* 모바일 더보기 메뉴 */}
       {isMobile&&menu&&<><div className="no-print" onClick={()=>setMenu(false)} style={{position:'fixed',inset:0,zIndex:60}}/>
         <div className="no-print" role="menu" style={{position:'fixed',top:48,right:8,zIndex:61,background:'var(--sf1)',border:'1px solid var(--bdr)',borderRadius:10,boxShadow:'0 8px 30px rgba(0,0,0,.35)',padding:6,minWidth:200,display:'flex',flexDirection:'column',gap:2}}>
-          {[[Search,'찾기 · 바꾸기',()=>setMdl('find')],[user?Cloud:LogIn,user?'클라우드 · '+SY[1]:'로그인 (클라우드 저장)',()=>setMdl('account')],[FileDown,'전체 JSON 내보내기',exportAll],[FileUp,'JSON 가져오기',()=>document.getElementById('imp')?.click()],[theme==='dark'?Sun:Moon,theme==='dark'?'라이트 테마':'다크 테마',toggleTheme]].map(([I,l,fn])=>
+          {[[Search,'찾기 · 바꾸기',()=>setMdl('find')],[user?Cloud:LogIn,user?'클라우드 · '+SY[1]:'로그인 (클라우드 저장)',()=>setMdl('account')],[FileDown,'전체 JSON 내보내기',exportAll],[FileUp,'JSON 가져오기',()=>document.getElementById('imp')?.click()],[theme==='dark'?Sun:Moon,theme==='dark'?'라이트 테마':'다크 테마',toggleTheme],[CircleQuestionMark,'사용법',()=>setMdl('help')]].map(([I,l,fn])=>
             <button key={l} role="menuitem" onClick={()=>{setMenu(false);fn()}} style={{display:'flex',alignItems:'center',gap:8,padding:'9px 10px',borderRadius:6,fontSize:13,color:'var(--tx1)',textAlign:'left'}}><I size={14}/>{l}</button>)}
           <div style={{display:'flex',alignItems:'center',gap:6,padding:'6px 10px',borderTop:'1px solid var(--bdr)',marginTop:2,fontSize:12,color:'var(--tx3)'}}>글자 크기
             {[.9,1,1.15].map(z=><button key={z} onClick={()=>setZoom(z)} style={{padding:'3px 8px',borderRadius:4,border:'1px solid var(--bdr)',background:zoom===z?'var(--tx1)':'transparent',color:zoom===z?'var(--bg)':'var(--tx2)',fontSize:11}}>{Math.round(z*100)}%</button>)}</div>
@@ -276,6 +279,7 @@ function AppInner(){
     {modal==='cmd'&&<CmdM plat={plat} up={up} sel={sel} onClose={()=>setMdl(null)}/>}
     {modal==='lib'&&<LibM sc={sc} up={up} sel={sel} scene={scene} onClose={()=>setMdl(null)} toast={toast}/>}
     {modal==='endingTypes'&&<ETM sc={sc} up={up} sel={sel} onClose={()=>setMdl(null)}/>}
+    {modal==='help'&&<HelpModal onClose={()=>setMdl(null)}/>}
     {modal?.type==='pc'&&sc&&<PCModal sc={sc} pcId={modal.pcId} up={up} sel={sel} toast={toast} onClose={()=>setMdl(null)}/>}
     {modal?.type==='clueEdit'&&<ClueEditM sc={sc} clueId={modal.clueId} up={up} sel={sel} onClose={()=>setMdl(null)} go={go}/>}
     {Toast}
