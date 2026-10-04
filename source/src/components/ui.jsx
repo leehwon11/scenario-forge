@@ -1,7 +1,10 @@
 import { useState, useEffect, useCallback, useRef, createContext, useContext } from "react";
-import { X, Copy, Check } from "lucide-react";
+import { Check,Copy,X } from "lucide-react";
 
 // ===== UI ATOMS =====
+// 한 줄 말줄임, 목록 행 공통 스타일
+export const ell={flex:1,minWidth:0,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'};
+export const rowSt=(on)=>({display:'flex',alignItems:'center',gap:5,padding:'4px 8px',borderRadius:6,cursor:'pointer',background:on?'var(--blueA)':undefined,color:on?'var(--blue)':'var(--tx2)',fontWeight:on?600:500});
 export const Btn=({children,onClick,primary,danger,small,disabled,style:sx,className,...p})=>(
   <button onClick={onClick} disabled={disabled} className={['btn',danger&&'btn-danger',className].filter(Boolean).join(' ')} style={{display:'inline-flex',alignItems:'center',gap:4,border:`1px solid ${primary?'var(--blue)':danger?'var(--redA)':'var(--bdr)'}`,
     background:primary?'var(--blue)':'transparent',color:primary?'#fff':danger?'var(--red)':'var(--tx3)',

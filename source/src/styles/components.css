@@ -1,0 +1,52 @@
+/* 컴포넌트 · 상호작용 */
+/* ===== 상호작용 ===== */
+.ib:hover:not(:disabled){background:var(--sf3)!important;color:var(--tx1)!important}
+.ib.ib-active:hover{background:var(--blue)!important;color:#fff!important}
+.ib-danger:hover:not(:disabled){background:var(--redA)!important;color:var(--red)!important}
+.btn:hover:not(:disabled){border-color:var(--bdr2)!important;color:var(--tx1)!important}
+.btn.btn-danger:hover:not(:disabled){border-color:var(--red)!important;color:var(--red)!important}
+button:focus-visible,select:focus-visible,input[type=checkbox]:focus-visible{outline:2px solid var(--blue);outline-offset:1px}
+/* 테두리 없는 입력칸: 편집 가능함을 드러냄 */
+.ghost{border-radius:4px;transition:background .1s,box-shadow .1s}
+.ghost:hover{background:var(--sf2)!important}
+.ghost:focus{background:var(--sf2)!important;box-shadow:0 0 0 1px var(--bdr2)}
+/* 목록 행: 동작 버튼은 행에 마우스를 올렸을 때만 */
+.row:hover{background:var(--sf2)}
+.row.sel:hover{background:var(--blueA)}
+.row .acts{opacity:0;transition:opacity .1s}
+.row:hover .acts,.row:focus-within .acts{opacity:1}
+@media (hover:none){.row .acts{opacity:1}}
+/* 드래그 정렬 */
+.drag-over-top{box-shadow:0 -2px 0 0 var(--blue)}
+.drag-over-in{outline:1px dashed var(--blue);outline-offset:-1px}
+.dragging{opacity:.4}
+.grip{cursor:grab;color:var(--tx4);display:flex;align-items:center}
+.grip:active{cursor:grabbing}
+/* 플로우 카드 */
+.fcard{transition:box-shadow .1s,border-color .1s}
+.fcard:hover{box-shadow:0 2px 10px rgba(0,0,0,.25);border-color:var(--bdr2)!important}
+.fcard.hl{border-color:var(--blue)!important;box-shadow:0 0 0 1px var(--blue)}
+/* 모바일 */
+.topbar{scrollbar-width:none}
+.topbar::-webkit-scrollbar{display:none}
+@media (max-width:767px){
+  .hide-m{display:none!important}
+  .main{padding:16px 14px 80px!important}
+}
+/* play 화면: 줄별 복사 */
+.tline{display:flex;align-items:flex-start;gap:8px;padding:1px 4px;margin:0 -4px;border-radius:5px}
+.tline:hover{background:var(--sf2)}
+.tline-t{flex:1;min-width:0;white-space:pre-wrap;word-break:break-word}
+.tline .line-copy{opacity:.35;transition:opacity .12s;margin-top:2px}
+.tline:hover .line-copy,.tline .line-copy:focus-visible,.tline .line-copy.copied{opacity:1}
+.copybtn:hover{border-color:var(--blue)!important;color:var(--blue)!important}
+@media (hover:none){.tline .line-copy{opacity:.8}}
+
+/* ===== 공통 레이아웃 조각 ===== */
+/* 왼쪽 세로줄 + 점 장식 (블록·설정·조건) */
+.rail{position:relative;padding-left:12px;border-left:2px solid var(--bdr)}
+.rail-dot{position:absolute;left:-5px;top:8px;width:8px;height:8px;border-radius:50%;border:2px solid var(--bdr);background:var(--bg2)}
+.rail-label{display:block;font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:600;color:var(--tx3);margin-bottom:4px}
+.card{border:1px solid var(--bdr);border-radius:8px;background:var(--sf1);padding:12px}
+.crumb{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--tx3);margin-bottom:4px}
+.page-title{font-family:'Instrument Serif',serif;font-weight:400;color:var(--tx1);border:none;background:transparent;padding:0 4px;margin-left:-4px;width:100%;outline:none}
