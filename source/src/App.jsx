@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { Search,Plus,Trash2,Check,ChevronDown,ChevronUp,ChevronLeft,ChevronRight,Undo2,Redo2,Sun,Moon,CloudUpload,CloudDownload,FileDown,FileUp,FolderPlus,Settings,BookOpen,Eye,EyeOff,Pencil,ArrowUp,ArrowDown,CopyPlus,PanelLeftClose,PanelLeftOpen,MoreHorizontal,AlertTriangle,ExternalLink,Music,GripVertical,Menu,CircleCheck,Circle } from "lucide-react";
 import { renderR20, renderCoco } from './r20.js'
-import { SK,BT,DEF_ET,PLAT_C,uid,mdR,stripSecrets,download,mig,loadS,saveS,dropConns,eachText,eachEntry,countIn,allScenes,findTarget,clueUsage,moveIdx,gistPush,gistPull } from './data.js'
+import { SK,BT,DEF_ET,PLAT_C,uid,mdR,stripSecrets,download,mig,loadS,saveS,dropConns,eachText,eachEntry,countIn,allScenes,findTarget,clueUsage,moveIdx,gistPush,gistPull,cleanToken,parseGistId } from './data.js'
 import { Btn,IB,Inp,TA,SecTitle,Label,Modal,useToast,useMedia,CopyBtn,useDialog,DialogProvider } from './ui.jsx'
 import { FlowV } from './flow.jsx'
 
@@ -675,22 +675,35 @@ function OverviewP({sc,plat,up,sel,toast,exportSingle,mergeImp,setMdl,go}){
 
 // ===== MODALS =====
 function CloudM({D,up,replaceD,toast,onClose,cloudSt}){const dlg=useDialog();const[tk,setTk]=useState(D.cloud?.token||'');const[gi,setGi]=useState(D.cloud?.gistId||'');const[busy,setBusy]=useState(false);
+  const[err,setErr]=useState(null);const[info,setInfo]=useState(null);
   const auto=!!D.cloud?.auto;
-  const push=async()=>{if(!tk){toast('토큰을 입력하세요');return}setBusy(true);
-    try{const id=await gistPush(D,tk,gi);setGi(id);up(dd=>{dd.cloud.gistId=id;dd.cloud.token=tk});toast('☁ 저장 완료')}catch(e){toast('저장 실패: '+e.message)}finally{setBusy(false)}};
-  const pull=async()=>{if(!tk||!gi){toast('토큰과 Gist ID가 필요합니다');return}setBusy(true);
-    try{const txt=await gistPull(tk,gi);
+  // 입력값은 저장 시점에 정리해서 반영 (토큰 공백 제거, Gist 주소 → ID)
+  const commit=()=>{const t=cleanToken(tk),g=parseGistId(gi);if(t!==tk)setTk(t);if(g!==gi)setGi(g);
+    if(t!==(D.cloud?.token||'')||g!==(D.cloud?.gistId||''))up(d=>{d.cloud.token=t;d.cloud.gistId=g});return[t,g]};
+  const push=async()=>{const[t,g]=commit();setErr(null);setInfo(null);setBusy(true);
+    try{const id=await gistPush(D,t,g);setGi(id);up(dd=>{dd.cloud.gistId=id;dd.cloud.token=t});setInfo(g?'저장했습니다.':`새 Gist를 만들어 저장했습니다. (ID: ${id})`);toast('☁ 저장 완료')}
+    catch(e){setErr(e.message)}finally{setBusy(false)}};
+  const pull=async()=>{const[t,g]=commit();setErr(null);setInfo(null);setBusy(true);
+    try{const txt=await gistPull(t,g);let p;try{p=mig(JSON.parse(txt))}catch(e){throw Error('Gist의 data.json 내용을 읽을 수 없습니다 (JSON 형식 오류).')}
+      if(!p.platforms)throw Error('scenario-forge 데이터가 아닙니다.');
+      setBusy(false);
       if(!await dlg.confirm('현재 데이터 전체를 Gist의 내용으로 덮어씁니다.',{title:'Gist 불러오기',okLabel:'덮어쓰기',danger:true}))return;
-      const p=mig(JSON.parse(txt));p.cloud={...p.cloud,token:tk,gistId:gi,auto};replaceD(p);onClose();toast('☁ 불러오기 완료')}catch(e){toast('불러오기 실패: '+e.message)}finally{setBusy(false)}};
-  return<Modal title="☁ GitHub Gist" onClose={onClose} footer={<><Btn onClick={pull} disabled={busy}><CloudDownload size={11}/>불러오기</Btn><Btn primary onClick={push} disabled={busy}><CloudUpload size={11}/>지금 저장</Btn></>}>
-    <div style={{fontSize:12,color:'var(--tx3)',marginBottom:10}}>GitHub Personal Access Token(<b>gist</b> 권한)으로 비공개 Gist에 저장합니다. 토큰은 이 브라우저에만 보관되며 내보내기·Gist 파일에는 포함되지 않습니다.</div>
-    <div style={{marginBottom:8}}><Label>Token</Label><Inp value={tk} onChange={v=>{setTk(v);up(d=>{d.cloud.token=v})}} placeholder="ghp_..." type="password" autoComplete="off"/></div>
-    <div style={{marginBottom:12}}><Label>Gist ID</Label><Inp value={gi} onChange={v=>{setGi(v);up(d=>{d.cloud.gistId=v})}} placeholder="비워두면 처음 저장할 때 새로 생성"/></div>
+      p.cloud={...p.cloud,token:t,gistId:g,auto};replaceD(p);onClose();toast('☁ 불러오기 완료')}
+    catch(e){setErr(e.message)}finally{setBusy(false)}};
+  return<Modal title="☁ GitHub Gist" onClose={()=>{commit();onClose()}} footer={<><Btn onClick={pull} disabled={busy}><CloudDownload size={11}/>불러오기</Btn><Btn primary onClick={push} disabled={busy}><CloudUpload size={11}/>{busy?'처리 중…':'지금 저장'}</Btn></>}>
+    <div style={{fontSize:12,color:'var(--tx3)',marginBottom:10,lineHeight:1.6}}>GitHub Personal Access Token으로 비공개 Gist에 저장합니다. 토큰은 이 브라우저에만 보관되며 내보내기·Gist 파일에는 포함되지 않습니다.
+      <a href="https://github.com/settings/tokens/new?scopes=gist&description=scenario-forge" target="_blank" rel="noopener noreferrer" style={{color:'var(--blue)',marginLeft:4}}>토큰 만들기 ↗</a>
+      <span style={{display:'block',fontSize:11}}>(Classic 토큰에서 <b>gist</b> 권한만 체크하면 됩니다)</span></div>
+    <div style={{marginBottom:8}}><Label>Token</Label><Inp value={tk} onChange={setTk} onBlur={commit} placeholder="ghp_... 또는 github_pat_..." type="password" autoComplete="off" spellCheck={false}/></div>
+    <div style={{marginBottom:12}}><Label>Gist ID</Label><Inp value={gi} onChange={setGi} onBlur={commit} placeholder="비워두면 처음 저장할 때 새로 생성 (Gist 주소를 붙여넣어도 됩니다)" spellCheck={false}/></div>
+    {err&&<div role="alert" style={{display:'flex',gap:6,alignItems:'flex-start',padding:'8px 10px',marginBottom:10,borderRadius:8,border:'1px solid var(--red)',background:'var(--redA)',color:'var(--tx1)',fontSize:12,lineHeight:1.6}}>
+      <AlertTriangle size={13} style={{color:'var(--red)',flexShrink:0,marginTop:3}}/><span>{err}</span></div>}
+    {info&&<div style={{padding:'8px 10px',marginBottom:10,borderRadius:8,border:'1px solid var(--green)',background:'var(--greenA)',color:'var(--tx1)',fontSize:12}}>✓ {info}</div>}
     <label style={{display:'flex',alignItems:'flex-start',gap:8,padding:'8px 10px',border:'1px solid var(--bdr)',borderRadius:8,cursor:'pointer',background:auto?'var(--greenA)':'transparent'}}>
-      <input type="checkbox" checked={auto} disabled={!tk} onChange={e=>{const v=e.target.checked;up(d=>{d.cloud.auto=v;d.cloud.token=tk})}} style={{marginTop:2,accentColor:'var(--green)'}}/>
-      <span><b style={{color:'var(--tx1)',fontSize:12}}>자동 백업</b><br/><span style={{fontSize:11,color:'var(--tx3)'}}>편집을 멈추고 2분이 지나면 Gist에 자동 저장합니다.{!tk&&' (토큰 입력 필요)'}</span>
+      <input type="checkbox" checked={auto} disabled={!cleanToken(tk)} onChange={e=>{const v=e.target.checked;const[t]=commit();up(d=>{d.cloud.auto=v;d.cloud.token=t})}} style={{marginTop:2,accentColor:'var(--green)'}}/>
+      <span><b style={{color:'var(--tx1)',fontSize:12}}>자동 백업</b><br/><span style={{fontSize:11,color:'var(--tx3)'}}>편집을 멈추고 2분이 지나면 Gist에 자동 저장합니다.{!cleanToken(tk)&&' (토큰 입력 필요)'}</span>
         {auto&&cloudSt&&<span style={{display:'block',fontSize:11,marginTop:3,color:cloudSt.s==='err'?'var(--red)':cloudSt.s==='ok'?'var(--green)':'var(--gold)'}}>
-          {cloudSt.s==='ok'?`마지막 백업 ${cloudSt.t.toLocaleTimeString()}`:cloudSt.s==='pending'?'변경 사항 백업 대기 중…':'백업 실패: '+cloudSt.msg}</span>}</span>
+          {cloudSt.s==='ok'?`마지막 백업 ${cloudSt.t.toLocaleTimeString()}`:cloudSt.s==='pending'?'변경 사항 백업 대기 중…':'자동 백업 실패: '+cloudSt.msg}</span>}</span>
     </label></Modal>}
 
 function FindM({D,up,setSel,setMode,onClose,toast}){const dlg=useDialog();const[t,setT]=useState('');const[rt,setRt]=useState('');const[rm,setRm]=useState('find');
