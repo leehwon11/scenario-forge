@@ -1,7 +1,8 @@
+import { SK } from './data.js'
+
 // ===== 로컬 저장소 =====
 // IndexedDB에 저장 (용량 제한이 사실상 없음). IndexedDB를 쓸 수 없는 환경(일부 시크릿 모드 등)에서는 localStorage로 대체.
 // 이전 버전이 localStorage에 남긴 데이터는 처음 한 번 IndexedDB로 옮긴다.
-import { SK } from './data.js'
 
 const DB='scenario-forge',ST='kv';
 let dbp=null;

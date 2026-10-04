@@ -1,0 +1,18 @@
+/* 기본 요소 · Roll20 채팅 미리보기 */
+*{box-sizing:border-box;margin:0;padding:0}
+html,body,#root{height:100%;font-family:'DM Sans',system-ui,sans-serif;background:var(--bg);color:var(--tx2);font-size:13px;line-height:1.5;-webkit-font-smoothing:antialiased}
+::selection{background:var(--blueA)}
+button{font-family:inherit;cursor:pointer;border:none;background:none}
+input,textarea,select{font-family:inherit;color:inherit}
+textarea{resize:none;overflow:hidden}
+.r20chat{background:#f4f3ee;font-family:'Helvetica Neue',Arial,sans-serif;font-size:13px;color:#333;max-height:300px;overflow-y:auto;border-radius:0 0 6px 6px}
+.r20msg{padding:6px 10px;border-bottom:1px solid #e8e6df}
+.r20msg.desc{background:#e0ddd5;text-align:center;font-weight:bold;font-style:italic}
+.r20chat a{text-decoration:none;color:inherit}
+.iroll{display:inline-block;background:#fef8e3;border:1px solid #e8d48a;border-radius:3px;padding:0 4px;font-weight:bold;color:#7a5c1f;font-size:12px}
+.iroll.crit{border-color:#4a4;color:#272}.iroll.fumble{border-color:#c44;color:#922}
+.query{background:#fff8d0;border:1px dashed #c8b840;border-radius:2px;padding:0 3px;font-size:11px;color:#8a7020;font-style:italic}
+.apibtn{display:inline-block;background:#ce0f69;color:#fff;padding:1px 6px;border-radius:3px;font-size:12px;font-weight:bold}
+.r20img{max-width:100%;border-radius:3px;margin:3px 0;display:block}
+@media print{.no-print{display:none!important}}
+

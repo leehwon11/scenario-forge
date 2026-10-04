@@ -1,3 +1,5 @@
+
+
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const R20S=/^(color|background-color|background-image|background|font-size|font-style|font-weight|text-decoration|text-align|text-shadow|text-transform|letter-spacing|line-height|display|padding|padding-top|padding-bottom|padding-left|padding-right|margin|margin-top|margin-bottom|margin-left|margin-right|border|border-radius|border-color|border-style|border-width|box-shadow|width|max-width|height|opacity|vertical-align|white-space|word-spacing)$/i;
 

@@ -1,7 +1,10 @@
 import { useState, useEffect, useCallback, useRef, createContext, useContext } from "react";
-import { X, Copy, Check } from "lucide-react";
+import { Check,Copy,X } from "lucide-react";
 
 // ===== UI ATOMS =====
+// 한 줄 말줄임, 목록 행 공통 스타일
+export const ell={flex:1,minWidth:0,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'};
+export const rowSt=(on)=>({display:'flex',alignItems:'center',gap:5,padding:'4px 8px',borderRadius:6,cursor:'pointer',background:on?'var(--blueA)':undefined,color:on?'var(--blue)':'var(--tx2)',fontWeight:on?600:500});
 export const Btn=({children,onClick,primary,danger,small,disabled,style:sx,className,...p})=>(
   <button onClick={onClick} disabled={disabled} className={['btn',danger&&'btn-danger',className].filter(Boolean).join(' ')} style={{display:'inline-flex',alignItems:'center',gap:4,border:`1px solid ${primary?'var(--blue)':danger?'var(--redA)':'var(--bdr)'}`,
     background:primary?'var(--blue)':'transparent',color:primary?'#fff':danger?'var(--red)':'var(--tx3)',
@@ -31,19 +34,38 @@ export const Modal=({title,onClose,children,footer,width=520})=>{
       <div style={{padding:'14px 16px',overflowY:'auto',flex:1}}>{children}</div>
       {footer&&<div style={{display:'flex',justifyContent:'flex-end',gap:6,padding:'10px 16px',borderTop:'1px solid var(--bdr)'}}>{footer}</div>}</div></div>};
 
+// 토스트: action={label,fn}을 주면 버튼이 붙는다 (예: 삭제 후 "되돌리기")
 export function useToast(){const[m,setM]=useState(null);const t=useRef();
-  const show=useCallback((msg,dur=1600)=>{clearTimeout(t.current);setM(msg);t.current=setTimeout(()=>setM(null),dur)},[]);
-  const T=m?<div role="status" style={{position:'fixed',bottom:20,left:'50%',transform:'translateX(-50%)',background:'var(--tx1)',color:'var(--bg)',padding:'8px 16px',borderRadius:20,fontSize:12,fontWeight:600,zIndex:200,maxWidth:'calc(100vw - 32px)'}}>{m}</div>:null;
+  const show=useCallback((msg,dur=1600,action=null)=>{clearTimeout(t.current);setM({msg,action});t.current=setTimeout(()=>setM(null),dur)},[]);
+  const T=m?<div role="status" aria-live="polite" className="toast">{m.msg}
+    {m.action&&<button onClick={()=>{clearTimeout(t.current);setM(null);m.action.fn()}} className="toast-act">{m.action.label}</button>}</div>:null;
   return{show,T}}
+
+// 앱 전역 동작 (토스트, 되돌릴 수 있는 삭제) — 깊은 컴포넌트에서 props 없이 사용
+export const ActCtx=createContext({toast:()=>{},removed:()=>{}});
+export const useAct=()=>useContext(ActCtx);
 
 export function useMedia(q){const[m,setM]=useState(()=>typeof matchMedia!=='undefined'&&matchMedia(q).matches);
   useEffect(()=>{const mq=matchMedia(q);const h=()=>setM(mq.matches);mq.addEventListener('change',h);return()=>mq.removeEventListener('change',h)},[q]);return m}
 
-// 원문 복사 버튼 (채팅창에 바로 붙여넣기용)
-export function CopyBtn({text}){const[ok,setOk]=useState(false);
-  return<button title="원문 복사" onClick={()=>{navigator.clipboard?.writeText(text).then(()=>{setOk(true);setTimeout(()=>setOk(false),1200)})}}
-    style={{display:'inline-flex',alignItems:'center',gap:3,marginLeft:6,padding:'0 6px',borderRadius:10,border:'1px solid var(--bdr)',fontFamily:'JetBrains Mono,monospace',fontSize:10,fontWeight:600,color:ok?'var(--green)':'var(--tx3)',cursor:'pointer',verticalAlign:'middle'}}>
-    {ok?<Check size={10}/>:<Copy size={10}/>}{ok?'복사됨':'복사'}</button>}
+// 클립보드 복사 (http 환경 등 Clipboard API가 없을 때는 예전 방식으로)
+export async function copyText(text){
+  try{if(navigator.clipboard?.writeText){await navigator.clipboard.writeText(text);return true}}catch(e){}
+  const ta=document.createElement('textarea');ta.value=text;ta.style.cssText='position:fixed;opacity:0;top:0;left:0';document.body.appendChild(ta);ta.select();
+  let ok=false;try{ok=document.execCommand('copy')}catch(e){}document.body.removeChild(ta);return ok}
+// 원문 복사 버튼. icon: 아이콘만 (줄별 복사용)
+export function CopyBtn({text,label='복사',icon,className,title='원문 복사'}){const[ok,setOk]=useState(false);
+  return<button title={title} aria-label={title} className={'copybtn'+(className?' '+className:'')+(ok?' copied':'')} onClick={async e=>{e.stopPropagation();if(await copyText(text)){setOk(true);setTimeout(()=>setOk(false),1200)}}}
+    style={icon?{display:'inline-flex',alignItems:'center',justifyContent:'center',width:22,height:20,borderRadius:6,border:'1px solid var(--bdr)',color:ok?'var(--green)':'var(--tx3)',flexShrink:0,cursor:'pointer'}
+      :{display:'inline-flex',alignItems:'center',gap:3,marginLeft:6,padding:'0 7px',borderRadius:10,border:'1px solid var(--bdr)',fontFamily:'JetBrains Mono,monospace',fontSize:10,fontWeight:600,color:ok?'var(--green)':'var(--tx3)',cursor:'pointer',verticalAlign:'middle',flexShrink:0}}>
+    {ok?<Check size={11}/>:<Copy size={11}/>}{!icon&&(ok?'복사됨':label)}</button>}
+// 여러 줄 텍스트를 줄 단위로 보여주고, 줄마다 복사 버튼 (마우스를 올리면 진하게)
+// render: 줄 표시 방식(기본: 그대로), wrap: 복사할 문자열 가공 (예: Roll20 /as 접두어)
+export function Lines({text,render,wrap=l=>l,style}){
+  if(!text)return null;
+  return<div style={style}>{text.split('\n').map((l,i)=>l.trim()
+    ?<div key={i} className="tline">{render?<span className="tline-t" dangerouslySetInnerHTML={{__html:render(l)}}/>:<span className="tline-t">{l}</span>}<CopyBtn text={wrap(l)} icon className="line-copy" title="이 줄 복사"/></div>
+    :<div key={i} style={{height:8}}/>)}</div>}
 
 // ===== 앱 내부 대화상자 (브라우저 기본 prompt/confirm/alert 대체) =====
 const DlgCtx=createContext(null);

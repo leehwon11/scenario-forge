@@ -1,8 +1,10 @@
+import { uid } from './data.js'
+import { createClient } from '@supabase/supabase-js'
+
 // ===== Supabase 클라우드 동기화 =====
 // 사용자당 scenario_data 한 줄(data: 전체 JSON, updated_at: 마지막 저장 시각)을 쓴다.
 // 덮어쓰기 충돌을 막기 위해 "내가 마지막으로 본 updated_at"과 같을 때만 갱신한다 (낙관적 잠금).
 // anon 키는 브라우저 공개용 키다. 데이터 보호는 Supabase의 RLS 정책이 담당한다 (supabase-setup.sql 참고).
-import { createClient } from '@supabase/supabase-js'
 
 const SUPABASE_URL='https://njzvpyjkmwufavglizyo.supabase.co';
 const SUPABASE_ANON_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5qenZweWprbXd1ZmF2Z2xpenlvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTEwMTY1MjgsImV4cCI6MjEwNjU5MjUyOH0.WYX_0tKkZzEjtkY9SJoS2U2Pw-zjQzCu8BfD-iHYc6U';
