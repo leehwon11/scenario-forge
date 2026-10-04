@@ -69,11 +69,35 @@ export function clueUsage(sc){const u={};const add=(cid,where)=>{if(!cid)return;
 export const moveIdx=(arr,from,to)=>{const[x]=arr.splice(from,1);arr.splice(to>from?to-1:to,0,x)};
 
 // ===== GitHub Gist =====
-export async function gistPush(D,tk,gi){
-  const r=await fetch(gi?'https://api.github.com/gists/'+gi:'https://api.github.com/gists',{method:gi?'PATCH':'POST',headers:{'Authorization':'token '+tk,'Content-Type':'application/json'},
+// 토큰: 앞뒤 공백·줄바꿈 제거
+export const cleanToken=t=>String(t||'').replace(/\s+/g,'');
+// Gist ID: ID 또는 gist.github.com 주소 모두 허용 (마지막 경로 조각을 사용)
+export const parseGistId=s=>String(s||'').trim().split(/[?#]/)[0].replace(/\/+$/,'').split('/').pop().replace(/\.git$/,'');
+async function gh(url,tk,opt={}){
+  tk=cleanToken(tk);
+  if(!tk)throw Error('토큰을 입력하세요.');
+  if(/[^\x21-\x7e]/.test(tk))throw Error('토큰에 영문·숫자 외의 문자가 섞여 있습니다. 한글 입력 상태로 입력하지 않았는지 확인하세요.');
+  let r;
+  try{r=await fetch(url,{...opt,headers:{'Authorization':'Bearer '+tk,'Accept':'application/vnd.github+json',...(opt.headers||{})}})}
+  catch(e){throw Error('GitHub에 연결하지 못했습니다. 인터넷 연결과 Gist ID를 확인하세요.')}
+  if(r.ok)return r;
+  let msg='';try{msg=(await r.json()).message||''}catch(e){}
+  const hasId=/\/gists\/[^/]+$/.test(url);
+  const why={
+    401:'토큰이 올바르지 않거나 만료되었습니다. GitHub에서 토큰을 다시 발급하세요.',
+    403:r.headers.get('x-ratelimit-remaining')==='0'?'GitHub 요청 한도를 초과했습니다. 잠시 후 다시 시도하세요.'
+      :'토큰에 Gist 권한이 없습니다. Classic 토큰은 "gist"를 체크하고, Fine-grained 토큰은 Account permissions → Gists를 "Read and write"로 설정하세요.',
+    404:hasId?'Gist를 찾을 수 없습니다. Gist ID가 맞는지, 이 토큰 계정의 Gist인지 확인하세요. (새로 만들려면 Gist ID를 비우세요)'
+      :'토큰에 Gist 권한이 없습니다. Classic 토큰은 "gist"를 체크하고, Fine-grained 토큰은 Account permissions → Gists를 "Read and write"로 설정하세요.',
+    422:'GitHub가 요청을 거부했습니다'+(msg?': '+msg:'.'),
+  }[r.status];
+  throw Error(why||`GitHub 오류 ${r.status}${msg?': '+msg:''}`)}
+export async function gistPush(D,tk,gi){gi=parseGistId(gi);
+  const r=await gh(gi?'https://api.github.com/gists/'+encodeURIComponent(gi):'https://api.github.com/gists',tk,{method:gi?'PATCH':'POST',headers:{'Content-Type':'application/json'},
     body:JSON.stringify({description:'scenario-forge',public:false,files:{'data.json':{content:JSON.stringify(stripSecrets(D),null,2)}}})});
-  if(!r.ok)throw Error(r.status);return(await r.json()).id}
-export async function gistPull(tk,gi){
-  const r=await fetch('https://api.github.com/gists/'+gi,{headers:{'Authorization':'token '+tk}});if(!r.ok)throw Error(r.status);
-  const f=(await r.json()).files['data.json'];if(!f)throw Error('파일 없음');
-  if(f.truncated&&f.raw_url){const rr=await fetch(f.raw_url);if(!rr.ok)throw Error(rr.status);return rr.text()}return f.content}
+  return(await r.json()).id}
+export async function gistPull(tk,gi){gi=parseGistId(gi);if(!gi)throw Error('불러올 Gist ID를 입력하세요.');
+  const r=await gh('https://api.github.com/gists/'+encodeURIComponent(gi),tk);
+  const f=(await r.json()).files?.['data.json'];if(!f)throw Error('이 Gist에 data.json 파일이 없습니다. scenario-forge로 저장한 Gist인지 확인하세요.');
+  if(f.truncated&&f.raw_url){let rr;try{rr=await fetch(f.raw_url)}catch(e){throw Error('GitHub에 연결하지 못했습니다.')}if(!rr.ok)throw Error(`GitHub 오류 ${rr.status}`);return rr.text()}
+  return f.content}
