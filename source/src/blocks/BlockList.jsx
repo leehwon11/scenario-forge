@@ -4,6 +4,7 @@ import { useDrop } from '../components/dnd.js'
 import { Btn,IB,Inp,TA,useAct } from '../components/ui.jsx'
 import { BT,moveIdx,uid } from '../lib/data.js'
 import { SlashMenu } from './SlashMenu.jsx'
+import { FlagPicker } from '../components/flags.jsx'
 
 // ===== BLOCK LIST =====
 export function BL({entry,upE,sc,plat,onManage}){
@@ -96,8 +97,9 @@ export function BB({b,upB,sc,upE,i}){
     {(b.items||[]).map((it,ii)=><div key={it.id} style={{border:'1px solid var(--bdr)',borderRadius:8,padding:10,marginBottom:5,borderLeft:`3px solid ${tp==='branches'?'var(--blue)':'#c07030'}`}}>
       <div style={{display:'flex',gap:5,marginBottom:4}}><input className="ghost" value={it.label} onChange={e=>up(x=>{x.items[ii].label=e.target.value})} placeholder={tp==='branches'?'선택지':'화자'}
         style={{flex:1,border:'none',borderBottom:'1px dashed var(--bdr2)',background:'transparent',fontWeight:700,fontSize:12,padding:'2px 0',outline:'none',color:'var(--tx1)'}}/><IB I={Trash2} s={12} danger title="삭제" onClick={()=>up(x=>{x.items.splice(ii,1)})}/></div>
-      <TA value={it.text} onChange={v=>up(x=>{x.items[ii].text=v})} placeholder={tp==='branches'?'전개':'대사'}/></div>)}
-    <Btn small onClick={()=>up(x=>{x.items.push({id:uid(),label:'',text:''})})} style={{width:'100%',justifyContent:'center',borderStyle:'dashed'}}><Plus size={9}/>{tp==='branches'?'분기':'대사'}</Btn></div>}
+      <TA value={it.text} onChange={v=>up(x=>{x.items[ii].text=v})} placeholder={tp==='branches'?'전개':'대사'}/>
+      {tp==='branches'&&<FlagPicker defs={sc?.flags} value={it.needs||[]} onChange={v=>up(x=>{x.items[ii].needs=v})}/>}</div>)}
+    <Btn small onClick={()=>up(x=>{x.items.push({id:uid(),label:'',text:'',...(tp==='branches'?{needs:[]}:{})})})} style={{width:'100%',justifyContent:'center',borderStyle:'dashed'}}><Plus size={9}/>{tp==='branches'?'분기':'대사'}</Btn></div>}
   if(b.type==='checks')return<div>
     {(b.items||[]).map((c,ci)=><div key={c.id} style={{border:'1px solid var(--bdr)',borderRadius:8,padding:10,marginBottom:5,borderLeft:'3px solid var(--red)'}}>
       <div style={{display:'flex',gap:5,marginBottom:4}}><input className="ghost" value={c.name} onChange={e=>up(x=>{x.items[ci].name=e.target.value})} placeholder="판정명"

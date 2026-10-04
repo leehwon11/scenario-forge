@@ -2,7 +2,7 @@ import { useState } from "react";
 import { AlertTriangle,ChevronRight,CopyPlus,FolderPlus,Pencil,Plus,Settings,Trash2 } from "lucide-react";
 import { DRAG,useDrop } from './dnd.js'
 import { Btn,IB,ell,rowSt,useAct } from './ui.jsx'
-import { DEF_ET,SK,clueUsage,dropConns,moveIdx,uid } from '../lib/data.js'
+import { DEF_ET,SK,clueUsage,dropConns,migSession,moveIdx,uid } from '../lib/data.js'
 
 // ===== SIDEBAR =====
 // 접을 수 있는 사이드바 섹션 — 접힘 상태는 이 기기에 기억
@@ -26,7 +26,7 @@ export function Sidebar({D,sel,go,setSel,up,sc,plat,op,setOp,setMdl,toast,dlg,is
   const uSc=fn=>up(d=>{fn(d.scenarios.find(x=>x.id===sel.sid))});
   const{over,src,dst}=useDrop();
   const newScenario=async()=>{if(!sel.pid){toast('사이트를 먼저 선택하세요');return}const n=await dlg.prompt('새 시나리오','',{placeholder:'시나리오 이름'});if(!n)return;const nid=uid();
-    up(d=>{d.scenarios.push({id:nid,title:n,platformId:sel.pid,setting:'',synopsis:'',parts:[],endings:[],clues:[],eventTimeline:[],sessionHistory:[],endingTypes:DEF_ET.map(e=>({...e})),library:{npcs:[],items:[],places:[]}})});
+    up(d=>{d.scenarios.push(migSession({id:nid,title:n,platformId:sel.pid,setting:'',synopsis:'',parts:[],endings:[],clues:[],eventTimeline:[],sessionHistory:[],endingTypes:DEF_ET.map(e=>({...e})),library:{npcs:[],items:[],places:[]}}))});
     go({pid:sel.pid,sid:nid,ptid:null,scid:null,eid:null})};
   const newEnding=async()=>{const n=await dlg.prompt('새 엔딩','',{placeholder:'엔딩 이름'});if(!n)return;const nid=uid();
     uSc(s=>{s.endings.push({id:nid,title:n,endingType:s.endingTypes[0]?.id||'normal',condition:'',blocks:[{id:uid(),type:'text',label:'엔딩 나레이션',content:''}]})});

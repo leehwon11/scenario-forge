@@ -1,6 +1,7 @@
 import { ChevronLeft,ChevronRight,Circle,CircleCheck,Dice5,ExternalLink,GitBranch,MessageSquareQuote,Music } from "lucide-react";
 import { Btn,CopyBtn,Lines,ell } from '../components/ui.jsx'
 import { BT,mdR } from '../lib/data.js'
+import { FlagStatus } from '../components/flags.jsx'
 
 // ===== PLAY VIEW =====
 // BGM: 유튜브 링크는 바로 재생 가능한 플레이어로, 음악 파일은 오디오 플레이어로
@@ -13,7 +14,7 @@ export function sceneText(entry,gm,isR20){const out=[entry.title,''];
     if(b.type==='lines'&&b.items?.length){out.push(`[${b.label}]`);for(const it of b.items)if(it.text)for(const l of it.text.split('\n'))if(l.trim())out.push(isR20&&it.label?`/as "${it.label}" ${l}`:(it.label?it.label+': ':'')+l);out.push('')}
     if(b.type==='handout'&&b.content?.trim())out.push(`[${b.title||b.label}]`,b.content,'')}
   return out.join('\n').trim()}
-export function PlayV({entry,sc,pt,plat,gm,isSc,nav}){
+export function PlayV({entry,sc,pt,plat,gm,isSc,nav,sess}){
   const isR20=plat?.name.toLowerCase().includes('roll20');
   const asLine=name=>l=>isR20&&name?`/as "${name}" ${l}`:l;
   const renderB=(b)=>{const m=BT[b.type]||BT.text;const isGm=['memo','truth','clue','session-log'].includes(b.type);
@@ -30,7 +31,10 @@ export function PlayV({entry,sc,pt,plat,gm,isSc,nav}){
       return wrap(m.c,b.content?<div style={{border:'1px solid var(--bdr)',borderRadius:8,background:bg,padding:'10px 14px',fontSize:13,lineHeight:1.7}}><Lines text={b.content} render={mdR}/></div>
         :<div style={{color:'var(--tx3)',fontSize:12}}>(비어 있음)</div>,b.content||null)}
     if(b.type==='clue'){const cl=sc?.clues.find(c=>c.id===b.clueId);return wrap('var(--teal)',<div>
-      {cl&&<span style={{display:'inline-flex',alignItems:'center',gap:3,background:'var(--tealA)',color:'var(--teal)',padding:'2px 8px',borderRadius:12,fontFamily:'JetBrains Mono,monospace',fontSize:10,fontWeight:600,marginBottom:6}}>🔗 {cl.name}{cl.isRedHerring&&' (미끼)'}</span>}
+      {cl&&<div style={{display:'flex',alignItems:'center',gap:6,marginBottom:6,flexWrap:'wrap'}}>
+        <span style={{display:'inline-flex',alignItems:'center',gap:3,background:'var(--tealA)',color:'var(--teal)',padding:'2px 8px',borderRadius:12,fontFamily:'JetBrains Mono,monospace',fontSize:10,fontWeight:600}}>🔗 {cl.name}{cl.isRedHerring&&' (미끼)'}{cl.leadsTo&&!cl.isRedHerring&&<span style={{color:'var(--tx3)',fontWeight:500}}> → {cl.leadsTo}</span>}</span>
+        {sess&&<button onClick={()=>sess.toggleFound(cl.id)} className={'found-btn'+(sess.found[cl.id]?' on':'')} aria-pressed={!!sess.found[cl.id]} title="이번 세션에서 플레이어가 이 단서를 얻었는지 표시">
+          {sess.found[cl.id]?'✓ 획득함':'획득 표시'}</button>}</div>}
       {b.content&&<div style={{border:'1px solid var(--bdr)',borderRadius:8,background:'var(--tealA)',padding:'10px 14px',fontSize:13,lineHeight:1.7}}><Lines text={b.content}/></div>}
     </div>,b.content||null)}
     if(b.type==='npc')return wrap('var(--purple)',<div className="card">
@@ -65,6 +69,7 @@ export function PlayV({entry,sc,pt,plat,gm,isSc,nav}){
     </div>,b.content||null,'복사');
     if(b.type==='branches'&&b.items?.length)return wrap(m.c,<div>{b.items.map(it=><div key={it.id} className="card" style={{padding:10,marginBottom:6,borderLeft:`3px solid ${m.c}`}}>
       {itemHead(<GitBranch size={12} style={{color:m.c,flexShrink:0}}/>,it.label,it.text||null)}
+      {sess&&<FlagStatus defs={sess.flagDefs} needs={it.needs} state={sess.flags} onToggle={sess.toggleFlag}/>}
       {it.text&&<div style={{fontSize:13,lineHeight:1.7}}><Lines text={it.text}/></div>}</div>)}</div>);
     if(b.type==='lines'&&b.items?.length)return wrap(m.c,<div>{b.items.map(it=><div key={it.id} className="card" style={{padding:10,marginBottom:6,borderLeft:`3px solid ${m.c}`}}>
       {itemHead(<MessageSquareQuote size={12} style={{color:m.c,flexShrink:0}}/>,it.label,it.text?it.text.split('\n').filter(l=>l.trim()).map(asLine(it.label)).join('\n'):null)}
@@ -90,10 +95,11 @@ export function PlayV({entry,sc,pt,plat,gm,isSc,nav}){
       {entry.timeOfDay&&<span><b style={{color:'var(--tx3)'}}>time</b> {entry.timeOfDay}</span>}
       {entry.npcsPresent&&<span><b style={{color:'var(--tx3)'}}>npc</b> {entry.npcsPresent}</span>}
     </div>}
-    {entry.condition&&<div className="rail" style={{marginBottom:16,borderLeftColor:'var(--coral)'}}>
+    {(entry.condition||entry.needs?.length>0)&&<div className="rail" style={{marginBottom:16,borderLeftColor:'var(--coral)'}}>
       <div className="rail-dot" style={{borderColor:'var(--coral)'}}/>
       <div className="rail-label">// condition</div>
-      <div style={{border:'1px solid var(--bdr)',borderRadius:8,background:'var(--coralA)',padding:'10px 14px',whiteSpace:'pre-wrap'}}>{entry.condition}</div>
+      {entry.condition&&<div style={{border:'1px solid var(--bdr)',borderRadius:8,background:'var(--coralA)',padding:'10px 14px',whiteSpace:'pre-wrap'}}>{entry.condition}</div>}
+      {sess&&<FlagStatus defs={sess.flagDefs} needs={entry.needs} state={sess.flags} onToggle={sess.toggleFlag}/>}
     </div>}
     {(entry.blocks||[]).map(renderB)}
     {nav&&<div className="no-print" style={{marginTop:28,paddingTop:14,borderTop:'1px solid var(--bdr)'}}>

@@ -1,11 +1,12 @@
 import { BL } from '../blocks/BlockList.jsx'
 import { TA } from '../components/ui.jsx'
 import { PlayV } from './PlayView.jsx'
+import { FlagPicker } from '../components/flags.jsx'
 
 // ===== ENDING PANEL =====
-export function EndingP({ending,sc,plat,mode,gm,up,sel,toast,setMdl,go}){
+export function EndingP({ending,sc,plat,mode,gm,up,sel,toast,setMdl,go,sess}){
   const uE=fn=>up(d=>{const e=d.scenarios.find(x=>x.id===sel.sid).endings.find(x=>x.id===sel.eid);fn(e)});
-  if(mode==='play')return<PlayV entry={ending} sc={sc} plat={plat} gm={gm}/>;
+  if(mode==='play')return<PlayV entry={ending} sc={sc} plat={plat} gm={gm} sess={sess}/>;
   return<div>
     <div className="crumb">{plat?.name||''} / {sc.title} / endings/</div>
     <input className="ghost page-title" aria-label="엔딩 제목" value={ending.title} onChange={e=>uE(en=>{en.title=e.target.value})} style={{fontSize:26}}/>
@@ -19,6 +20,7 @@ export function EndingP({ending,sc,plat,mode,gm,up,sel,toast,setMdl,go}){
       <div className="rail-dot" style={{borderColor:'var(--coral)'}}/>
       <span className="rail-label">// condition</span>
       <TA value={ending.condition||''} onChange={v=>uE(en=>{en.condition=v})} placeholder="도달 조건" bg="var(--coralA)"/>
+      <FlagPicker defs={sc.flags} value={ending.needs||[]} onChange={v=>uE(en=>{en.needs=v})}/>
     </div>
     <BL entry={ending} upE={fn=>uE(en=>{fn(en)})} sc={sc} plat={plat} onManage={()=>setMdl('cmd')}/>
   </div>;

@@ -32,7 +32,8 @@ for(const sc of(d.scenarios||[])){
   sc.library??={npcs:[],items:[],places:[]};for(const k of['npcs','items','places'])if(!Array.isArray(sc.library[k]))sc.library[k]=[];
   sc.endingTypes??=DEF_ET.map(e=>({...e}));sc.endings??=[];sc.clues??=[];sc.eventTimeline??=[];sc.sessionHistory??=[];sc.setting??='';sc.synopsis??='';
   for(const c of sc.clues){c.isRedHerring??=false;c.leadsTo??=''}
-  for(const e of sc.endings){e.blocks??=[];e.condition??='';e.endingType??='normal'}
+  for(const e of sc.endings){e.blocks??=[];e.condition??='';e.endingType??='normal';e.needs??=[]}
+  migSession(sc);
   for(const p of(sc.parts||[]))for(const s of(p.scenes||[])){
     if(!Array.isArray(s.blocks))s.blocks=[{id:uid(),type:'text',label:'나레이션',content:''}];
     s.location??='';s.timeOfDay??='';s.npcsPresent??='';s.sessionLog??=[];s.connections??=[];
@@ -66,3 +67,30 @@ export function clueUsage(sc){const u={};const add=(cid,where)=>{if(!cid)return;
   return u}
 // 배열 내 이동 (드래그 정렬)
 export const moveIdx=(arr,from,to)=>{const[x]=arr.splice(from,1);arr.splice(to>from?to-1:to,0,x)};
+
+// ===== 세션 진행 (PC·행동 순서·타이머·단서 획득·플래그) =====
+export const DEF_STATS=[{label:'HP',max:10},{label:'SAN',max:50}];
+export const newSession=()=>({flags:{},found:{},order:[],turn:0,round:1,timer:{acc:0,startedAt:null}});
+export const makePC=(tpl,name='')=>({id:uid(),name,player:'',init:0,notes:'',stats:(tpl||DEF_STATS).map(t=>({id:uid(),label:t.label,cur:t.max,max:t.max}))});
+export function migSession(sc){
+  sc.statTemplate??=DEF_STATS.map(x=>({...x}));sc.flags??=[];sc.pcs??=[];
+  // 예전 버전 PC(hp/san/dex 고정 필드) → 자유 수치 목록
+  for(const pc of sc.pcs){pc.id??=uid();pc.name??='';pc.player??='';pc.notes??='';
+    if(!Array.isArray(pc.stats)){pc.stats=[];
+      if(pc.hp!=null)pc.stats.push({id:uid(),label:'HP',cur:+pc.hp||0,max:+pc.hpMax||+pc.hp||0});
+      if(pc.san!=null)pc.stats.push({id:uid(),label:'SAN',cur:+pc.san||0,max:+pc.sanMax||+pc.san||0});
+      if(pc.init==null&&pc.dex!=null)pc.init=+pc.dex||0;
+      if(pc.skills)pc.notes=[pc.skills,pc.notes].filter(Boolean).join('\n');
+      for(const k of['hp','hpMax','san','sanMax','dex','skills'])delete pc[k]}
+    pc.init??=0}
+  const ss=sc.session??=newSession();ss.flags??={};ss.found??={};ss.order??=[];ss.turn??=0;ss.round??=1;ss.timer??={acc:0,startedAt:null};
+  for(const p of sc.parts||[])for(const s of p.scenes||[])for(const b of s.blocks||[])if(b.type==='branches')for(const it of b.items||[])it.needs??=[];
+  return sc}
+// 결론별 단서 진행: 전체 / 씬에 배치됨 / 이번 세션에 획득
+export function clueProgress(sc){const use=clueUsage(sc),found=sc.session?.found||{},g={};
+  for(const c of sc.clues){const k=c.isRedHerring?'__red':(c.leadsTo?.trim()||'__none');const x=g[k]??={key:k,clues:[],placed:0,found:0};x.clues.push(c);if(use[c.id])x.placed++;if(found[c.id])x.found++}
+  return Object.values(g).sort((a,b)=>(a.key.startsWith('__')?1:0)-(b.key.startsWith('__')?1:0))}
+export const elapsed=t=>(t?.acc||0)+(t?.startedAt?Date.now()-t.startedAt:0);
+export const fmtTime=ms=>{const s=Math.floor(ms/1000);const h=Math.floor(s/3600),m=Math.floor(s%3600/60),x=s%60;return(h?h+':':'')+String(m).padStart(h?2:1,'0')+':'+String(x).padStart(2,'0')};
+// 행동 순서 정렬 (높은 값 먼저, 같으면 PC 먼저)
+export const sortOrder=o=>[...o].sort((a,b)=>(+b.init||0)-(+a.init||0)||(b.pcId?1:0)-(a.pcId?1:0));

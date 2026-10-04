@@ -5,7 +5,7 @@ import { CocoP,R20P } from './ChatPreview.jsx'
 import { PlayV } from './PlayView.jsx'
 
 // ===== SCENE PANEL =====
-export function SceneP({scene,pt,sc,plat,mode,gm,up,sel,toast,isR20,isCoco,r20On,setR20On,go,setMdl,session}){
+export function SceneP({scene,pt,sc,plat,mode,gm,up,sel,toast,isR20,isCoco,r20On,setR20On,go,setMdl,sess}){
   const uS=fn=>up(d=>{const s=d.scenarios.find(x=>x.id===sel.sid).parts.find(x=>x.id===sel.ptid).scenes.find(x=>x.id===sel.scid);fn(s)});
   const lastFocusRef=useRef(null);
   // Insert command snippet at cursor
@@ -26,7 +26,7 @@ export function SceneP({scene,pt,sc,plat,mode,gm,up,sel,toast,isR20,isCoco,r20On
   const goT=t=>t.kind==='scene'?go({pid:sel.pid,sid:sel.sid,ptid:t.ptid,scid:t.id,eid:null}):go({pid:sel.pid,sid:sel.sid,ptid:null,scid:null,eid:t.id});
   if(mode==='play'){const flat=allScenes(sc);const i=flat.findIndex(x=>x.id===scene.id);
     const asT=x=>x&&{kind:'scene',ptid:x.ptid,id:x.id,title:x.title};
-    return<PlayV entry={scene} sc={sc} pt={pt} plat={plat} gm={gm} isSc nav={{prev:asT(flat[i-1]),next:asT(flat[i+1]),
+    return<PlayV entry={scene} sc={sc} pt={pt} plat={plat} gm={gm} isSc sess={sess} nav={{prev:asT(flat[i-1]),next:asT(flat[i+1]),
       targets:(scene.connections||[]).map(c=>findTarget(sc,c.targetSceneId)).filter(Boolean),go:goT,done:!!scene.done,toggleDone:()=>uS(x=>{x.done=!x.done})}}/>}
   const cmds=plat?.commands||[];
   return<div>

@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
-import { AlertTriangle,BookOpen,Cloud,FileDown,FileUp,LogIn,Menu,Moon,MoreHorizontal,PanelLeftClose,PanelLeftOpen,Redo2,Search,Sun,Undo2 } from "lucide-react";
+import { AlertTriangle,BookOpen,Cloud,FileDown,FileUp,LogIn,Menu,Moon,MoreHorizontal,PanelLeftClose,PanelLeftOpen,Redo2,Search,Sun,Undo2,Swords } from "lucide-react";
 import { Sidebar } from './components/Sidebar.jsx'
 import { ActCtx,Btn,DialogProvider,IB,useDialog,useMedia,useToast } from './components/ui.jsx'
 import { fetchRow,fetchStamp,forcePush,friendly,getUser,onAuth,pushRow } from './lib/cloud.js'
@@ -10,6 +10,8 @@ import { ClueEditM } from './modals/ClueModal.jsx'
 import { CmdM } from './modals/CommandModal.jsx'
 import { ETM } from './modals/EndingTypeModal.jsx'
 import { FindM } from './modals/FindModal.jsx'
+import { PCModal } from './modals/PCModal.jsx'
+import { SessionPanel } from './views/SessionPanel.jsx'
 import { LibM } from './modals/LibraryModal.jsx'
 import { PlatM } from './modals/PlatformModal.jsx'
 import { EndingP } from './views/EndingView.jsx'
@@ -43,6 +45,8 @@ function AppInner(){
     const mv=ev=>{w=Math.min(480,Math.max(200,w0+(ev.clientX-x0)/zoom));setSbW(w)};
     const upH=()=>{document.removeEventListener('pointermove',mv);document.removeEventListener('pointerup',upH);document.body.style.cursor='';try{localStorage.setItem(SK+'-sbw',Math.round(w))}catch(err){}};
     document.body.style.cursor='col-resize';document.addEventListener('pointermove',mv);document.addEventListener('pointerup',upH)};
+  const[spOpen,setSpOpenS]=useState(()=>{try{return localStorage.getItem(SK+'-sp')==='1'}catch(e){return false}}); // 세션 패널
+  const setSpOpen=v=>{setSpOpenS(v);try{localStorage.setItem(SK+'-sp',v?'1':'0')}catch(e){}};
   const[conflict,setConflict]=useState(null);const[menu,setMenu]=useState(false); // conflict: {kind:'tab'} | {kind:'server',row}
   const[user,setUser]=useState(null);const[authReady,setAuthReady]=useState(false);
   const[sync,setSync]=useState({s:'off'}); // off | pending | syncing | ok | offline | err
@@ -156,6 +160,11 @@ function AppInner(){
   const isCoco=plat&&(plat.name.includes('코코')||plat.name.toLowerCase().includes('coco'));
 
   const go=s=>{setSel(s);if(isMobile)setSb(false)};
+  const spShow=spOpen&&!!sc;
+  // 본문(play·편집)에서 쓰는 세션 상태: 단서 획득·플래그
+  const uSess=fn=>up(d=>{fn(d.scenarios.find(x=>x.id===sel.sid).session)});
+  const sess=sc&&{found:sc.session.found,flags:sc.session.flags,flagDefs:sc.flags,
+    toggleFound:id=>uSess(x=>{x.found[id]=!x.found[id]}),toggleFlag:id=>uSess(x=>{x.flags[id]=!x.flags[id]})};
   const toggleTheme=()=>{const t=theme==='dark'?'light':'dark';setThm(t);up(d=>{d.theme=t})};
 
   const exportAll=()=>{download(forExport(D),'scenario-forge.json');toast('내보내기 완료')};
@@ -181,7 +190,7 @@ function AppInner(){
   const sidebarProps={D,sel,go,setSel,up,sc,plat,op,setOp,setMdl,toast,dlg,setSb,isMobile};
 
   return(<ActCtx.Provider value={act}>
-    <div style={{display:'grid',gridTemplateColumns:isMobile?'1fr':sbOpen?`${sbW}px 1fr`:'0 1fr',gridTemplateRows:'44px auto 1fr',height:`calc(100vh / ${zoom})`,zoom,position:'relative',transition:'grid-template-columns .15s'}}>
+    <div style={{display:'grid',gridTemplateColumns:isMobile?'1fr':(sbOpen?`${sbW}px 1fr`:'0 1fr')+(spShow?' minmax(280px,320px)':''),gridTemplateRows:'44px auto 1fr',height:`calc(100vh / ${zoom})`,zoom,position:'relative',transition:'grid-template-columns .15s'}}>
       {/* TOPBAR */}
       <div className="no-print topbar" style={{gridColumn:'1/-1',display:'flex',alignItems:'center',gap:6,padding:'0 12px',background:'var(--sf1)',borderBottom:'1px solid var(--bdr)',overflowX:'auto'}}>
         {(!sbOpen||isMobile)&&<IB I={isMobile?Menu:PanelLeftOpen} onClick={()=>setSb(!sbOpen)} title="사이드바 열기"/>}
@@ -196,6 +205,8 @@ function AppInner(){
           {['edit','play','flow'].map(m=><button key={m} role="tab" aria-selected={mode===m} onClick={()=>setMode(m)} style={{padding:isMobile?'4px 8px':'4px 12px',borderRadius:6,fontFamily:'JetBrains Mono,monospace',fontSize:11,fontWeight:600,
             border:'none',cursor:'pointer',background:mode===m?'var(--sf1)':'transparent',color:mode===m?'var(--tx1)':'var(--tx3)',boxShadow:mode===m?'0 1px 3px rgba(0,0,0,.1)':'none'}}>{m}</button>)}
         </div>
+        <Btn small onClick={()=>setSpOpen(!spOpen)} disabled={!sc} aria-pressed={spOpen} title={sc?'세션 패널 (PC·행동 순서·단서 획득·플래그)':'시나리오를 먼저 선택하세요'}
+          style={spOpen&&sc?{borderColor:'var(--purple)',color:'var(--purple)',background:'var(--purpleA)'}:undefined}><Swords size={11}/><span className="hide-m">세션</span></Btn>
         <IB I={Undo2} onClick={undo} title="실행 취소 (Ctrl+Z)"/><IB I={Redo2} onClick={redo} title="다시 실행 (Ctrl+Shift+Z)"/>
         {isMobile?<IB I={MoreHorizontal} onClick={()=>setMenu(!menu)} title="더보기" active={menu}/>:<>
         <Btn small onClick={()=>setMdl('find')} title="찾기 · 바꾸기 (Ctrl+F)"><Search size={11}/>찾기</Btn>
@@ -246,13 +257,17 @@ function AppInner(){
       {/* MAIN */}
       <div className="main" style={{overflowY:'auto',padding:'22px 30px 80px',background:'var(--bg2)',minHeight:0,minWidth:0}}>
         {mode==='flow'&&sc?<FlowV sc={sc} sel={sel} setSel={go} setMode={setMode}/>
-        :ending?<EndingP ending={ending} sc={sc} plat={plat} mode={mode} gm={gm} up={up} sel={sel} toast={toast} setMdl={setMdl} go={go}/>
-        :scene?<SceneP scene={scene} pt={pt} sc={sc} plat={plat} mode={mode} gm={gm} up={up} sel={sel} toast={toast} isR20={isR20} isCoco={isCoco} r20On={r20On} setR20On={setR20On} go={go} setMdl={setMdl}/>
+        :ending?<EndingP ending={ending} sc={sc} plat={plat} mode={mode} gm={gm} up={up} sel={sel} toast={toast} setMdl={setMdl} go={go} sess={sess}/>
+        :scene?<SceneP scene={scene} pt={pt} sc={sc} plat={plat} mode={mode} gm={gm} up={up} sel={sel} toast={toast} isR20={isR20} isCoco={isCoco} r20On={r20On} setR20On={setR20On} go={go} setMdl={setMdl} sess={sess}/>
         :sc?<OverviewP sc={sc} plat={plat} up={up} sel={sel} toast={toast} exportSingle={exportSingle} mergeImp={mergeImp} setMdl={setMdl} go={go}/>
         :<div style={{height:'100%',display:'flex',alignItems:'center',justifyContent:'center',flexDirection:'column',gap:10,color:'var(--tx3)',textAlign:'center'}}>
           <BookOpen size={32} strokeWidth={1.5} style={{opacity:.5}}/><h3 style={{fontFamily:'JetBrains Mono,monospace',fontSize:14,color:'var(--tx2)'}}>{D.scenarios.some(s=>s.platformId===sel.pid)?'시나리오를 선택하세요':'새 시나리오를 만들어 보세요'}</h3>
           {isMobile&&!sbOpen&&<Btn onClick={()=>setSb(true)}><Menu size={12}/>목록 열기</Btn>}</div>}
       </div>
+      {/* 세션 패널: 데스크톱은 오른쪽 열, 모바일은 겹쳐 띄움 */}
+      {spShow&&!isMobile&&<div className="no-print" style={{minHeight:0,borderLeft:'1px solid var(--bdr)',background:'var(--sf1)',overflow:'hidden'}}><SessionPanel sc={sc} up={up} sel={sel} setMdl={setMdl} onClose={()=>setSpOpen(false)}/></div>}
+      {spShow&&isMobile&&<><div className="no-print" onClick={()=>setSpOpen(false)} style={{position:'fixed',inset:0,top:44,background:'rgba(0,0,0,.45)',zIndex:40}}/>
+        <div className="no-print" style={{position:'fixed',top:44,right:0,bottom:0,width:'min(340px,92vw)',zIndex:41,background:'var(--sf1)',borderLeft:'1px solid var(--bdr)',boxShadow:'-4px 0 24px rgba(0,0,0,.3)'}}><SessionPanel sc={sc} up={up} sel={sel} setMdl={setMdl} onClose={()=>setSpOpen(false)}/></div></>}
     </div>
     {/* MODALS */}
     {(modal==='account'||modal==='account-recovery')&&<AccountM user={user} sync={sync} SY={SY} recovery={modal==='account-recovery'} syncNow={()=>{setConflict(c=>c?.kind==='server'?c:null);syncNow()}} toast={toast} onClose={()=>setMdl(null)}/>}
@@ -261,6 +276,7 @@ function AppInner(){
     {modal==='cmd'&&<CmdM plat={plat} up={up} sel={sel} onClose={()=>setMdl(null)}/>}
     {modal==='lib'&&<LibM sc={sc} up={up} sel={sel} scene={scene} onClose={()=>setMdl(null)} toast={toast}/>}
     {modal==='endingTypes'&&<ETM sc={sc} up={up} sel={sel} onClose={()=>setMdl(null)}/>}
+    {modal?.type==='pc'&&sc&&<PCModal sc={sc} pcId={modal.pcId} up={up} sel={sel} toast={toast} onClose={()=>setMdl(null)}/>}
     {modal?.type==='clueEdit'&&<ClueEditM sc={sc} clueId={modal.clueId} up={up} sel={sel} onClose={()=>setMdl(null)} go={go}/>}
     {Toast}
   </ActCtx.Provider>);
