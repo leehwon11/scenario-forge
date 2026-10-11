@@ -1,6 +1,9 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { Settings } from "lucide-react";
+import { useAct } from '../components/ui.jsx'
+import { colorCode } from '../components/CmdBar.jsx'
+import { parseQueries } from '../lib/rollkku.js'
 
 // ===== "/" 명령어 팔레트 =====
 // 블록 글 입력칸에서 줄 처음이나 공백 뒤에 "/"를 치면 현재 사이트의 명령어 라이브러리가 뜬다.
@@ -20,17 +23,23 @@ function caretXY(ta,pos){
 
 const setVal=(ta,v)=>{Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype,'value').set.call(ta,v);ta.dispatchEvent(new Event('input',{bubbles:true}))};
 
-export function SlashMenu({rootRef,cmds,colors=[],onManage}){
+export function SlashMenu({rootRef,cmds,colors=[],tpls=[],onManage}){
+  const{useCode}=useAct();
   const[st,setSt]=useState(null); // {ta,start,end,q,x,y}
   const[idx,setIdx]=useState(0);const stRef=useRef(null);stRef.current=st;
   const dismissed=useRef(null); // Esc로 닫은 "/" 위치 — 같은 "/"에서는 다시 열지 않음
   const items=st?[...cmds.map(c=>({key:c.id,label:c.l,snip:c.s,cat:c.cat})),
-      ...colors.map(h=>({key:'c'+h,label:h,snip:`[텍스트](#" style="color:${h};text-decoration:none;)`,cat:'색상',color:h}))]
-    .filter(it=>{const q=st.q.toLowerCase();return!q||it.label.toLowerCase().includes(q)||it.snip.toLowerCase().includes(q)||(it.cat||'').toLowerCase().includes(q)}).slice(0,10):[];
+      ...colors.map(h=>({key:'c'+h,label:h,snip:colorCode(h),cat:'색상',color:h})),
+      ...tpls.map(t=>({key:'t'+t.id,label:'✦ '+t.name,snip:t.code,cat:'롤꾸',tpl:true}))]
+    .filter(it=>{const q=st.q.toLowerCase();if(!q)return true;
+      // 템플릿·색은 이름으로만 (코드 안의 /desc 등에 걸리지 않도록), 명령어는 이름·삽입 텍스트 모두
+      return it.label.toLowerCase().includes(q)||(it.cat||'').toLowerCase().includes(q)||(!it.tpl&&!it.color&&it.snip.toLowerCase().includes(q))}).slice(0,10):[];
   const itemsRef=useRef(items);itemsRef.current=items;const idxRef=useRef(0);idxRef.current=idx;
 
-  const insert=useCallback(it=>{const s=stRef.current;if(!s||!it)return;const{ta,start,end}=s;const v=ta.value;
-    setSt(null);setVal(ta,v.slice(0,start)+it.snip+v.slice(end));ta.focus();ta.selectionStart=ta.selectionEnd=start+it.snip.length},[]);
+  const insert=useCallback(it=>{const s=stRef.current;if(!s||!it)return;const{ta,start,end}=s;const v=ta.value;setSt(null);
+    // ?{} 자리가 있으면 "/검색어"를 지우고 채우기 창으로 — 채운 결과가 그 자리에 들어간다
+    if(parseQueries(it.snip).length){setVal(ta,v.slice(0,start)+v.slice(end));ta.focus();ta.selectionStart=ta.selectionEnd=start;useCode(it.snip,it.tpl?it.label.replace(/^✦ /,''):it.label);return}
+    setVal(ta,v.slice(0,start)+it.snip+v.slice(end));ta.focus();ta.selectionStart=ta.selectionEnd=start+it.snip.length},[useCode]);
 
   useEffect(()=>{const root=rootRef.current;if(!root)return;
     const onInput=e=>{const ta=e.target;if(ta.tagName!=='TEXTAREA')return;const caret=ta.selectionStart;if(caret!==ta.selectionEnd){setSt(null);return}
@@ -59,6 +68,6 @@ export function SlashMenu({rootRef,cmds,colors=[],onManage}){
     {!items.length&&<div className="slash-empty">{cmds.length||colors.length?'일치하는 명령어가 없습니다':'이 사이트에 등록된 명령어가 없습니다'}</div>}
     {items.map((it,i)=><button key={it.key} role="option" aria-selected={i===idx} className={'slash-item'+(i===idx?' on':'')} onMouseEnter={()=>setIdx(i)} onClick={()=>insert(it)}>
       {it.color?<span className="slash-sw" style={{background:it.color}}/>:<span className="slash-l">{it.label}</span>}
-      <span className="slash-s">{it.color?it.label:it.snip}</span>{it.cat&&<span className="slash-c">{it.cat}</span>}</button>)}
+      <span className="slash-s">{it.color?it.label+' 글자색':it.tpl?parseQueries(it.snip).length+'칸 채우기':it.snip}</span>{it.cat&&<span className="slash-c">{it.cat}</span>}</button>)}
     {onManage&&<button className="slash-manage" onClick={()=>{setSt(null);onManage()}}><Settings size={11}/>명령어 라이브러리 편집</button>}
   </div>,document.body)}

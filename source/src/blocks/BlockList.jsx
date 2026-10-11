@@ -4,6 +4,7 @@ import { useDrop } from '../components/dnd.js'
 import { Btn,IB,Inp,TA,useAct } from '../components/ui.jsx'
 import { BT,moveIdx,uid } from '../lib/data.js'
 import { SlashMenu } from './SlashMenu.jsx'
+import { QFillBtn } from '../modals/FillModal.jsx'
 import { FlagPicker } from '../components/flags.jsx'
 
 // ===== BLOCK LIST =====
@@ -27,7 +28,7 @@ export function BL({entry,upE,sc,plat,onManage}){
   const added=useRef(null);
   useEffect(()=>{const id=added.current;if(!id)return;added.current=null;const el=refs.current[id];if(el){el.scrollIntoView({block:'nearest',behavior:'smooth'});el.querySelector('textarea,input:not(.ghost)')?.focus()}});
   return<div ref={root}>
-    <SlashMenu rootRef={root} cmds={plat?.commands||[]} colors={plat?.savedColors||[]} onManage={onManage}/>
+    <SlashMenu rootRef={root} cmds={plat?.commands||[]} colors={plat?.savedColors||[]} tpls={plat?.templates||[]} onManage={onManage}/>
     {entry.blocks.map((b,i)=>{const m=BT[b.type]||BT.text;
       if(b.collapsed)return<div key={b.id} ref={el=>refs.current[b.id]=el} {...dst(b.id,acc,d=>moveB(d.id,b.id))} className={'rail'+(over===b.id?' drag-over-top':'')} style={{marginBottom:8,borderLeftColor:m.c,opacity:.6,marginLeft:b.indent?28:0}}>
         <div className="rail-dot" style={{borderColor:m.c,top:6}}/>
@@ -73,7 +74,7 @@ export function BB({b,upB,sc,upE,i}){
   const up=fn=>upB(b.id,fn);
   if(['text','memo','truth','session-log'].includes(b.type)){
     const bgMap={memo:'var(--goldA)',truth:'var(--coralA)','session-log':'var(--purpleA)'};
-    return<TA value={b.content||''} onChange={v=>up(x=>{x.content=v})} placeholder={b.type==='memo'?'GM 전용 메모':b.type==='truth'?'사건의 진상':b.type==='session-log'?'세션 중 메모':'지문, 묘사...'} bg={bgMap[b.type]}/>}
+    return<><TA value={b.content||''} onChange={v=>up(x=>{x.content=v})} placeholder={b.type==='memo'?'GM 전용 메모':b.type==='truth'?'사건의 진상':b.type==='session-log'?'세션 중 메모':'지문, 묘사...'} bg={bgMap[b.type]}/><QFillBtn text={b.content} onApply={v=>up(x=>{x.content=v})}/></>}
   if(b.type==='clue')return<div>
     <select value={b.clueId||''} onChange={e=>up(x=>{x.clueId=e.target.value})} style={{width:'100%',padding:'5px 8px',border:'1px solid var(--bdr)',borderRadius:6,background:'var(--sf1)',color:'var(--tx1)',fontSize:12,marginBottom:5}}>
       <option value="">-- 단서 --</option>{(sc?.clues||[]).map(c=><option key={c.id} value={c.id}>{c.name}{c.isRedHerring?' (미끼)':''}</option>)}</select>
@@ -97,7 +98,7 @@ export function BB({b,upB,sc,upE,i}){
     {(b.items||[]).map((it,ii)=><div key={it.id} style={{border:'1px solid var(--bdr)',borderRadius:8,padding:10,marginBottom:5,borderLeft:`3px solid ${tp==='branches'?'var(--blue)':'#c07030'}`}}>
       <div style={{display:'flex',gap:5,marginBottom:4}}><input className="ghost" value={it.label} onChange={e=>up(x=>{x.items[ii].label=e.target.value})} placeholder={tp==='branches'?'선택지':'화자'}
         style={{flex:1,border:'none',borderBottom:'1px dashed var(--bdr2)',background:'transparent',fontWeight:700,fontSize:12,padding:'2px 0',outline:'none',color:'var(--tx1)'}}/><IB I={Trash2} s={12} danger title="삭제" onClick={()=>up(x=>{x.items.splice(ii,1)})}/></div>
-      <TA value={it.text} onChange={v=>up(x=>{x.items[ii].text=v})} placeholder={tp==='branches'?'전개':'대사'}/>
+      <TA value={it.text} onChange={v=>up(x=>{x.items[ii].text=v})} placeholder={tp==='branches'?'전개':'대사'}/><QFillBtn text={it.text} onApply={v=>up(x=>{x.items[ii].text=v})}/>
       {tp==='branches'&&<FlagPicker defs={sc?.flags} value={it.needs||[]} onChange={v=>up(x=>{x.items[ii].needs=v})}/>}</div>)}
     <Btn small onClick={()=>up(x=>{x.items.push({id:uid(),label:'',text:'',...(tp==='branches'?{needs:[]}:{})})})} style={{width:'100%',justifyContent:'center',borderStyle:'dashed'}}><Plus size={9}/>{tp==='branches'?'분기':'대사'}</Btn></div>}
   if(b.type==='checks')return<div>

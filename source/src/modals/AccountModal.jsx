@@ -1,10 +1,13 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { AlertTriangle,LogOut,RefreshCw } from "lucide-react";
-import { Btn,Inp,Label,Modal } from '../components/ui.jsx'
+import { Btn,Inp,Label,Modal,useDialog } from '../components/ui.jsx'
+import { getItem } from '../lib/store.js'
 import { friendly,resetPw,signIn,signOut,signUp,updatePw } from '../lib/cloud.js'
 
 // ===== MODALS =====
-export function AccountM({user,sync,SY,recovery,syncNow,toast,onClose}){
+export function AccountM({user,sync,SY,recovery,syncNow,loadCloud,restoreBackup,toast,onClose}){
+  const dlg=useDialog();const[bk,setBk]=useState(null);
+  useEffect(()=>{getItem('backup').then(b=>setBk(b?.data?b:null))},[]);
   const[tab,setTab]=useState('in');const[email,setEmail]=useState('');const[pw,setPw]=useState('');
   const[busy,setBusy]=useState(false);const[err,setErr]=useState(null);const[info,setInfo]=useState(null);
   const run=async(fn)=>{setErr(null);setInfo(null);setBusy(true);try{await fn()}catch(e){setErr(friendly(e))}finally{setBusy(false)}};
@@ -24,6 +27,11 @@ export function AccountM({user,sync,SY,recovery,syncNow,toast,onClose}){
     <div style={{display:'flex',alignItems:'center',gap:6,fontSize:12,color:'var(--tx2)',marginBottom:12}}>
       <span style={{width:8,height:8,borderRadius:'50%',background:SY[0],flexShrink:0}}/><span style={{flex:1}}>{SY[1]}</span>
       <Btn small onClick={syncNow} disabled={sync.s==='syncing'} title="지금 클라우드와 비교해 동기화"><RefreshCw size={11}/>지금 동기화</Btn></div>
+    <div style={{display:'flex',flexDirection:'column',gap:6,marginBottom:12}}>
+      <Btn onClick={async()=>{if(await dlg.confirm('클라우드에 저장된 내용으로 이 기기 데이터를 바꿉니다.\n지금 이 기기의 내용은 백업해 둡니다.',{title:'클라우드에서 다시 불러오기',okLabel:'불러오기'})&&await loadCloud())onClose()}} style={{justifyContent:'center'}}>클라우드에서 다시 불러오기</Btn>
+      {bk&&<Btn onClick={async()=>{if(await dlg.confirm(`${new Date(bk.at).toLocaleString()}에 백업한 데이터로 되돌립니다.${bk.reason?'\n('+bk.reason+' 백업)':''}\n로그인 중이면 되살린 내용이 클라우드에도 저장됩니다.`,{title:'백업 되살리기',okLabel:'되살리기'})){await restoreBackup();onClose()}}}
+        style={{justifyContent:'center'}} title={bk.reason}>백업 되살리기 ({new Date(bk.at).toLocaleString([],{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'})})</Btn>}
+    </div>
     {msgs}
     <div style={{fontSize:11,color:'var(--tx3)',lineHeight:1.7,borderTop:'1px solid var(--bdr)',paddingTop:10}}>
       · 편집하면 3초 뒤 자동으로 클라우드에 저장되고, 다른 기기에서 로그인하면 같은 내용을 볼 수 있습니다.<br/>
@@ -41,4 +49,6 @@ export function AccountM({user,sync,SY,recovery,syncNow,toast,onClose}){
     <div style={{marginBottom:6}}><Label>비밀번호{tab==='up'&&' (6자 이상)'}</Label><Inp type="password" value={pw} onChange={setPw} onKeyDown={enter} autoComplete={tab==='in'?'current-password':'new-password'}/></div>
     {tab==='in'&&<button onClick={()=>run(async()=>{if(!email.trim())throw Error('비밀번호를 재설정할 이메일을 먼저 입력하세요.');await resetPw(email.trim());setInfo('비밀번호 재설정 메일을 보냈습니다. 메일의 링크를 누르면 이 사이트에서 새 비밀번호를 정할 수 있습니다.')})}
       style={{fontSize:11,color:'var(--blue)',padding:0}}>비밀번호를 잊으셨나요?</button>}
+    {bk&&<div style={{marginTop:12,paddingTop:10,borderTop:'1px solid var(--bdr)',fontSize:11,color:'var(--tx3)'}}>덮어쓰기 전에 남긴 이 기기 백업이 있습니다 ({new Date(bk.at).toLocaleString()}).
+      <button onClick={async()=>{if(await dlg.confirm(`${new Date(bk.at).toLocaleString()}에 백업한 데이터로 되돌립니다.`,{title:'백업 되살리기',okLabel:'되살리기'})){await restoreBackup();onClose()}}} style={{color:'var(--blue)',fontSize:11,marginLeft:4}}>백업 되살리기</button></div>}
   </Modal>}

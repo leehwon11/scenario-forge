@@ -1,8 +1,8 @@
 import { useState } from "react";
-import { AlertTriangle,ChevronRight,CopyPlus,FolderPlus,Pencil,Plus,Settings,Trash2 } from "lucide-react";
+import { AlertTriangle,ChevronRight,CopyPlus,ExternalLink,FolderPlus,Pencil,Plus,Settings,Sparkles,Trash2 } from "lucide-react";
 import { DRAG,useDrop } from './dnd.js'
 import { Btn,IB,ell,rowSt,useAct } from './ui.jsx'
-import { DEF_ET,SK,clueUsage,dropConns,migSession,moveIdx,uid } from '../lib/data.js'
+import { DEF_ET,SK,clueUsage,collectBgm,dropConns,migSession,moveIdx,uid } from '../lib/data.js'
 
 // ===== SIDEBAR =====
 // 접을 수 있는 사이드바 섹션 — 접힘 상태는 이 기기에 기억
@@ -22,6 +22,9 @@ export const Sec=({id,title,count,right,fold,children})=>{const closed=id&&fold?
 // 드래그 정렬용 속성 생성: kind가 같은 대상 위로만 드롭 허용
 export function Sidebar({D,sel,go,setSel,up,sc,plat,op,setOp,setMdl,toast,dlg,isMobile}){
   const{removed}=useAct();const fold=useFold();
+  const bgms=sc?collectBgm(sc):[];
+  const addSession=async()=>{const date=new Date().toISOString().slice(0,10);const v=await dlg.prompt('세션 기록 — '+date,'',{multiline:true,placeholder:'진행한 씬, 주요 사건, 다음 세션 떡밥…'});if(v===null)return;
+    uSc(s=>{s.sessionHistory.unshift({id:uid(),date,summary:v})})};
   const scs=D.scenarios.filter(s=>s.platformId===sel.pid);
   const uSc=fn=>up(d=>{fn(d.scenarios.find(x=>x.id===sel.sid))});
   const{over,src,dst}=useDrop();
@@ -123,16 +126,29 @@ export function Sidebar({D,sel,go,setSel,up,sc,plat,op,setOp,setMdl,toast,dlg,is
       </div>)})()}
       {!sc.clues.length&&<div style={{color:'var(--tx3)',fontSize:11,padding:'2px 8px'}}>없음</div>}
     </Sec>
-    {/* Sessions */}
-    <Sec id="sess" title="Sessions" count={sc.sessionHistory?.length||0} fold={fold} right={<IB I={Plus} s={13} title="세션 기록 추가" onClick={()=>{uSc(s=>{s.sessionHistory.push({id:uid(),date:new Date().toISOString().slice(0,10),summary:''})})}}/>}>
-      {(sc.sessionHistory||[]).map(s=><div key={s.id} className="row" onClick={async()=>{const v=await dlg.prompt(`세션 요약 — ${s.date}`,s.summary);if(v!==null)uSc(x=>{x.sessionHistory.find(y=>y.id===s.id).summary=v})}}
-        style={{display:'flex',alignItems:'center',gap:5,padding:'3px 8px',fontSize:11,color:'var(--tx2)',borderRadius:4,cursor:'pointer'}}>
-        <span style={{fontFamily:'JetBrains Mono,monospace',fontSize:10,color:'var(--tx3)',flexShrink:0}}>{s.date}</span>
-        <span style={ell}>{s.summary||'(클릭하여 입력)'}</span>
-        <span className="acts" onClick={e=>e.stopPropagation()}><IB I={Trash2} s={11} danger title="세션 기록 삭제" onClick={()=>removed(`${s.date} 세션 기록`,()=>uSc(x=>{x.sessionHistory=x.sessionHistory.filter(y=>y.id!==s.id)}))}/></span></div>)}
-      {!sc.sessionHistory?.length&&<div style={{color:'var(--tx3)',fontSize:11,padding:'2px 8px'}}>없음</div>}
+    {/* BGM — 시나리오 안의 BGM 블록을 순서대로 모아 보기 */}
+    <Sec id="bgm" title="BGM" count={bgms.length} fold={fold}>
+      {!bgms.length&&<div className="sb-empty">씬에 BGM 블록을 넣으면 여기에 순서대로 모입니다</div>}
+      {bgms.map((g,i)=>{const on=g.scid?sel.scid===g.scid:sel.eid===g.eid;
+        return<div key={g.b.id} className={'row'+(on?' sel':'')} onClick={()=>go(g.scid?{pid:sel.pid,sid:sel.sid,ptid:g.ptid,scid:g.scid,eid:null}:{pid:sel.pid,sid:sel.sid,ptid:null,scid:null,eid:g.eid})}
+          style={{...rowSt(on),alignItems:'flex-start',fontSize:12,padding:'4px 8px'}}>
+          <span className="sb-idx">{String(i+1).padStart(2,'0')}</span>
+          <span style={{flex:1,minWidth:0}}><span style={{...ell,display:'block',fontWeight:600}}>♪ {g.b.title||'(제목 없음)'}</span>
+            <span style={{...ell,display:'block',fontSize:10.5,color:'var(--tx3)'}}>{g.where}</span></span>
+          {/^https?:\/\//i.test(g.b.url||'')&&<a href={g.b.url} target="_blank" rel="noopener noreferrer" onClick={e=>e.stopPropagation()} title="새 탭에서 열기" className="sb-link"><ExternalLink size={12}/></a>}
+        </div>})}
     </Sec>
-    <Sec><Btn small onClick={()=>setMdl('lib')} style={{width:'100%',justifyContent:'center',borderStyle:'dashed'}}>NPC · 아이템 · 장소</Btn></Sec>
+    {/* Sessions — 세션 기록 (여러 줄, 최신이 위) */}
+    <Sec id="sess" title="Sessions" count={sc.sessionHistory?.length||0} fold={fold} right={<IB I={Plus} s={13} title="오늘 세션 기록 추가" onClick={addSession}/>}>
+      {(sc.sessionHistory||[]).map(s=><div key={s.id} className="row sb-sess" onClick={async()=>{const v=await dlg.prompt(`세션 기록 — ${s.date}`,s.summary,{multiline:true});if(v!==null)uSc(x=>{x.sessionHistory.find(y=>y.id===s.id).summary=v})}}>
+        <div style={{display:'flex',alignItems:'center',gap:5}}><span className="sb-date">{s.date}</span><span style={{flex:1}}/>
+          <span className="acts" onClick={e=>e.stopPropagation()}><IB I={Trash2} s={11} danger title="세션 기록 삭제" onClick={()=>removed(`${s.date} 세션 기록`,()=>uSc(x=>{x.sessionHistory=x.sessionHistory.filter(y=>y.id!==s.id)}))}/></span></div>
+        <div className="sb-sum">{s.summary||'(클릭해서 입력)'}</div></div>)}
+      {!sc.sessionHistory?.length&&<button className="sb-empty sb-empty-btn" onClick={addSession}>+ 오늘 세션 기록 남기기</button>}
+    </Sec>
+    <Sec><div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:4}}>
+      <Btn small onClick={()=>setMdl('lib')} style={{justifyContent:'center',borderStyle:'dashed'}}>NPC · 아이템 · 장소</Btn>
+      <Btn small onClick={()=>setMdl('tpl')} style={{justifyContent:'center',borderStyle:'dashed',color:'var(--teal)'}}><Sparkles size={10}/>롤꾸 보관함</Btn></div></Sec>
     </>}
     {!sc&&<div style={{color:'var(--tx3)',fontSize:11,textAlign:'center',padding:16}}>시나리오를 선택하면 씬·엔딩·단서가 표시됩니다</div>}
   </>;

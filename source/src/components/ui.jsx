@@ -18,7 +18,9 @@ export const Inp=({value,onChange,placeholder,mono,style:sx,...p})=>(
   <input value={value} onChange={e=>onChange(e.target.value)} placeholder={placeholder}
     style={{width:'100%',border:'1px solid var(--bdr)',borderRadius:6,padding:'6px 10px',fontSize:12,outline:'none',background:'var(--sf1)',color:'var(--tx1)',fontFamily:mono?'JetBrains Mono,monospace':'inherit',...(sx||{})}} {...p}/>);
 export const TA=({value,onChange,placeholder,bg,style:sx})=>{const ref=useRef();
-  const rs=useCallback(()=>{if(ref.current){ref.current.style.height='auto';ref.current.style.height=ref.current.scrollHeight+2+'px'}},[]);
+  // 높이를 다시 잴 때 잠깐 height:auto가 되면서 화면이 위로 튀는 것을 막기 위해 스크롤 위치를 되돌린다
+  const rs=useCallback(()=>{const el=ref.current;if(!el)return;const sp=el.closest('.main');const top=sp?sp.scrollTop:0;
+    el.style.height='auto';el.style.height=el.scrollHeight+2+'px';if(sp&&sp.scrollTop!==top)sp.scrollTop=top},[]);
   useEffect(rs,[value]);
   return<textarea ref={ref} value={value} onChange={e=>{onChange(e.target.value);rs()}} placeholder={placeholder}
     style={{width:'100%',minHeight:38,border:'1px solid var(--bdr)',borderRadius:6,padding:'10px 12px',fontSize:13,lineHeight:1.7,background:bg||'var(--sf1)',color:'var(--tx2)',outline:'none',resize:'none',overflow:'hidden',...(sx||{})}}/>};
@@ -80,12 +82,16 @@ export function DialogProvider({children}){
     alert:(message,o={})=>open({kind:'alert',title:o.title||'알림',message,...o}),
   };
   const close=r=>{req?.res(r);setReq(null)};
-  const ok=()=>close(req.kind==='prompt'?(val.trim()?val.trim():null):true);
+  const ok=()=>close(req.kind==='prompt'?(req.multiline?val.replace(/\s+$/,''):val.trim()?val.trim():null):true);
   return<DlgCtx.Provider value={api.current}>{children}
-    {req&&<Modal title={req.title} width={400} onClose={()=>close(req.kind==='prompt'?null:false)}
+    {req&&<Modal title={req.title} width={req.multiline?520:400} onClose={()=>close(req.kind==='prompt'?null:false)}
       footer={<>{req.kind!=='alert'&&<Btn onClick={()=>close(req.kind==='prompt'?null:false)}>취소</Btn>}
         <Btn primary={!req.danger} danger={req.danger} onClick={ok} style={req.danger?{background:'var(--red)',color:'#fff',borderColor:'var(--red)'}:undefined} autoFocus={req.kind!=='prompt'}>{req.okLabel||'확인'}</Btn></>}>
       {req.message&&<div style={{fontSize:13,color:'var(--tx2)',whiteSpace:'pre-wrap',marginBottom:req.kind==='prompt'?8:0}}>{req.message}</div>}
-      {req.kind==='prompt'&&<Inp value={val} onChange={setVal} placeholder={req.placeholder} autoFocus onKeyDown={e=>{if(e.key==='Enter'&&!e.nativeEvent.isComposing)ok()}}/>}
+      {req.kind==='prompt'&&(req.multiline
+        ?<><textarea value={val} onChange={e=>setVal(e.target.value)} placeholder={req.placeholder} autoFocus rows={6} className="dlg-ta"
+            onKeyDown={e=>{if(e.key==='Enter'&&(e.ctrlKey||e.metaKey)){e.preventDefault();ok()}}}/>
+          <div style={{fontSize:10.5,color:'var(--tx3)',marginTop:4}}>Ctrl+Enter로 저장</div></>
+        :<Inp value={val} onChange={setVal} placeholder={req.placeholder} autoFocus onKeyDown={e=>{if(e.key==='Enter'&&!e.nativeEvent.isComposing)ok()}}/>)}
     </Modal>}
   </DlgCtx.Provider>}

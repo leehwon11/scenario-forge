@@ -2,12 +2,14 @@ import { BL } from '../blocks/BlockList.jsx'
 import { TA } from '../components/ui.jsx'
 import { PlayV } from './PlayView.jsx'
 import { FlagPicker } from '../components/flags.jsx'
+import { CmdBar } from '../components/CmdBar.jsx'
 
 // ===== ENDING PANEL =====
 export function EndingP({ending,sc,plat,mode,gm,up,sel,toast,setMdl,go,sess}){
   const uE=fn=>up(d=>{const e=d.scenarios.find(x=>x.id===sel.sid).endings.find(x=>x.id===sel.eid);fn(e)});
   if(mode==='play')return<PlayV entry={ending} sc={sc} plat={plat} gm={gm} sess={sess}/>;
   return<div>
+    <CmdBar plat={plat} onManage={()=>setMdl('cmd')} onTpl={()=>setMdl('tpl')}/>
     <div className="crumb">{plat?.name||''} / {sc.title} / endings/</div>
     <input className="ghost page-title" aria-label="엔딩 제목" value={ending.title} onChange={e=>uE(en=>{en.title=e.target.value})} style={{fontSize:26}}/>
     <div style={{display:'flex',flexWrap:'wrap',gap:4,margin:'8px 0 14px'}}>
