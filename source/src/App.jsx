@@ -2,7 +2,7 @@ import React from "react";
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { Search,Plus,Trash2,Copy,Check,ChevronRight,ChevronDown,Undo2,Redo2,Sun,Moon,CloudUpload,CloudDownload,Printer,FileDown,FileUp,FolderPlus,Settings,BookOpen,Eye,EyeOff,Pencil,X,ArrowUp,ArrowDown,CopyPlus,PanelLeftClose,PanelLeftOpen,AlertTriangle,FileText,MessageSquareQuote,GitBranch,Dice5,Music,MapPin,Package,Users,Sparkles,StickyNote,Lightbulb,ChevronUp,ExternalLink } from "lucide-react";
 import { renderR20, renderCoco, r20Inline } from './r20.js'
-import { isSupabaseConfigured, signIn, signUp, signOut, getUser, cloudSave, cloudLoad, onAuthChange } from './supabase.js'
+import { isConfigured, koErr, getSession, onAuth, signIn, signUp, signOut, resetPw, updatePw, cloudMeta, cloudLoad, cloudSave } from './supabase.js'
 
 
 
@@ -27,7 +27,7 @@ function defData(){const r=uid(),k=uid();return{platforms:[
   {id:k,name:'코코포리아',color:'#bc8cff',commands:[{id:uid(),l:'귓속말',s:'((귓속말: ))',cat:'기본'},{id:uid(),l:'설명',s:'【설명】',cat:'기본'}]}
 ],scenarios:[],cloud:{token:'',gistId:''},theme:'dark'}}
 
-function mig(d){d.cloud??={token:'',gistId:''};d.theme??='dark';
+function mig(d){delete d.cloud;d.theme??='dark';
 for(const p of(d.platforms||[])){if(p.templates===undefined)p.templates=/roll20/i.test(p.name)?defTpl():[];p.savedColors??=[];p.commands??=[]}
 for(const sc of(d.scenarios||[])){
   sc.library??={npcs:[],items:[],places:[]};for(const k of['npcs','items','places'])if(!Array.isArray(sc.library[k]))sc.library[k]=[];
@@ -110,6 +110,7 @@ export default function App(){
     else if(e.key==='f'){e.preventDefault();setMdl('find')}};document.addEventListener('keydown',h);return()=>document.removeEventListener('keydown',h)},[undo,redo]);
 
   const[fill,setFill]=useState(null);
+  const cs=useCloudSync(D,setD,setSel,loading,toast);
   useEffect(()=>{const h=e=>{const t=e.target;if(t&&t.tagName==='TEXTAREA'&&t.closest('[data-block-list]'))_lastTA=t};document.addEventListener('focusin',h);return()=>document.removeEventListener('focusin',h)},[]);
   bus.toast=toast;bus.setMdl=setMdl;bus.fill=setFill;
   bus.useCode=(code,title)=>{if(!parseQueries(code).length){if(!insertAtLast(code)){navigator.clipboard?.writeText(code);toast('입력칸이 선택되지 않아 클립보드에 복사했어요')}return}
@@ -153,7 +154,7 @@ export default function App(){
         </div>
         <IB I={Undo2} onClick={undo} title="Ctrl+Z"/><IB I={Redo2} onClick={redo} title="Ctrl+Shift+Z"/>
         <Btn small onClick={()=>setMdl('find')}><Search size={11}/>찾기</Btn>
-        <Btn small onClick={()=>setMdl('cloud')}><CloudUpload size={11}/></Btn>
+        <SyncBtn cs={cs} onClick={()=>setMdl('account')}/>
         <Btn small onClick={exportAll}><FileDown size={11}/></Btn>
         <Btn small onClick={()=>document.getElementById('imp')?.click()}><FileUp size={11}/></Btn>
         <input type="file" id="imp" accept=".json" hidden onChange={e=>{if(e.target.files[0])importAll(e.target.files[0]);e.target.value=''}}/>
@@ -176,7 +177,7 @@ export default function App(){
       </div>
     </div>
     {/* MODALS */}
-    {modal==='cloud'&&<CloudM D={D} up={up} toast={toast} onClose={()=>setMdl(null)}/>}
+    {modal==='account'&&<AccountM cs={cs} onClose={()=>setMdl(null)}/>}
     {modal==='find'&&<FindM D={D} up={up} setSel={setSel} setMode={setMode} onClose={()=>setMdl(null)} toast={toast}/>}
     {modal==='platform'&&<PlatM D={D} up={up} setSel={setSel} onClose={()=>setMdl(null)}/>}
     {modal==='cmd'&&<CmdM plat={plat} up={up} sel={sel} onClose={()=>setMdl(null)}/>}
@@ -489,18 +490,6 @@ function OverviewP({sc,plat,up,sel,toast,exportSingle,mergeImp,setMdl}){
   </div>}
 
 // ===== MODALS =====
-function CloudM({D,up,toast,onClose}){const[tk,setTk]=useState(D.cloud?.token||'');const[gi,setGi]=useState(D.cloud?.gistId||'');
-  const push=async()=>{if(!tk){toast('토큰 필요');return}up(d=>{d.cloud.token=tk});
-    try{const r=await fetch(gi?'https://api.github.com/gists/'+gi:'https://api.github.com/gists',{method:gi?'PATCH':'POST',headers:{'Authorization':'token '+tk,'Content-Type':'application/json'},body:JSON.stringify({description:'scenario-forge',public:false,files:{'data.json':{content:JSON.stringify(D,null,2)}}})});
-      if(!r.ok)throw Error(r.status);const d=await r.json();setGi(d.id);up(dd=>{dd.cloud.gistId=d.id;dd.cloud.token=tk});toast('☁ 저장 완료')}catch(e){toast('실패: '+e.message)}};
-  const pull=async()=>{if(!tk||!gi){toast('토큰+ID 필요');return}
-    try{const r=await fetch('https://api.github.com/gists/'+gi,{headers:{'Authorization':'token '+tk}});if(!r.ok)throw Error(r.status);const d=await r.json();const f=d.files['data.json'];if(!f){toast('파일 없음');return}
-      if(!await askConfirm('클라우드 데이터로 덮어씌울까요?',{body:'현재 기기의 데이터가 클라우드 버전으로 바뀌어요.'}))return;const p=mig(JSON.parse(f.content));p.cloud={token:tk,gistId:gi};up(()=>p);onClose();toast('☁ 완료')}catch(e){toast('실패: '+e.message)}};
-  return<Modal title="☁ GitHub Gist" onClose={onClose} footer={<><Btn onClick={pull}><CloudDownload size={11}/>불러오기</Btn><Btn primary onClick={push}><CloudUpload size={11}/>저장</Btn></>}>
-    <div style={{fontSize:12,color:'var(--tx3)',marginBottom:10}}>Personal Access Token으로 저장/불러오기</div>
-    <div style={{marginBottom:8}}><label style={{fontFamily:'JetBrains Mono',fontSize:10,fontWeight:600,color:'var(--tx4)',display:'block',marginBottom:3}}>Token</label><Inp value={tk} onChange={setTk} placeholder="ghp_..." type="password"/></div>
-    <div><label style={{fontFamily:'JetBrains Mono',fontSize:10,fontWeight:600,color:'var(--tx4)',display:'block',marginBottom:3}}>Gist ID</label><Inp value={gi} onChange={setGi} placeholder="비워두면 새로 생성"/></div></Modal>}
-
 function FindM({D,up,setSel,setMode,onClose,toast}){const[t,setT]=useState('');const[rt,setRt]=useState('');const[rm,setRm]=useState('find');
   const res=useMemo(()=>{if(!t.trim())return[];const lt=t.toLowerCase(),r=[];
     for(const sc of D.scenarios){for(const p of sc.parts)for(const s of p.scenes){let c=0;if(s.title?.toLowerCase().includes(lt))c++;
@@ -663,22 +652,24 @@ function collectBgm(sc){const out=[];
 let _ask=null;
 function askText(title,init='',opt={}){return _ask?_ask({kind:'text',title,init,...opt}):Promise.resolve(window.prompt(title,init))}
 function askConfirm(title,opt={}){return _ask?_ask({kind:'confirm',title,...opt}):Promise.resolve(window.confirm(title))}
+function askChoice(title,opt={}){return _ask?_ask({kind:'choice',title,...opt}):Promise.resolve(null)}
 function AskHost(){
   const[q,setQ]=useState(null);const[v,setV]=useState('');const res=useRef();const inp=useRef();
   useEffect(()=>{_ask=o=>new Promise(r=>{res.current=r;setV(o.init||'');setQ(o)});return()=>{_ask=null}},[]);
   useEffect(()=>{if(!q)return;if(q.kind==='text')setTimeout(()=>{inp.current?.focus();inp.current?.select?.()},30);
-    const h=e=>{if(e.key==='Escape')cancel();else if(e.key==='Enter'&&(q.kind==='confirm'||!q.multiline||e.ctrlKey||e.metaKey)){e.preventDefault();ok()}};
+    const h=e=>{if(e.key==='Escape')cancel();else if(e.key==='Enter'&&q.kind!=='choice'&&(q.kind==='confirm'||!q.multiline||e.ctrlKey||e.metaKey)){e.preventDefault();ok()}};
     window.addEventListener('keydown',h);return()=>window.removeEventListener('keydown',h)});
   if(!q)return null;
   const done=val=>{setQ(null);res.current?.(val)};
   const ok=()=>done(q.kind==='text'?v.trim():true);
-  const cancel=()=>done(q.kind==='text'?null:false);
+  const cancel=()=>done(q.kind==='text'?null:q.kind==='choice'?null:false);
   const fld={width:'100%',border:'1px solid var(--bdr)',borderRadius:6,padding:'8px 10px',fontSize:13,outline:'none',background:'var(--sf1)',color:'var(--tx1)',fontFamily:'inherit'};
-  return<Modal title={q.title} onClose={cancel} width={400} footer={<><Btn onClick={cancel}>취소</Btn>
-    {q.kind==='confirm'&&q.danger?<Btn onClick={ok} style={{background:'var(--red)',borderColor:'var(--red)',color:'#fff'}}>{q.okLabel||'삭제'}</Btn>:<Btn primary onClick={ok}>{q.okLabel||'확인'}</Btn>}</>}>
+  const footer=q.kind==='choice'?<>{(q.options||[]).map((o,i)=><Btn key={i} primary={o.primary} onClick={()=>done(o.value)} style={o.danger?{color:'var(--red)',borderColor:'var(--red)'}:undefined}>{o.label}</Btn>)}</>
+    :<><Btn onClick={cancel}>취소</Btn>{q.kind==='confirm'&&q.danger?<Btn onClick={ok} style={{background:'var(--red)',borderColor:'var(--red)',color:'#fff'}}>{q.okLabel||'삭제'}</Btn>:<Btn primary onClick={ok}>{q.okLabel||'확인'}</Btn>}</>;
+  return<Modal title={q.title} onClose={cancel} width={q.kind==='choice'?460:400} footer={footer}>
     {q.kind==='text'?(q.multiline?<textarea ref={inp} value={v} onChange={e=>setV(e.target.value)} rows={5} placeholder={q.placeholder||''} style={{...fld,resize:'vertical',lineHeight:1.6}}/>
-      :<input ref={inp} value={v} onChange={e=>setV(e.target.value)} placeholder={q.placeholder||'입력'} style={fld}/>)
-    :<div style={{fontSize:13,color:'var(--tx2)',lineHeight:1.6}}>{q.body||(q.danger?'Ctrl+Z로 되돌릴 수 있어요.':'')}</div>}
+      :<input ref={inp} type={q.password?'password':'text'} value={v} onChange={e=>setV(e.target.value)} placeholder={q.placeholder||'입력'} style={fld}/>)
+    :<div style={{fontSize:13,color:'var(--tx2)',lineHeight:1.7,whiteSpace:'pre-wrap'}}>{q.body||(q.danger?'Ctrl+Z로 되돌릴 수 있어요.':'')}</div>}
     {q.kind==='text'&&q.multiline&&<div style={{fontSize:10,color:'var(--tx4)',marginTop:4,fontFamily:'JetBrains Mono'}}>Ctrl+Enter로 저장</div>}
   </Modal>}
 
@@ -931,3 +922,126 @@ function Sidebar({D,sel,setSel,up,toast,setMdl,op,setOp,sbOpen,setSb,sc,scs,selS
       <Btn small onClick={()=>setMdl('tpl')} style={{justifyContent:'center',color:'var(--teal)'}}><Sparkles size={10}/>롤꾸</Btn>
     </div>
   </div>}
+
+// ---- 클라우드 동기화 (Supabase) ----
+const fmtT=t=>{try{const d=new Date(t);const p=n=>String(n).padStart(2,'0');return`${d.getMonth()+1}/${d.getDate()} ${p(d.getHours())}:${p(d.getMinutes())}`}catch(e){return''}};
+const BK='scenario-forge-v4-backup';
+const stripCloud=d=>{const c=JSON.parse(JSON.stringify(d));delete c.cloud;return c};
+const newer=(a,b)=>a&&b&&Date.parse(a)>Date.parse(b)+500;
+
+function useCloudSync(D,setD,setSel,loading,toast){
+  const[user,setUser]=useState(null);
+  const[sync,setSync]=useState({st:isConfigured()?'off':'none'});
+  const lastSync=useRef(null),lastJson=useRef(null),ready=useRef(false),busy=useRef(false),timer=useRef(),Dref=useRef(D);
+  Dref.current=D;
+
+  const applyCloud=useCallback((row)=>{
+    try{localStorage.setItem(BK,JSON.stringify({at:new Date().toISOString(),data:Dref.current}))}catch(e){}
+    const d=mig(JSON.parse(JSON.stringify(row.data)));
+    lastSync.current=row.updated_at;lastJson.current=JSON.stringify(stripCloud(d));
+    setD(d);setSel({pid:d.platforms[0]?.id||null,sid:null,ptid:null,scid:null,eid:null});
+    ready.current=true;setSync({st:'saved',at:row.updated_at});
+  },[setD,setSel]);
+
+  const upload=useCallback(async(uid)=>{const p=stripCloud(Dref.current);const ts=await cloudSave(uid,p);
+    lastSync.current=ts;lastJson.current=JSON.stringify(p);ready.current=true;setSync({st:'saved',at:ts});return ts},[]);
+
+  // 로그인 직후: 클라우드와 이 기기 비교
+  const reconcile=useCallback(async(u)=>{if(busy.current)return;busy.current=true;ready.current=false;setSync({st:'saving'});
+    try{const row=await cloudLoad(u.id);const local=Dref.current;
+      if(!row||!row.data||!row.data.platforms){await upload(u.id);toast('☁ 이 기기 데이터를 클라우드에 올렸어요');return}
+      const same=JSON.stringify(stripCloud(local))===JSON.stringify(row.data);
+      if(same){lastSync.current=row.updated_at;lastJson.current=JSON.stringify(row.data);ready.current=true;setSync({st:'saved',at:row.updated_at});return}
+      if(!(local.scenarios||[]).length){applyCloud(row);toast('☁ 클라우드 데이터를 불러왔어요');return}
+      const c=await askChoice('클라우드에 저장된 데이터가 있어요',{body:`☁ 클라우드 : 시나리오 ${row.data.scenarios?.length||0}개 · 마지막 저장 ${fmtT(row.updated_at)}\n💻 이 기기 : 시나리오 ${local.scenarios.length}개\n\n어느 쪽을 쓸까요? 고르지 않은 쪽은 덮어써져요.\n(이 기기 데이터는 브라우저에 백업해두니까 계정 창에서 되살릴 수 있어요)`,
+        options:[{label:'이 기기 데이터 올리기',value:'local'},{label:'클라우드 불러오기',value:'cloud',primary:true}]});
+      if(c==='cloud'){applyCloud(row);toast('☁ 클라우드 데이터를 불러왔어요')}
+      else if(c==='local'){await upload(u.id);toast('☁ 이 기기 데이터로 클라우드를 덮어썼어요')}
+      else setSync({st:'paused'});
+    }catch(e){setSync({st:'error',msg:koErr(e)})}finally{busy.current=false}},[applyCloud,upload,toast]);
+
+  // 인증 상태
+  useEffect(()=>{if(!isConfigured())return;let alive=true;
+    getSession().then(s=>{if(alive&&s?.user)setUser(s.user)}).catch(()=>{});
+    const off=onAuth((ev,u)=>{
+      if(ev==='PASSWORD_RECOVERY'){(async()=>{const pw=await askText('새 비밀번호를 입력하세요 (6자 이상)','',{password:true});if(!pw)return;try{await updatePw(pw);toast('비밀번호를 바꿨어요')}catch(e){toast(koErr(e))}})()}
+      if(ev==='SIGNED_OUT')setUser(null);else if(u)setUser(p=>p?.id===u.id?p:u)});
+    return()=>{alive=false;off()}},[]);
+  useEffect(()=>{if(!user){ready.current=false;lastSync.current=null;lastJson.current=null;setSync({st:isConfigured()?'off':'none'});return}
+    if(!loading)reconcile(user)},[user?.id,loading]);
+
+  // 수정할 때마다 자동 저장 (1.5초 디바운스)
+  useEffect(()=>{if(!user||!ready.current||!D)return;clearTimeout(timer.current);
+    timer.current=setTimeout(async()=>{if(busy.current||!ready.current)return;const p=stripCloud(Dref.current);const js=JSON.stringify(p);if(js===lastJson.current)return;
+      busy.current=true;setSync(s=>({...s,st:'saving'}));
+      try{const remote=await cloudMeta(user.id);
+        if(newer(remote,lastSync.current)){ready.current=false;setSync({st:'paused'});
+          const c=await askChoice('다른 기기에서 저장된 내용이 있어요',{body:`클라우드가 ${fmtT(remote)}에 다른 기기에서 업데이트됐어요.\n지금 이 기기에서 고친 내용과 겹쳐요.`,
+            options:[{label:'이 기기 내용으로 덮어쓰기',value:'local',danger:true},{label:'클라우드 불러오기',value:'cloud',primary:true}]});
+          if(c==='cloud'){applyCloud(await cloudLoad(user.id));return}
+          if(c!=='local')return;}
+        const ts=await cloudSave(user.id,p);lastSync.current=ts;lastJson.current=js;ready.current=true;setSync({st:'saved',at:ts});
+      }catch(e){setSync({st:'error',msg:koErr(e)})}finally{busy.current=false}},1500);
+    return()=>clearTimeout(timer.current)},[D,user]);
+
+  // 다른 탭/기기에서 돌아왔을 때 확인
+  useEffect(()=>{if(!user)return;const h=async()=>{if(document.visibilityState!=='visible'||!ready.current||busy.current)return;
+      try{const r=await cloudMeta(user.id);if(!newer(r,lastSync.current))return;busy.current=true;
+        const c=await askChoice('다른 기기에서 수정된 내용이 있어요',{body:`클라우드가 ${fmtT(r)}에 업데이트됐어요. 최신 내용을 불러올까요?`,options:[{label:'나중에',value:null},{label:'불러오기',value:'cloud',primary:true}]});
+        if(c==='cloud')applyCloud(await cloudLoad(user.id));else{ready.current=false;setSync({st:'paused'})}
+      }catch(e){}finally{busy.current=false}};
+    document.addEventListener('visibilitychange',h);return()=>document.removeEventListener('visibilitychange',h)},[user,applyCloud]);
+
+  return{user,sync,
+    syncNow:()=>user&&reconcile(user),
+    loadCloud:async()=>{if(!user)return;try{const row=await cloudLoad(user.id);if(!row){toast('클라우드에 저장된 데이터가 없어요');return}applyCloud(row);toast('☁ 불러왔어요')}catch(e){toast(koErr(e))}},
+    logout:async()=>{await signOut();setUser(null);toast('로그아웃했어요')},
+    restoreBackup:()=>{try{const b=JSON.parse(localStorage.getItem(BK));if(!b?.data)return false;setD(mig(b.data));toast(`백업(${fmtT(b.at)})을 되살렸어요`);return true}catch(e){return false}},
+    backupAt:()=>{try{return JSON.parse(localStorage.getItem(BK))?.at||null}catch(e){return null}},
+  };
+}
+
+function SyncBtn({cs,onClick}){
+  const st=cs.sync.st;
+  const map={none:['클라우드','var(--tx4)'],off:['로그인','var(--tx3)'],saving:['저장 중…','var(--tx3)'],saved:['저장됨','var(--green)'],error:['오류','var(--red)'],paused:['동기화 멈춤','var(--gold)']};
+  const[l,c]=map[st]||map.off;
+  return<Btn small onClick={onClick} title={st==='saved'?'마지막 저장 '+fmtT(cs.sync.at):st==='error'?cs.sync.msg:'클라우드 계정'} style={{color:c,borderColor:st==='saved'?'var(--green)':st==='error'?'var(--red)':st==='paused'?'var(--gold)':'var(--bdr)'}}>
+    {st==='saving'?<CloudUpload size={11}/>:<CloudDownload size={11} style={{transform:'rotate(180deg)'}}/>}{l}</Btn>}
+
+function AccountM({cs,onClose}){
+  const[tab,setTab]=useState('in');const[email,setEmail]=useState('');const[pw,setPw]=useState('');const[busy,setBusy]=useState(false);const[msg,setMsg]=useState(null);
+  const fld={width:'100%',border:'1px solid var(--bdr)',borderRadius:6,padding:'9px 11px',fontSize:13,outline:'none',background:'var(--sf1)',color:'var(--tx1)',marginBottom:8};
+  const note=(m)=>m&&<div style={{fontSize:12,lineHeight:1.6,padding:'8px 10px',borderRadius:6,marginBottom:10,whiteSpace:'pre-wrap',
+    background:m.ok?'var(--greenA)':'var(--redA)',color:m.ok?'var(--green)':'var(--red)',border:`1px solid ${m.ok?'var(--green)':'var(--red)'}`}}>{m.t}</div>;
+  if(!isConfigured())return<Modal title="☁ 클라우드 동기화" onClose={onClose} width={460} footer={<Btn primary onClick={onClose}>닫기</Btn>}>
+    <div style={{fontSize:12.5,color:'var(--tx2)',lineHeight:1.75}}>아직 Supabase가 연결되지 않았어요. 지금은 이 브라우저에만 저장되고 있어요.<br/><br/>
+      <b>연결 방법</b><br/>1. Supabase SQL Editor에서 <code>supabase-setup.sql</code> 내용을 실행<br/>2. GitHub 레포의 <code>supabase-config.js</code>를 열어 <code>url</code>과 <code>anonKey</code>를 채우고 저장<br/>3. 1~2분 뒤 페이지 새로고침</div></Modal>;
+  if(cs.user){const bk=cs.backupAt();const st=cs.sync.st;
+    return<Modal title="☁ 계정" onClose={onClose} width={420} footer={<Btn primary onClick={onClose}>닫기</Btn>}>
+      <div style={{fontFamily:'JetBrains Mono,monospace',fontSize:12,color:'var(--tx1)',marginBottom:4}}>{cs.user.email}</div>
+      <div style={{fontSize:12,color:st==='error'?'var(--red)':st==='paused'?'var(--gold)':'var(--tx3)',marginBottom:14,lineHeight:1.6}}>
+        {st==='saved'?`자동 저장 중 · 마지막 저장 ${fmtT(cs.sync.at)}`:st==='saving'?'저장하는 중…':st==='paused'?'동기화가 멈춰 있어요. 아래 "지금 동기화"를 눌러주세요.':st==='error'?'오류: '+cs.sync.msg:''}</div>
+      <div style={{display:'flex',flexDirection:'column',gap:6}}>
+        <Btn onClick={()=>cs.syncNow()} style={{justifyContent:'center'}}>지금 동기화</Btn>
+        <Btn onClick={async()=>{if(await askConfirm('클라우드 데이터를 불러올까요?',{body:'이 기기의 현재 데이터는 브라우저에 백업해둬요.',okLabel:'불러오기'})){await cs.loadCloud();onClose()}}} style={{justifyContent:'center'}}>클라우드에서 다시 불러오기</Btn>
+        {bk&&<Btn onClick={async()=>{if(await askConfirm('덮어쓰기 전 데이터를 되살릴까요?',{body:`${fmtT(bk)}에 백업된 이 기기 데이터로 돌아가요.\n되살린 내용은 클라우드에도 자동 저장돼요.`,okLabel:'되살리기'})){cs.restoreBackup();onClose()}}} style={{justifyContent:'center'}}>백업 되살리기 ({fmtT(bk)})</Btn>}
+        <Btn danger onClick={async()=>{await cs.logout();onClose()}} style={{justifyContent:'center',marginTop:6}}>로그아웃</Btn>
+      </div>
+      <div style={{fontSize:10.5,color:'var(--tx4)',marginTop:12,lineHeight:1.6}}>로그아웃해도 이 기기의 데이터는 그대로 남아요.</div>
+    </Modal>}
+  const go=async()=>{if(!email.trim()||!pw){setMsg({t:'이메일과 비밀번호를 입력해주세요'});return}setBusy(true);setMsg(null);
+    try{if(tab==='in'){await signIn(email.trim(),pw);onClose()}
+      else{const r=await signUp(email.trim(),pw);if(r.session)onClose();else setMsg({ok:true,t:'인증 메일을 보냈어요 📮\n메일함(스팸함도)의 링크를 누른 다음, 여기서 로그인해주세요.'});setTab('in')}}
+    catch(e){setMsg({t:koErr(e)})}finally{setBusy(false)}};
+  return<Modal title="☁ 클라우드 로그인" onClose={onClose} width={400}>
+    <div style={{display:'flex',background:'var(--sf2)',borderRadius:8,padding:2,border:'1px solid var(--bdr)',marginBottom:14}}>
+      {[['in','로그인'],['up','회원가입']].map(([k,l])=><button key={k} onClick={()=>{setTab(k);setMsg(null)}} style={{flex:1,padding:'6px',borderRadius:6,fontSize:12,fontWeight:600,cursor:'pointer',
+        background:tab===k?'var(--sf1)':'transparent',color:tab===k?'var(--tx1)':'var(--tx4)',boxShadow:tab===k?'0 1px 3px rgba(0,0,0,.15)':'none'}}>{l}</button>)}</div>
+    {note(msg)}
+    <input type="email" value={email} onChange={e=>setEmail(e.target.value)} placeholder="이메일" autoComplete="email" style={fld} autoFocus/>
+    <input type="password" value={pw} onChange={e=>setPw(e.target.value)} onKeyDown={e=>{if(e.key==='Enter')go()}} placeholder={tab==='up'?'비밀번호 (6자 이상)':'비밀번호'} autoComplete={tab==='up'?'new-password':'current-password'} style={fld}/>
+    <Btn primary onClick={go} disabled={busy} style={{width:'100%',justifyContent:'center',padding:'8px',fontSize:13}}>{busy?'잠시만요…':tab==='in'?'로그인':'가입하기'}</Btn>
+    {tab==='in'&&<button onClick={async()=>{if(!email.trim()){setMsg({t:'비밀번호를 찾을 이메일을 먼저 입력해주세요'});return}try{await resetPw(email.trim());setMsg({ok:true,t:'비밀번호 재설정 메일을 보냈어요.\n메일의 링크를 누르면 새 비밀번호를 입력하는 창이 떠요.'})}catch(e){setMsg({t:koErr(e)})}}}
+      style={{display:'block',margin:'10px auto 0',fontSize:11.5,color:'var(--tx3)',textDecoration:'underline',cursor:'pointer'}}>비밀번호를 잊었어요</button>}
+    <div style={{fontSize:10.5,color:'var(--tx4)',marginTop:14,lineHeight:1.6,textAlign:'center'}}>로그인하면 수정할 때마다 자동으로 클라우드에 저장돼요.<br/>다른 기기에서도 같은 계정으로 이어서 쓸 수 있어요.</div>
+  </Modal>}

@@ -1,96 +1,56 @@
 import { createClient } from '@supabase/supabase-js'
 
-// ========================================
-// Supabase 설정
-// 1. supabase.com에서 프로젝트 생성
-// 2. Settings > API에서 URL과 anon key 복사
-// 3. 아래 값을 교체
-// 4. SQL Editor에서 테이블 생성:
-//    CREATE TABLE scenario_data (
-//      id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-//      user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
-//      data JSONB NOT NULL DEFAULT '{}',
-//      updated_at TIMESTAMPTZ DEFAULT now()
-//    );
-//    ALTER TABLE scenario_data ENABLE ROW LEVEL SECURITY;
-//    CREATE POLICY "Users can manage own data" ON scenario_data
-//      FOR ALL USING (auth.uid() = user_id)
-//      WITH CHECK (auth.uid() = user_id);
-// ========================================
+// 설정은 public/supabase-config.js (배포 후엔 루트의 supabase-config.js)에서 읽어요
+const cfg = (typeof window !== 'undefined' && window.SF_SUPABASE) || {}
+const URL = String(cfg.url || '').trim()
+const KEY = String(cfg.anonKey || '').trim()
 
-const SUPABASE_URL = 'YOUR_SUPABASE_URL'
-const SUPABASE_ANON_KEY = 'YOUR_SUPABASE_ANON_KEY'
+export const sb = (URL.startsWith('https://') && KEY.length > 20)
+  ? createClient(URL, KEY, { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true } })
+  : null
 
-let supabase = null
-try {
-  if (SUPABASE_URL !== 'YOUR_SUPABASE_URL') {
-    supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
-  }
-} catch(e) { console.warn('Supabase init failed:', e) }
+export const isConfigured = () => !!sb
+const TBL = 'scenario_data'
+const here = () => location.origin + location.pathname
 
-export function isSupabaseConfigured() {
-  return supabase !== null
+export function koErr(e) {
+  const m = (e && (e.message || e.error_description || e.msg || String(e))) || ''
+  if (/Invalid login credentials/i.test(m)) return '이메일 또는 비밀번호가 맞지 않아요'
+  if (/Email not confirmed/i.test(m)) return '이메일 인증이 아직 안 됐어요. 메일함의 인증 링크를 눌러주세요'
+  if (/already (been )?registered|already exists/i.test(m)) return '이미 가입된 이메일이에요. 로그인해주세요'
+  if (/Password should be|at least 6/i.test(m)) return '비밀번호는 6자 이상이어야 해요'
+  if (/valid email|invalid format|Unable to validate email/i.test(m)) return '이메일 형식이 올바르지 않아요'
+  if (/rate limit|too many|security purposes/i.test(m)) return '요청이 너무 잦아요. 잠시 후 다시 시도해주세요'
+  if (/does not exist|Could not find the table|schema cache/i.test(m)) return 'scenario_data 테이블이 없어요. SQL을 먼저 실행해주세요'
+  if (/row-level security|violates/i.test(m)) return '권한 설정(RLS) 문제예요. SQL을 다시 실행해주세요'
+  if (/no unique|ON CONFLICT/i.test(m)) return '예전 버전 테이블이에요. 새 SQL로 테이블을 다시 만들어주세요'
+  if (/Failed to fetch|NetworkError|Load failed/i.test(m)) return '서버에 연결할 수 없어요. 인터넷이나 Supabase URL을 확인해주세요'
+  if (/Invalid API key|JWT/i.test(m)) return 'anon 키가 잘못됐어요. supabase-config.js를 확인해주세요'
+  return m || '알 수 없는 오류'
 }
 
-export async function signUp(email, password) {
-  if (!supabase) throw new Error('Supabase 미설정')
-  const { data, error } = await supabase.auth.signUp({ email, password })
-  if (error) throw error
-  return data
+export async function getSession() { if (!sb) return null; const { data } = await sb.auth.getSession(); return data.session }
+export function onAuth(cb) {
+  if (!sb) return () => {}
+  const { data } = sb.auth.onAuthStateChange((ev, session) => cb(ev, session?.user || null))
+  return () => data.subscription.unsubscribe()
 }
+export async function signIn(email, pw) { const { data, error } = await sb.auth.signInWithPassword({ email, password: pw }); if (error) throw error; return data }
+export async function signUp(email, pw) { const { data, error } = await sb.auth.signUp({ email, password: pw, options: { emailRedirectTo: here() } }); if (error) throw error; return data }
+export async function signOut() { if (sb) await sb.auth.signOut() }
+export async function resetPw(email) { const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo: here() }); if (error) throw error }
+export async function updatePw(pw) { const { error } = await sb.auth.updateUser({ password: pw }); if (error) throw error }
 
-export async function signIn(email, password) {
-  if (!supabase) throw new Error('Supabase 미설정')
-  const { data, error } = await supabase.auth.signInWithPassword({ email, password })
-  if (error) throw error
-  return data
+export async function cloudMeta(uid) {
+  const { data, error } = await sb.from(TBL).select('updated_at').eq('user_id', uid).maybeSingle()
+  if (error) throw error; return data?.updated_at || null
 }
-
-export async function signOut() {
-  if (!supabase) return
-  await supabase.auth.signOut()
+export async function cloudLoad(uid) {
+  const { data, error } = await sb.from(TBL).select('data,updated_at').eq('user_id', uid).maybeSingle()
+  if (error) throw error; return data || null
 }
-
-export async function getUser() {
-  if (!supabase) return null
-  const { data: { user } } = await supabase.auth.getUser()
-  return user
-}
-
-export async function onAuthChange(callback) {
-  if (!supabase) return
-  supabase.auth.onAuthStateChange((event, session) => {
-    callback(session?.user || null)
-  })
-}
-
-export async function cloudSave(data) {
-  if (!supabase) throw new Error('Supabase 미설정')
-  const user = await getUser()
-  if (!user) throw new Error('로그인 필요')
-  
-  const { error } = await supabase
-    .from('scenario_data')
-    .upsert({
-      user_id: user.id,
-      data: data,
-      updated_at: new Date().toISOString()
-    }, { onConflict: 'user_id' })
-  
-  if (error) throw error
-}
-
-export async function cloudLoad() {
-  if (!supabase) throw new Error('Supabase 미설정')
-  const user = await getUser()
-  if (!user) throw new Error('로그인 필요')
-  
-  const { data, error } = await supabase
-    .from('scenario_data')
-    .select('data')
-    .eq('user_id', user.id)
-    .single()
-  
-  if (error && error.code !== 'PGRST116') throw error
-  return data?.data || null
+export async function cloudSave(uid, payload) {
+  const ts = new Date().toISOString()
+  const { error } = await sb.from(TBL).upsert({ user_id: uid, data: payload, updated_at: ts }, { onConflict: 'user_id' })
+  if (error) throw error; return ts
 }
