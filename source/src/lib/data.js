@@ -1,3 +1,4 @@
+import { defTpl } from './rollkku.js'
 import { BookOpen,Dice5,FileDown,FileText,GitBranch,Lightbulb,MapPin,MessageSquareQuote,Music,Package,Sparkles,StickyNote,Users } from "lucide-react";
 
 // ===== CONSTANTS =====
@@ -28,6 +29,8 @@ export function defData(){const r=uid(),k=uid();return{platforms:[
 ],scenarios:[],theme:'dark'}}
 
 export function mig(d){delete d.cloud; /* 예전 Gist 토큰 등은 더 이상 쓰지 않으므로 제거 */d.theme??='dark';
+// 사이트: 명령어·저장 색·롤꾸 템플릿 (Roll20은 기본 템플릿을 넣어 줌)
+for(const p of(d.platforms||[])){p.commands??=[];p.savedColors??=[];if(p.templates===undefined)p.templates=/roll20/i.test(p.name||'')?defTpl():[]}
 for(const sc of(d.scenarios||[])){
   sc.library??={npcs:[],items:[],places:[]};for(const k of['npcs','items','places'])if(!Array.isArray(sc.library[k]))sc.library[k]=[];
   sc.endingTypes??=DEF_ET.map(e=>({...e}));sc.endings??=[];sc.clues??=[];sc.eventTimeline??=[];sc.sessionHistory??=[];sc.setting??='';sc.synopsis??='';
@@ -68,12 +71,10 @@ export function clueUsage(sc){const u={};const add=(cid,where)=>{if(!cid)return;
 // 배열 내 이동 (드래그 정렬)
 export const moveIdx=(arr,from,to)=>{const[x]=arr.splice(from,1);arr.splice(to>from?to-1:to,0,x)};
 
-// ===== 세션 진행 (PC·행동 순서·타이머·단서 획득·플래그) =====
-export const DEF_STATS=[{label:'HP',max:10},{label:'SAN',max:50}];
-export const newSession=()=>({flags:{},found:{},order:[],turn:0,round:1,timer:{acc:0,startedAt:null}});
-export const makePC=(tpl,name='')=>({id:uid(),name,player:'',init:0,notes:'',stats:(tpl||DEF_STATS).map(t=>({id:uid(),label:t.label,cur:t.max,max:t.max}))});
+// ===== 세션 진행 (행동 순서·단서 획득·플래그) =====
+export const newSession=()=>({flags:{},found:{},order:[],turn:0,round:1});
 export function migSession(sc){
-  sc.statTemplate??=DEF_STATS.map(x=>({...x}));sc.flags??=[];sc.pcs??=[];
+  sc.flags??=[];sc.pcs??=[]; // pcs: 예전 버전 데이터 보존용(화면에는 안 씀)
   // 예전 버전 PC(hp/san/dex 고정 필드) → 자유 수치 목록
   for(const pc of sc.pcs){pc.id??=uid();pc.name??='';pc.player??='';pc.notes??='';
     if(!Array.isArray(pc.stats)){pc.stats=[];
@@ -83,14 +84,17 @@ export function migSession(sc){
       if(pc.skills)pc.notes=[pc.skills,pc.notes].filter(Boolean).join('\n');
       for(const k of['hp','hpMax','san','sanMax','dex','skills'])delete pc[k]}
     pc.init??=0}
-  const ss=sc.session??=newSession();ss.flags??={};ss.found??={};ss.order??=[];ss.turn??=0;ss.round??=1;ss.timer??={acc:0,startedAt:null};
+  const ss=sc.session??=newSession();ss.flags??={};ss.found??={};ss.order??=[];ss.turn??=0;ss.round??=1;
   for(const p of sc.parts||[])for(const s of p.scenes||[])for(const b of s.blocks||[])if(b.type==='branches')for(const it of b.items||[])it.needs??=[];
   return sc}
 // 결론별 단서 진행: 전체 / 씬에 배치됨 / 이번 세션에 획득
 export function clueProgress(sc){const use=clueUsage(sc),found=sc.session?.found||{},g={};
   for(const c of sc.clues){const k=c.isRedHerring?'__red':(c.leadsTo?.trim()||'__none');const x=g[k]??={key:k,clues:[],placed:0,found:0};x.clues.push(c);if(use[c.id])x.placed++;if(found[c.id])x.found++}
   return Object.values(g).sort((a,b)=>(a.key.startsWith('__')?1:0)-(b.key.startsWith('__')?1:0))}
-export const elapsed=t=>(t?.acc||0)+(t?.startedAt?Date.now()-t.startedAt:0);
-export const fmtTime=ms=>{const s=Math.floor(ms/1000);const h=Math.floor(s/3600),m=Math.floor(s%3600/60),x=s%60;return(h?h+':':'')+String(m).padStart(h?2:1,'0')+':'+String(x).padStart(2,'0')};
 // 행동 순서 정렬 (높은 값 먼저, 같으면 PC 먼저)
 export const sortOrder=o=>[...o].sort((a,b)=>(+b.init||0)-(+a.init||0)||(b.pcId?1:0)-(a.pcId?1:0));
+// 시나리오 안의 BGM 블록을 씬 순서대로 (사이드바 BGM 목록)
+export function collectBgm(sc){const out=[];
+  for(const p of sc.parts)for(const s of p.scenes)for(const b of s.blocks||[])if(b.type==='bgm')out.push({b,ptid:p.id,scid:s.id,where:s.title});
+  for(const e of sc.endings)for(const b of e.blocks||[])if(b.type==='bgm')out.push({b,eid:e.id,where:'엔딩 · '+(e.title||'')});
+  return out}

@@ -29,6 +29,7 @@ export function r20Inline(r){let s=r20Links(r);
   s=s.replace(/&lt;span\s+style=&quot;([^&]*(?:&amp;[^&]*)*)&quot;&gt;/gi,(_,st)=>`<span style="${sanCSS(st.replace(/&amp;/g,'&').replace(/&quot;/g,'"'))}">`);
   s=s.replace(/&lt;\/span&gt;/gi,'</span>');s=s.replace(/&lt;b&gt;/gi,'<b>').replace(/&lt;\/b&gt;/gi,'</b>');
   s=s.replace(/&lt;i&gt;/gi,'<i>').replace(/&lt;\/i&gt;/gi,'</i>');
+  s=s.replace(/&lt;br\s*\/?&gt;/gi,'<br>');
   s=s.replace(/\*\*\*([^*]+)\*\*\*/g,'<b><i>$1</i></b>');s=s.replace(/\*\*([^*]+)\*\*/g,'<b>$1</b>');s=s.replace(/\*([^*]+)\*/g,'<i>$1</i>');return s}
 
 export function renderR20(t){if(!t)return'';return t.split('\n').map(l=>{

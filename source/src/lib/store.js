@@ -20,11 +20,26 @@ function tx(mode,fn){return openDB().then(db=>new Promise((res,rej)=>{const t=db
 const lsGet=k=>{try{const v=localStorage.getItem(k);return v==null?undefined:JSON.parse(v)}catch(e){return undefined}};
 const lsSet=k=>v=>{localStorage.setItem(k,JSON.stringify(v))};
 
+const hashStr=x=>{let h=5381;for(let i=0;i<x.length;i++)h=(h*33+x.charCodeAt(i))|0;return x.length+':'+(h>>>0).toString(36)};
+// localStorage에 데이터가 있고, 그 내용이 이 앱이 마지막으로 가져온 것과 다르면 → 다른 버전(예전 한 파일짜리 앱)이 저장한 더 새 데이터
+// 그 경우 localStorage 쪽을 쓰고, 기존 IndexedDB 데이터는 'backup'으로 남겨 계정 창에서 되살릴 수 있게 한다.
+async function adoptLegacy(idbVal){
+  let raw=null;try{raw=localStorage.getItem(SK)}catch(e){}
+  if(raw==null)return idbVal;
+  const h=hashStr(raw);const seen=await tx('readonly',s=>s.get('lsHash')).catch(()=>undefined);
+  if(seen===h)return idbVal;
+  let ls;try{ls=JSON.parse(raw)}catch(e){return idbVal}
+  // 기록이 없는 경우(예전 이 앱 버전): 예전 한 파일짜리 앱이 남긴 흔적(platforms[].templates)이 있을 때만 새 데이터로 본다
+  const newer=idbVal===undefined||(seen!==undefined)||(ls?.platforms||[]).some(p=>Array.isArray(p.templates));
+  if(newer&&idbVal!==undefined&&JSON.stringify(idbVal)!==raw)await tx('readwrite',s=>s.put({at:new Date().toISOString(),data:idbVal,reason:'다른 버전의 데이터를 불러오기 전'},'backup'));
+  if(newer)await tx('readwrite',s=>s.put(ls,'data'));
+  await tx('readwrite',s=>s.put(h,'lsHash'));
+  return newer?ls:idbVal}
+
 export async function getItem(k){
-  try{const v=await tx('readonly',s=>s.get(k));if(v!==undefined)return v;
-    // 이전 버전(localStorage) 데이터 이전
-    if(k==='data'){const old=lsGet(SK);if(old!==undefined){await tx('readwrite',s=>s.put(old,k));return old}}
-    return undefined}
+  try{const v=await tx('readonly',s=>s.get(k));
+    if(k==='data')return await adoptLegacy(v);
+    return v}
   catch(e){return lsGet(k==='data'?SK:SK+'-'+k)}}
 export async function setItem(k,v){
   try{await tx('readwrite',s=>s.put(v,k));return true}
