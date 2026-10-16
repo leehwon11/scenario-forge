@@ -1,9 +1,14 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
-import { AlertTriangle,BookOpen,Cloud,FileDown,FileUp,LogIn,Menu,Moon,MoreHorizontal,PanelLeftClose,PanelLeftOpen,Redo2,Search,Sun,Undo2,Swords,CircleQuestionMark } from "lucide-react";
-import { Sidebar } from './components/Sidebar.jsx'
-import { ActCtx,Btn,DialogProvider,IB,copyText,useDialog,useMedia,useToast } from './components/ui.jsx'
+import { createPortal } from "react-dom";
+import { AlertTriangle,ChevronDown,CircleQuestionMark,Cloud,FileDown,FileUp,ListChecks,LogIn,Menu,Moon,MoreHorizontal,PanelLeftClose,PanelLeftOpen,Play,Redo2,Search,Sun,Undo2,X } from "lucide-react";
+import { Nav } from './components/Nav.jsx'
+import { Home } from './views/Home.jsx'
+import { CheckPanel } from './views/CheckPanel.jsx'
+import { SessionMode } from './views/SessionMode.jsx'
+import { entryIssues } from './lib/check.js'
+import { ActCtx,Btn,DialogProvider,IB,copyText,setCopyWin,useDialog,useMedia,useToast } from './components/ui.jsx'
 import { fetchRow,fetchStamp,forcePush,friendly,getUser,onAuth,pushRow } from './lib/cloud.js'
-import { SK,defData,download,forExport,mig,uid } from './lib/data.js'
+import { SK,allScenes,defData,download,forExport,mig,uid } from './lib/data.js'
 import { announceSave,getItem,onOtherTabSave,setItem } from './lib/store.js'
 import { AccountM } from './modals/AccountModal.jsx'
 import { ClueEditM } from './modals/ClueModal.jsx'
@@ -15,7 +20,6 @@ import { FillM } from './modals/FillModal.jsx'
 import { TplM } from './modals/TemplateModal.jsx'
 import { insertAtLast } from './components/insert.js'
 import { parseQueries } from './lib/rollkku.js'
-import { SessionPanel } from './views/SessionPanel.jsx'
 import { LibM } from './modals/LibraryModal.jsx'
 import { PlatM } from './modals/PlatformModal.jsx'
 import { EndingP } from './views/EndingView.jsx'
@@ -49,8 +53,11 @@ function AppInner(){
     const mv=ev=>{w=Math.min(480,Math.max(200,w0+(ev.clientX-x0)/zoom));setSbW(w)};
     const upH=()=>{document.removeEventListener('pointermove',mv);document.removeEventListener('pointerup',upH);document.body.style.cursor='';try{localStorage.setItem(SK+'-sbw',Math.round(w))}catch(err){}};
     document.body.style.cursor='col-resize';document.addEventListener('pointermove',mv);document.addEventListener('pointerup',upH)};
-  const[spOpen,setSpOpenS]=useState(()=>{try{return localStorage.getItem(SK+'-sp')==='1'}catch(e){return false}}); // 세션 패널
-  const setSpOpen=v=>{setSpOpenS(v);try{localStorage.setItem(SK+'-sp',v?'1':'0')}catch(e){}};
+  // 세션 화면(진행) — 켜져 있으면 가운데가 세션 화면으로 바뀐다. pip: 늘 위에 떠 있는 미니 창
+  const[live,setLive]=useState(false);const[pip,setPip]=useState(null);
+  // 오른쪽 준비 점검 칸 (넓은 화면에서는 기본으로 열림)
+  const wide=useMedia('(min-width:1240px)');const[chkOpenS,setChk]=useState(null);const chkOpen=chkOpenS??wide;
+  const[crumb,setCrumb]=useState(false);
   const[conflict,setConflict]=useState(null);const[menu,setMenu]=useState(false); // conflict: {kind:'tab'} | {kind:'server',row}
   const[user,setUser]=useState(null);const[authReady,setAuthReady]=useState(false);
   const[sync,setSync]=useState({s:'off'}); // off | pending | syncing | ok | offline | err
@@ -161,7 +168,7 @@ function AppInner(){
     else if(k==='f'){e.preventDefault();setMdl('find')}};
     const hq=e=>{if(e.key==='?'&&!e.ctrlKey&&!e.metaKey&&!isTextField(e.target)&&!document.querySelector('[role=dialog]')){e.preventDefault();setMdl('help')}};document.addEventListener('keydown',hq);document.addEventListener('keydown',h);return()=>{document.removeEventListener('keydown',h);document.removeEventListener('keydown',hq)}},[undo,redo]);
 
-  if(loading||!D)return<div style={{display:'flex',alignItems:'center',justifyContent:'center',height:'100%',color:'var(--tx3)'}}>로딩 중...</div>;
+  if(loading||!D)return<div style={{display:'flex',alignItems:'center',justifyContent:'center',height:'100%',color:'var(--tx3)'}}>불러오는 중…</div>;
 
   const plat=D.platforms.find(p=>p.id===sel.pid);
   const sc=D.scenarios.find(s=>s.id===sel.sid);
@@ -170,14 +177,20 @@ function AppInner(){
   const ending=sc?.endings.find(e=>e.id===sel.eid);
   const isR20=plat?.name.toLowerCase().includes('roll20');
   const isCoco=plat&&(plat.name.includes('코코')||plat.name.toLowerCase().includes('coco'));
+  const issues=sc?entryIssues(sc):{};
+  const sceneNo=scene?allScenes(sc).findIndex(s=>s.id===scene.id)+1:0;
 
-  const go=s=>{setSel(s);if(isMobile)setSb(false)};
-  const spShow=spOpen&&!!sc;
-  // 본문(play·편집)에서 쓰는 세션 상태: 단서 획득·플래그
-  const uSess=fn=>up(d=>{fn(d.scenarios.find(x=>x.id===sel.sid).session)});
-  const sess=sc&&{found:sc.session.found,flags:sc.session.flags,flagDefs:sc.flags,
-    toggleFound:id=>uSess(x=>{x.found[id]=!x.found[id]}),toggleFlag:id=>uSess(x=>{x.flags[id]=!x.flags[id]})};
+  const go=s=>{setSel(s);if(isMobile)setSb(false);setCrumb(false)};
   const toggleTheme=()=>{const t=theme==='dark'?'light':'dark';setThm(t);up(d=>{d.theme=t})};
+  const startLive=()=>{if(!sc)return;setLive(true);setMode('edit')};
+  const endLive=()=>{if(pip&&!pip.closed)pip.close();setPip(null);setLive(false)};
+  // 늘 위에 떠 있는 미니 창 (Chrome·Edge의 Document Picture-in-Picture)
+  const canPip=typeof window!=='undefined'&&'documentPictureInPicture' in window;
+  const openPip=async()=>{try{const w=await window.documentPictureInPicture.requestWindow({width:440,height:760});
+    for(const n of document.head.querySelectorAll('link[rel=stylesheet],style'))w.document.head.appendChild(n.cloneNode(true));
+    w.document.documentElement.setAttribute('data-theme',theme);w.document.title='시나리오 대장간 · 세션';
+    w.addEventListener('pagehide',()=>{setPip(null);setCopyWin(null)});setCopyWin(w);setPip(w)}
+    catch(e){toast('미니 창을 열지 못했습니다',2500)}};
 
   const exportAll=()=>{download(forExport(D),'scenario-forge.json');toast('내보내기 완료')};
   const importAll=f=>{const r=new FileReader();r.onload=async()=>{let p;try{p=JSON.parse(r.result);if(!p.platforms)throw Error()}catch(e){dlg.alert('올바른 scenario-forge JSON 파일이 아닙니다.',{title:'가져오기 실패'});return}
@@ -197,88 +210,89 @@ function AppInner(){
 
   const SY={off:['var(--tx3)','로그인하면 클라우드에 자동 저장됩니다'],pending:['var(--gold)','변경 사항 저장 대기 중'],syncing:['var(--gold)','클라우드에 저장 중…'],
     ok:['var(--green)','클라우드에 저장됨'+(sync.t?' · '+sync.t.toLocaleTimeString():'')],offline:['var(--red)','오프라인 — 연결되면 자동으로 저장합니다'],err:['var(--red)','동기화 문제: '+(sync.msg||'')]}[sync.s]||['var(--tx3)',''];
-  const cloudDot=user?SY[0]:null;
-  const cloudTitle=(user?`클라우드 (${user.email}) — `:'로그인 — ')+SY[1];
-  const sidebarProps={D,sel,go,setSel,up,sc,plat,op,setOp,setMdl,toast,dlg,setSb,isMobile};
+  const syncShort={off:'이 기기에 저장됨',pending:'저장 대기',syncing:'저장 중…',ok:'클라우드 저장됨',offline:'오프라인',err:'동기화 확인 필요'}[sync.s]||'';
+  const navProps={sel,go,setSel,up,sc,plat,op,setOp,setMdl,toast,dlg,isMobile,issues};
+  const scs=D.scenarios.filter(s=>s.platformId===sel.pid);
+  const showNav=!!sc&&sbOpen;const showChk=!!sc&&!live&&mode==='edit'&&chkOpen&&!isMobile;
+  const page=scene?scene.title:ending?ending.title:sc?'개요':'';
+  const menuItems=[[Search,'찾기 · 바꾸기',()=>setMdl('find')],[user?Cloud:LogIn,user?'클라우드 · '+SY[1]:'로그인 (클라우드 저장)',()=>setMdl('account')],[FileDown,'전체 JSON 내보내기',exportAll],[FileUp,'JSON 가져오기 (전체 덮어쓰기)',()=>document.getElementById('imp')?.click()],[theme==='dark'?Sun:Moon,theme==='dark'?'밝은 화면':'어두운 화면',toggleTheme],[CircleQuestionMark,'사용법',()=>setMdl('help')],...(sc&&isMobile&&!live?[[ListChecks,'준비 점검',()=>setChk(true)]]:[])];
+  const sessionEl=sc&&<SessionMode sc={sc} plat={plat} sel={sel} go={go} up={up} gm={gm} setGm={setGm} setMdl={setMdl} onEnd={endLive} canPip={canPip&&!isMobile} onPip={openPip}/>;
 
   return(<ActCtx.Provider value={act}>
-    <div style={{display:'grid',gridTemplateColumns:isMobile?'1fr':(sbOpen?`${sbW}px 1fr`:'0 1fr')+(spShow?' minmax(280px,320px)':''),gridTemplateRows:'52px auto 1fr',height:`calc(100vh / ${zoom})`,zoom,position:'relative',transition:'grid-template-columns .15s'}}>
-      {/* TOPBAR */}
-      <div className="no-print topbar" style={{gridColumn:'1/-1',display:'flex',alignItems:'center',gap:8,padding:'0 16px',background:'var(--sf1)',borderBottom:'1px solid var(--bdr)',overflowX:'auto'}}>
-        {(!sbOpen||isMobile)&&<IB I={isMobile?Menu:PanelLeftOpen} onClick={()=>setSb(!sbOpen)} title="사이드바 열기"/>}
-        <div style={{display:'flex',alignItems:'center',gap:6,marginRight:4,flexShrink:0}}>
-          <div className="tb-logo" aria-hidden="true">鍛</div>
-          <span className="hide-m tb-name">시나리오 대장간</span>
+    <div className="app" style={{height:`calc(100vh / ${zoom})`,zoom}}>
+      {/* 위쪽 바 */}
+      <header className="topbar no-print">
+        {sc&&(!sbOpen||isMobile)&&<IB I={isMobile?Menu:PanelLeftOpen} s={16} onClick={()=>setSb(!sbOpen)} title="씬 목록 열기"/>}
+        {sc&&sbOpen&&!isMobile&&<IB I={PanelLeftClose} s={16} onClick={()=>setSb(false)} title="씬 목록 닫기"/>}
+        <button className="tb-home" onClick={()=>{endLive();go({pid:sel.pid,sid:null,ptid:null,scid:null,eid:null})}} title="모든 시나리오">
+          <span className="tb-logo" aria-hidden="true">鍛</span><span className="hide-m tb-name">시나리오 대장간</span></button>
+        <div className="tb-crumb">
+          {sc?<><span className="tb-sep">/</span>
+            <button className="tb-sc" onClick={()=>setCrumb(!crumb)} aria-expanded={crumb} title="다른 시나리오로">{sc.title}<ChevronDown size={13}/></button>
+            {page&&<><span className="tb-sep hide-m">/</span><b className="hide-m">{page}</b></>}</>
+          :plat&&<><span className="tb-sep">/</span><span className="tb-plat"><i style={{background:plat.color}}/>{plat.name}</span></>}
+          {crumb&&sc&&<><div className="pop-bg" onClick={()=>setCrumb(false)}/>
+            <div className="pop" role="menu">
+              <div className="pop-k">{plat?.name} 시나리오</div>
+              {scs.map(s=><button key={s.id} role="menuitem" className={s.id===sc.id?'on':''} onClick={()=>go({pid:sel.pid,sid:s.id,ptid:null,scid:null,eid:null})}>{s.title}</button>)}
+              <button role="menuitem" className="pop-all" onClick={()=>{endLive();go({pid:sel.pid,sid:null,ptid:null,scid:null,eid:null})}}>모든 시나리오 · 사이트 보기</button></div></>}
         </div>
         <div style={{flex:1}}/>
-        <button className={'gm-tog'+(gm?' on':'')} onClick={()=>setGm(!gm)} aria-pressed={gm} title={gm?'GM 전용 블록 표시 중 — 클릭하면 플레이어 공개용으로 숨김':'플레이어 공개 화면 — 클릭하면 GM 블록 표시'}><i/>{isMobile?(gm?'GM':'공개'):(gm?'GM 정보 보기':'공개 화면')}</button>
-        <div role="tablist" className="seg">
-          {[['edit','집필'],['play','진행'],['flow','흐름도']].map(([m,l])=><button key={m} role="tab" aria-selected={mode===m} onClick={()=>setMode(m)} style={isMobile?{padding:'5px 9px'}:undefined}>{l}</button>)}
-        </div>
-        <button className={'sess-btn'+(spOpen&&sc?' on':'')} onClick={()=>setSpOpen(!spOpen)} disabled={!sc} aria-pressed={spOpen} title={sc?'세션 패널 (행동 순서·단서 획득·플래그)':'시나리오를 먼저 선택하세요'}><Swords size={13}/><span className="hide-m">{spOpen&&sc?'세션 패널 닫기':'세션'}</span></button>
-        <IB I={Undo2} onClick={undo} title="실행 취소 (Ctrl+Z)"/><IB I={Redo2} onClick={redo} title="다시 실행 (Ctrl+Shift+Z)"/>
-        {isMobile?<IB I={MoreHorizontal} onClick={()=>setMenu(!menu)} title="더보기" active={menu}/>:<>
-        <Btn small onClick={()=>setMdl('find')} title="찾기 · 바꾸기 (Ctrl+F)"><Search size={11}/>찾기</Btn>
-        <Btn small onClick={()=>setMdl('account')} title={cloudTitle} style={{position:'relative'}}>{user?<Cloud size={11}/>:<><LogIn size={11}/>로그인</>}
-          {cloudDot&&<span style={{position:'absolute',top:-3,right:-3,width:7,height:7,borderRadius:'50%',background:cloudDot,border:'1px solid var(--sf1)'}}/>}</Btn>
-        <Btn small onClick={exportAll} title="전체 JSON 내보내기"><FileDown size={11}/></Btn>
-        <Btn small onClick={()=>document.getElementById('imp')?.click()} title="JSON 가져오기 (전체 덮어쓰기)"><FileUp size={11}/></Btn>
-        <div style={{display:'flex',background:'var(--sf2)',borderRadius:6,padding:2,border:'1px solid var(--bdr)'}}>
-          {[{z:.9,f:10},{z:1,f:12},{z:1.15,f:15}].map(({z,f})=><button key={z} onClick={()=>setZoom(z)} title={'글자 크기 '+Math.round(z*100)+'%'}
-            style={{width:22,height:22,borderRadius:4,border:'none',background:zoom===z?'var(--tx1)':'transparent',color:zoom===z?'var(--bg)':'var(--tx3)',fontWeight:700,fontSize:f,cursor:'pointer'}}>가</button>)}
-        </div></>}
-        <input type="file" id="imp" accept=".json" hidden onChange={e=>{if(e.target.files[0])importAll(e.target.files[0]);e.target.value=''}}/>
-        {!isMobile&&<IB I={theme==='dark'?Sun:Moon} onClick={toggleTheme} title="테마 전환"/>}
+        <button className="tb-sync hide-m" onClick={()=>setMdl('account')} title={(user?`클라우드 (${user.email}) — `:'로그인 — ')+SY[1]}><i style={{background:user?SY[0]:'var(--tx4)'}}/>{user?syncShort:'로그인'}</button>
+        {sc&&!live&&<div role="tablist" className="seg">
+          {[['edit','집필'],['flow','흐름도']].map(([m,l])=><button key={m} role="tab" aria-selected={mode===m} onClick={()=>setMode(m)}>{l}</button>)}</div>}
+        <IB I={Undo2} s={16} onClick={undo} title="실행 취소 (Ctrl+Z)"/><IB I={Redo2} s={16} onClick={redo} title="다시 실행 (Ctrl+Shift+Z)"/>
+        {!isMobile&&<button className="tbtn" onClick={()=>setMdl('find')} title="찾기 · 바꾸기 (Ctrl+F)"><Search size={13}/>찾기</button>}
+        {sc&&!live&&!wide&&!isMobile&&mode==='edit'&&<button className={'tbtn'+(chkOpen?' on':'')} onClick={()=>setChk(!chkOpen)} aria-pressed={chkOpen} title="준비 점검 칸"><ListChecks size={13}/>점검</button>}
+        <IB I={MoreHorizontal} s={16} onClick={()=>setMenu(!menu)} title="더보기 (내보내기·가져오기·글자 크기·테마)" active={menu}/>
         {!isMobile&&<button className="help-btn" onClick={()=>setMdl('help')} title="사용법 (?)" aria-label="사용법">?</button>}
-      </div>
+        {sc&&<button className={'sess-btn'+(live?' on':'')} onClick={live?endLive:startLive} title={live?'세션 화면을 닫고 집필로':'세션 진행 화면 열기'}>
+          {live?<><X size={13}/><span className="hide-m">세션 끝내기</span></>:<><Play size={12} fill="currentColor"/><span className="hide-m">세션 시작</span></>}</button>}
+        <input type="file" id="imp" accept=".json" hidden onChange={e=>{if(e.target.files[0])importAll(e.target.files[0]);e.target.value=''}}/>
+      </header>
 
-      {/* 모바일 더보기 메뉴 */}
-      {isMobile&&menu&&<><div className="no-print" onClick={()=>setMenu(false)} style={{position:'fixed',inset:0,zIndex:60}}/>
-        <div className="no-print" role="menu" style={{position:'fixed',top:56,right:8,zIndex:61,background:'var(--sf1)',border:'1px solid var(--bdr)',borderRadius:10,boxShadow:'0 8px 30px rgba(0,0,0,.35)',padding:6,minWidth:200,display:'flex',flexDirection:'column',gap:2}}>
-          {[[Search,'찾기 · 바꾸기',()=>setMdl('find')],[user?Cloud:LogIn,user?'클라우드 · '+SY[1]:'로그인 (클라우드 저장)',()=>setMdl('account')],[FileDown,'전체 JSON 내보내기',exportAll],[FileUp,'JSON 가져오기',()=>document.getElementById('imp')?.click()],[theme==='dark'?Sun:Moon,theme==='dark'?'라이트 테마':'다크 테마',toggleTheme],[CircleQuestionMark,'사용법',()=>setMdl('help')]].map(([I,l,fn])=>
-            <button key={l} role="menuitem" onClick={()=>{setMenu(false);fn()}} style={{display:'flex',alignItems:'center',gap:8,padding:'9px 10px',borderRadius:6,fontSize:13,color:'var(--tx1)',textAlign:'left'}}><I size={14}/>{l}</button>)}
-          <div style={{display:'flex',alignItems:'center',gap:6,padding:'6px 10px',borderTop:'1px solid var(--bdr)',marginTop:2,fontSize:12,color:'var(--tx3)'}}>글자 크기
-            {[.9,1,1.15].map(z=><button key={z} onClick={()=>setZoom(z)} style={{padding:'3px 8px',borderRadius:4,border:'1px solid var(--bdr)',background:zoom===z?'var(--tx1)':'transparent',color:zoom===z?'var(--bg)':'var(--tx2)',fontSize:11}}>{Math.round(z*100)}%</button>)}</div>
+      {/* 더보기 메뉴 */}
+      {menu&&<><div className="pop-bg no-print" onClick={()=>setMenu(false)}/>
+        <div className="pop pop-r no-print" role="menu">
+          {menuItems.map(([I,l,fn])=><button key={l} role="menuitem" onClick={()=>{setMenu(false);fn()}}><I size={14}/>{l}</button>)}
+          <div className="pop-zoom">글자 크기{[.9,1,1.15].map(z=><button key={z} onClick={()=>setZoom(z)} aria-pressed={zoom===z}>{Math.round(z*100)}%</button>)}</div>
         </div></>}
-      {/* 다른 탭 충돌 배너 */}
-      <div className="no-print" style={{gridColumn:'1/-1'}}>
-        {conflict&&<div role="alert" style={{display:'flex',alignItems:'center',gap:8,flexWrap:'wrap',padding:'8px 14px',background:'var(--goldA)',borderBottom:'1px solid var(--gold)',color:'var(--tx1)',fontSize:12}}>
-          <AlertTriangle size={14} style={{color:'var(--gold)',flexShrink:0}}/>
-          {conflict.kind==='server'
-            ?<span style={{flex:1,minWidth:200}}>클라우드에 이 기기와 <b>다른 내용</b>이 있습니다 (클라우드 저장 시각 {new Date(conflict.row.updated_at).toLocaleString()}). 어느 쪽을 쓸지 선택할 때까지 <b>클라우드 저장을 멈췄습니다.</b> 이 기기에는 계속 저장됩니다.</span>
-            :<span style={{flex:1,minWidth:200}}>다른 탭에서 데이터가 변경되었습니다. 덮어쓰기를 막기 위해 <b>이 탭의 자동 저장을 멈췄습니다.</b></span>}
-          {conflict.kind==='server'&&<Btn small onClick={exportAll} title="이 기기 내용을 JSON 파일로 백업">이 기기 내용 백업</Btn>}
-          <Btn small primary onClick={loadOther}>{conflict.kind==='server'?'클라우드 내용 불러오기':'다른 탭 내용 불러오기'}</Btn>
-          <Btn small danger onClick={keepMine}>{conflict.kind==='server'?'이 기기 내용으로 덮어쓰기':'이 탭 내용으로 덮어쓰기'}</Btn>
-        </div>}
-      </div>
+      {/* 충돌 배너 */}
+      {conflict&&<div role="alert" className="conflict no-print">
+        <AlertTriangle size={14} style={{color:'var(--gold)',flexShrink:0}}/>
+        {conflict.kind==='server'
+          ?<span style={{flex:1,minWidth:200}}>클라우드에 이 기기와 <b>다른 내용</b>이 있습니다 (클라우드 저장 시각 {new Date(conflict.row.updated_at).toLocaleString()}). 어느 쪽을 쓸지 선택할 때까지 <b>클라우드 저장을 멈췄습니다.</b> 이 기기에는 계속 저장됩니다.</span>
+          :<span style={{flex:1,minWidth:200}}>다른 탭에서 데이터가 변경되었습니다. 덮어쓰기를 막기 위해 <b>이 탭의 자동 저장을 멈췄습니다.</b></span>}
+        {conflict.kind==='server'&&<Btn small onClick={exportAll} title="이 기기 내용을 JSON 파일로 백업">이 기기 내용 백업</Btn>}
+        <Btn small primary onClick={loadOther}>{conflict.kind==='server'?'클라우드 내용 불러오기':'다른 탭 내용 불러오기'}</Btn>
+        <Btn small danger onClick={keepMine}>{conflict.kind==='server'?'이 기기 내용으로 덮어쓰기':'이 탭 내용으로 덮어쓰기'}</Btn>
+      </div>}
 
-      {/* SIDEBAR */}
-      {isMobile&&sbOpen&&<div className="no-print" onClick={()=>setSb(false)} style={{position:'fixed',inset:0,top:52,background:'rgba(0,0,0,.45)',zIndex:40}}/>}
-      <div className="no-print" style={isMobile
-        ?{position:'fixed',top:52,left:0,bottom:0,width:'min(300px,86vw)',zIndex:41,background:'var(--sf1)',borderRight:'1px solid var(--bdr)',overflowY:'auto',overflowX:'hidden',display:sbOpen?'flex':'none',flexDirection:'column',fontSize:12,boxShadow:'4px 0 24px rgba(0,0,0,.3)'}
-        :{background:'var(--sf1)',borderRight:'1px solid var(--bdr)',overflowY:'auto',overflowX:'hidden',display:'flex',flexDirection:'column',visibility:sbOpen?'visible':'hidden',position:'relative',fontSize:12,minHeight:0}}>
-        {sbOpen&&!isMobile&&<IB I={PanelLeftClose} onClick={()=>setSb(false)} title="사이드바 닫기" style={{position:'absolute',top:6,right:6,zIndex:5}}/>}
-        <Sidebar {...sidebarProps}/>
-      </div>
-      {!isMobile&&sbOpen&&<div className="sb-resize no-print" role="separator" aria-orientation="vertical" aria-label="사이드바 너비 조절" title="끌어서 너비 조절 · 더블클릭하면 기본값"
-        onPointerDown={startResize} onDoubleClick={()=>{setSbW(260);try{localStorage.setItem(SK+'-sbw',260)}catch(e){}}} style={{left:sbW-3}}/>}
+      <div className="app-body" style={{gridTemplateColumns:isMobile?'1fr':`${showNav?sbW+'px ':''}1fr${showChk?' 300px':''}`}}>
+        {/* 왼쪽 씬 목록 */}
+        {sc&&isMobile&&sbOpen&&<div className="drawer-bg no-print" onClick={()=>setSb(false)}/>}
+        {showNav&&<div className={'nav-wrap no-print'+(isMobile?' drawer':'')}><Nav {...navProps}/>
+          {!isMobile&&<div className="sb-resize" role="separator" aria-orientation="vertical" aria-label="씬 목록 너비 조절" title="끌어서 너비 조절 · 더블클릭하면 기본값"
+            onPointerDown={startResize} onDoubleClick={()=>{setSbW(260);try{localStorage.setItem(SK+'-sbw',260)}catch(e){}}}/>}</div>}
 
-      {/* MAIN */}
-      <div className="main" style={{overflowY:'auto',background:'var(--bg2)',minHeight:0,minWidth:0}}>
-        {mode==='flow'&&sc?<FlowV sc={sc} sel={sel} setSel={go} setMode={setMode}/>
-        :ending?<EndingP ending={ending} sc={sc} plat={plat} mode={mode} gm={gm} up={up} sel={sel} toast={toast} setMdl={setMdl} go={go} sess={sess}/>
-        :scene?<SceneP scene={scene} pt={pt} sc={sc} plat={plat} mode={mode} gm={gm} up={up} sel={sel} toast={toast} isR20={isR20} isCoco={isCoco} r20On={r20On} setR20On={setR20On} go={go} setMdl={setMdl} sess={sess}/>
-        :sc?<OverviewP sc={sc} plat={plat} up={up} sel={sel} toast={toast} exportSingle={exportSingle} mergeImp={mergeImp} setMdl={setMdl} go={go}/>
-        :<div style={{height:'100%',display:'flex',alignItems:'center',justifyContent:'center',flexDirection:'column',gap:10,color:'var(--tx3)',textAlign:'center'}}>
-          <BookOpen size={32} strokeWidth={1.5} style={{opacity:.5}}/><h3 style={{fontFamily:'var(--f-title)',fontSize:18,fontWeight:700,color:'var(--tx2)'}}>{D.scenarios.some(s=>s.platformId===sel.pid)?'시나리오를 선택하세요':'새 시나리오를 만들어 보세요'}</h3>
-          {isMobile&&!sbOpen&&<Btn onClick={()=>setSb(true)}><Menu size={12}/>목록 열기</Btn>}</div>}
+        {/* 가운데 */}
+        <main className={'main'+(live?' main-live':'')}>
+          {live&&sc?(pip?<div className="pip-hold"><b>미니 창에서 세션 진행 중</b><span>롤20 창 위에 떠 있는 작은 창을 쓰세요.</span>
+              <Btn onClick={()=>{pip.close();setPip(null)}}>큰 화면으로 돌아오기</Btn></div>:sessionEl)
+          :mode==='flow'&&sc?<FlowV sc={sc} sel={sel} setSel={go} setMode={setMode}/>
+          :ending?<EndingP ending={ending} sc={sc} plat={plat} up={up} sel={sel} setMdl={setMdl}/>
+          :scene?<SceneP scene={scene} pt={pt} sc={sc} plat={plat} up={up} sel={sel} isR20={isR20} isCoco={isCoco} r20On={r20On} setR20On={setR20On} go={go} setMdl={setMdl} no={sceneNo}/>
+          :sc?<OverviewP sc={sc} plat={plat} up={up} sel={sel} toast={toast} exportSingle={exportSingle} mergeImp={mergeImp} setMdl={setMdl} go={go}/>
+          :<Home D={D} sel={sel} go={go} setSel={setSel} up={up} setMdl={setMdl} dlg={dlg} toast={toast}/>}
+        </main>
+
+        {/* 오른쪽 준비 점검 */}
+        {showChk&&<CheckPanel sc={sc} plat={plat} issues={issues} go={go} sel={sel} setMdl={setMdl} onStart={startLive}/>}
+        {sc&&isMobile&&!live&&chkOpenS===true&&<><div className="drawer-bg no-print" onClick={()=>setChk(false)}/>
+          <div className="drawer drawer-r no-print"><CheckPanel sc={sc} plat={plat} issues={issues} go={s2=>{setChk(false);go(s2)}} sel={sel} setMdl={setMdl} onStart={()=>{setChk(false);startLive()}}/></div></>}
       </div>
-      {/* 세션 패널: 데스크톱은 오른쪽 열, 모바일은 겹쳐 띄움 */}
-      {spShow&&!isMobile&&<div className="no-print" style={{minHeight:0,borderLeft:'1px solid var(--bdr)',background:'var(--sf1)',overflow:'hidden'}}><SessionPanel sc={sc} up={up} sel={sel} setMdl={setMdl} onClose={()=>setSpOpen(false)}/></div>}
-      {spShow&&isMobile&&<><div className="no-print" onClick={()=>setSpOpen(false)} style={{position:'fixed',inset:0,top:52,background:'rgba(0,0,0,.45)',zIndex:40}}/>
-        <div className="no-print" style={{position:'fixed',top:52,right:0,bottom:0,width:'min(340px,92vw)',zIndex:41,background:'var(--sf1)',borderLeft:'1px solid var(--bdr)',boxShadow:'-4px 0 24px rgba(0,0,0,.3)'}}><SessionPanel sc={sc} up={up} sel={sel} setMdl={setMdl} onClose={()=>setSpOpen(false)}/></div></>}
     </div>
+    {pip&&sc&&live&&createPortal(<ActCtx.Provider value={act}><SessionMode sc={sc} plat={plat} sel={sel} go={go} up={up} gm={gm} setGm={setGm} setMdl={setMdl} onEnd={()=>{pip.close();setPip(null)}} win={pip} pip/></ActCtx.Provider>,pip.document.body)}
     {/* MODALS */}
     {(modal==='account'||modal==='account-recovery')&&<AccountM user={user} sync={sync} SY={SY} recovery={modal==='account-recovery'} syncNow={()=>{setConflict(c=>c?.kind==='server'?c:null);syncNow()}} toast={toast}
       loadCloud={async()=>{try{const row=await fetchRow(user.id);if(!row){toast('클라우드에 저장된 데이터가 없습니다');return false}setConflict(null);adopt(row,user.id);toast('☁ 클라우드 내용을 불러왔습니다');return true}catch(e){toast(friendly(e),4000);return false}}}

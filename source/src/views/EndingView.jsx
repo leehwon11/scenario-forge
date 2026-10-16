@@ -1,29 +1,26 @@
+import { Pencil } from "lucide-react";
 import { BL } from '../blocks/BlockList.jsx'
 import { TA } from '../components/ui.jsx'
-import { PlayV } from './PlayView.jsx'
 import { FlagPicker } from '../components/flags.jsx'
 import { CmdBar } from '../components/CmdBar.jsx'
 
-// ===== ENDING PANEL =====
-export function EndingP({ending,sc,plat,mode,gm,up,sel,toast,setMdl,go,sess}){
+// ===== 엔딩 편집 (Desk 가운데 칸) =====
+export function EndingP({ending,sc,plat,up,sel,setMdl}){
   const uE=fn=>up(d=>{const e=d.scenarios.find(x=>x.id===sel.sid).endings.find(x=>x.id===sel.eid);fn(e)});
-  if(mode==='play')return<PlayV entry={ending} sc={sc} plat={plat} gm={gm} sess={sess}/>;
-  return<div>
+  return<div className="ed">
     <CmdBar plat={plat} onManage={()=>setMdl('cmd')} onTpl={()=>setMdl('tpl')}/>
-    <div className="crumb">{plat?.name||''} / {sc.title} / 엔딩</div>
-    <input className="ghost page-title" aria-label="엔딩 제목" value={ending.title} onChange={e=>uE(en=>{en.title=e.target.value})} style={{fontSize:26}}/>
-    <div style={{display:'flex',flexWrap:'wrap',gap:4,margin:'8px 0 14px'}}>
-      {sc.endingTypes.map(t=><button key={t.id} onClick={()=>uE(en=>{en.endingType=t.id})}
-        style={{padding:'4px 11px',borderRadius:20,fontSize:11,fontWeight:600,fontFamily:'var(--f-label)',cursor:'pointer',
-          border:`1px solid ${ending.endingType===t.id?t.c:'var(--bdr)'}`,background:ending.endingType===t.id?t.c:'transparent',color:ending.endingType===t.id?'#fff':'var(--tx3)'}}>{t.l}</button>)}
-      <button onClick={()=>setMdl('endingTypes')} title="엔딩 타입 관리" style={{padding:'4px 8px',borderRadius:20,fontSize:10,border:'1px dashed var(--tx4)',color:'var(--tx3)',cursor:'pointer'}}>✎</button>
+    <div className="ed-pg">
+      <div className="ed-k">ENDING <span>· {sc.title}</span></div>
+      <input className="ghost page-title ed-title" aria-label="엔딩 제목" value={ending.title} onChange={e=>uE(en=>{en.title=e.target.value})}/>
+      <div className="props">
+        {sc.endingTypes.map(t=><button key={t.id} className={'et-chip'+(ending.endingType===t.id?' on':'')} style={{'--c':t.c}} onClick={()=>uE(en=>{en.endingType=t.id})} aria-pressed={ending.endingType===t.id}>{t.l}</button>)}
+        <button className="et-chip edit" onClick={()=>setMdl('endingTypes')} title="엔딩 타입 관리"><Pencil size={11}/>종류 편집</button>
+      </div>
+      <div className="blk blk-cond">
+        <div className="blk-h"><span className="blk-tag" style={{'--c':'var(--coral)'}}>도달 조건</span></div>
+        <div className="blk-b"><TA value={ending.condition||''} onChange={v=>uE(en=>{en.condition=v})} placeholder="어떻게 하면 이 엔딩에 도달하나요?"/>
+          <FlagPicker defs={sc.flags} value={ending.needs||[]} onChange={v=>uE(en=>{en.needs=v})}/></div>
+      </div>
+      <div data-block-list><BL entry={ending} upE={fn=>uE(en=>{fn(en)})} sc={sc} plat={plat} onManage={()=>setMdl('cmd')}/></div>
     </div>
-    <div className="rail" style={{marginBottom:18,borderLeftColor:'var(--coral)'}}>
-      <div className="rail-dot" style={{borderColor:'var(--coral)'}}/>
-      <span className="rail-label">도달 조건</span>
-      <TA value={ending.condition||''} onChange={v=>uE(en=>{en.condition=v})} placeholder="도달 조건" bg="var(--coralA)"/>
-      <FlagPicker defs={sc.flags} value={ending.needs||[]} onChange={v=>uE(en=>{en.needs=v})}/>
-    </div>
-    <BL entry={ending} upE={fn=>uE(en=>{fn(en)})} sc={sc} plat={plat} onManage={()=>setMdl('cmd')}/>
-  </div>;
-}
+  </div>}

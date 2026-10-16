@@ -51,10 +51,13 @@ export function useMedia(q){const[m,setM]=useState(()=>typeof matchMedia!=='unde
   useEffect(()=>{const mq=matchMedia(q);const h=()=>setM(mq.matches);mq.addEventListener('change',h);return()=>mq.removeEventListener('change',h)},[q]);return m}
 
 // 클립보드 복사 (http 환경 등 Clipboard API가 없을 때는 예전 방식으로)
+// 세션 미니 창(Document Picture-in-Picture)이 열려 있고 그 창에 포커스가 있으면 그 창의 클립보드를 쓴다
+let copyWin=null;export const setCopyWin=w=>{copyWin=w};
 export async function copyText(text){
-  try{if(navigator.clipboard?.writeText){await navigator.clipboard.writeText(text);return true}}catch(e){}
-  const ta=document.createElement('textarea');ta.value=text;ta.style.cssText='position:fixed;opacity:0;top:0;left:0';document.body.appendChild(ta);ta.select();
-  let ok=false;try{ok=document.execCommand('copy')}catch(e){}document.body.removeChild(ta);return ok}
+  const W=copyWin&&!copyWin.closed&&copyWin.document.hasFocus()?copyWin:window;
+  try{if(W.navigator.clipboard?.writeText){await W.navigator.clipboard.writeText(text);return true}}catch(e){}
+  const doc=W.document;const ta=doc.createElement('textarea');ta.value=text;ta.style.cssText='position:fixed;opacity:0;top:0;left:0';doc.body.appendChild(ta);ta.select();
+  let ok=false;try{ok=doc.execCommand('copy')}catch(e){}doc.body.removeChild(ta);return ok}
 // 원문 복사 버튼. icon: 아이콘만 (줄별 복사용)
 export function CopyBtn({text,label='복사',icon,className,title='원문 복사'}){const[ok,setOk]=useState(false);
   return<button title={title} aria-label={title} className={'copybtn'+(className?' '+className:'')+(ok?' copied':'')} onClick={async e=>{e.stopPropagation();if(await copyText(text)){setOk(true);setTimeout(()=>setOk(false),1200)}}}

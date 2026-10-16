@@ -1,54 +1,41 @@
+import { X } from "lucide-react";
 import { BL } from '../blocks/BlockList.jsx'
-import { allScenes,findTarget } from '../lib/data.js'
+import { findTarget } from '../lib/data.js'
 import { CocoP,R20P } from './ChatPreview.jsx'
-import { PlayV } from './PlayView.jsx'
 import { CmdBar } from '../components/CmdBar.jsx'
 
-// ===== SCENE PANEL =====
-export function SceneP({scene,pt,sc,plat,mode,gm,up,sel,toast,isR20,isCoco,r20On,setR20On,go,setMdl,sess}){
+// ===== 씬 편집 (Desk 가운데 칸) =====
+// 위: SCENE 번호 · 제목 · 속성 칩(장소·시간·NPC·다음), 아래: 블록 카드
+export function Prop({label,value,onChange,placeholder}){
+  return<label className="prop"><span>{label}</span><input value={value||''} onChange={e=>onChange(e.target.value)} placeholder={placeholder}/></label>}
+
+export function SceneP({scene,pt,sc,plat,up,sel,isR20,isCoco,r20On,setR20On,go,setMdl,no}){
   const uS=fn=>up(d=>{const s=d.scenarios.find(x=>x.id===sel.sid).parts.find(x=>x.id===sel.ptid).scenes.find(x=>x.id===sel.scid);fn(s)});
   const goT=t=>t.kind==='scene'?go({pid:sel.pid,sid:sel.sid,ptid:t.ptid,scid:t.id,eid:null}):go({pid:sel.pid,sid:sel.sid,ptid:null,scid:null,eid:t.id});
-  if(mode==='play'){const flat=allScenes(sc);const i=flat.findIndex(x=>x.id===scene.id);
-    const asT=x=>x&&{kind:'scene',ptid:x.ptid,id:x.id,title:x.title};
-    return<PlayV entry={scene} sc={sc} pt={pt} plat={plat} gm={gm} isSc sess={sess} nav={{prev:asT(flat[i-1]),next:asT(flat[i+1]),
-      targets:(scene.connections||[]).map(c=>findTarget(sc,c.targetSceneId)).filter(Boolean),go:goT,done:!!scene.done,toggleDone:()=>uS(x=>{x.done=!x.done})}}/>}
-  return<div>
+  const conns=scene.connections||[];
+  return<div className="ed">
     <CmdBar plat={plat} onManage={()=>setMdl('cmd')} onTpl={()=>setMdl('tpl')}/>
-    <div className="crumb">{plat?.name||''} / {sc.title} / {pt.title}</div>
-    <input className="ghost page-title" aria-label="씬 제목" value={scene.title} onChange={e=>uS(s=>{s.title=e.target.value})} style={{fontSize:26,marginBottom:2}}/>
-    <div style={{display:'flex',flexWrap:'wrap',gap:16,padding:'8px 0',marginBottom:14,borderBottom:'1px solid var(--bdr)'}}>
-      {[['장소','장소','location'],['시간','시간대','timeOfDay'],['등장 NPC','등장인물','npcsPresent']].map(([k,ph,f])=>
-        <div key={f} style={{display:'flex',flexDirection:'column',gap:1}}>
-          <span style={{fontFamily:'var(--f-label)',fontSize:10,fontWeight:600,color:'var(--tx3)',letterSpacing:'.02em'}}>{k}</span>
-          <input className="ghost" value={scene[f]||''} onChange={e=>uS(s=>{s[f]=e.target.value})} placeholder={ph}
-            style={{border:'none',borderBottom:'1px dashed var(--bdr2)',background:'transparent',fontSize:12,color:'var(--tx2)',padding:'2px 4px',outline:'none',minWidth:100}}/>
-        </div>)}
-    </div>
-    <div style={{marginBottom:12}}>
-      <span style={{fontFamily:'var(--f-label)',fontSize:10,fontWeight:600,color:'var(--tx3)',marginRight:6}}>연결</span>
-      {(scene.connections||[]).map((c,i)=>{const t=findTarget(sc,c.targetSceneId);const col=t?.kind==='ending'?'var(--coral)':'var(--blue)';
-        return<span key={i} style={{display:'inline-flex',alignItems:'center',gap:3,background:t?.kind==='ending'?'var(--coralA)':'var(--blueA)',color:col,padding:'1px 4px 1px 8px',borderRadius:12,fontFamily:'var(--f-label)',fontSize:10,fontWeight:600,marginRight:4,marginBottom:3}}>
-          <button onClick={()=>t&&goT(t)} title="이동" style={{color:'inherit',fontWeight:600,fontSize:10}}>→ {t?.kind==='ending'?'🏁 ':''}{t?.title||'?'}</button>
-          <button onClick={()=>uS(s=>{s.connections.splice(i,1)})} title="연결 삭제" aria-label="연결 삭제" style={{color:'inherit',cursor:'pointer',fontSize:10,padding:'0 3px'}}>✕</button></span>})}
-      <select value="" onChange={e=>{const id=e.target.value;if(id)uS(s=>{s.connections.push({targetSceneId:id})})}}
-        style={{fontFamily:'var(--f-label)',fontSize:10,color:'var(--blue)',background:'var(--blueA)',border:'1px dashed var(--blue)',borderRadius:12,padding:'1px 7px',cursor:'pointer',outline:'none'}}>
-        <option value="">+ 연결</option>
-        {sc.parts.map(p=><optgroup key={p.id} label={p.title}>{p.scenes.filter(s=>s.id!==scene.id&&!(scene.connections||[]).some(c=>c.targetSceneId===s.id)).map(s=><option key={s.id} value={s.id}>{s.title}</option>)}</optgroup>)}
-        {sc.endings.length>0&&<optgroup label="엔딩">{sc.endings.filter(e=>!(scene.connections||[]).some(c=>c.targetSceneId===e.id)).map(e=><option key={e.id} value={e.id}>🏁 {e.title}</option>)}</optgroup>}
-      </select>
-    </div>
-    {/* R20/Coco preview with toggle */}
-    {isR20&&<div style={{marginBottom:16}}>
-      <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:r20On?8:0}}>
-        <button onClick={()=>setR20On(!r20On)} style={{display:'flex',alignItems:'center',gap:5,fontFamily:'var(--f-label)',fontSize:10,fontWeight:600,padding:'3px 10px',borderRadius:20,cursor:'pointer',
-          border:`1px solid ${r20On?'var(--red)':'var(--bdr)'}`,color:r20On?'var(--red)':'var(--tx4)',background:r20On?'var(--redA)':'transparent'}}>
-          <span style={{width:6,height:6,borderRadius:'50%',background:r20On?'var(--red)':'var(--tx4)'}}/>Roll20 미리보기 {r20On?'ON':'OFF'}
-        </button>
+    <div className="ed-pg">
+      <div className="ed-k">SCENE {String(no).padStart(2,'0')} <span>· {pt.title}</span></div>
+      <input className="ghost page-title ed-title" aria-label="씬 제목" value={scene.title} onChange={e=>uS(s=>{s.title=e.target.value})}/>
+      <div className="props">
+        <Prop label="장소" value={scene.location} onChange={v=>uS(s=>{s.location=v})} placeholder="어디서"/>
+        <Prop label="시간" value={scene.timeOfDay} onChange={v=>uS(s=>{s.timeOfDay=v})} placeholder="언제"/>
+        <Prop label="NPC" value={scene.npcsPresent} onChange={v=>uS(s=>{s.npcsPresent=v})} placeholder="등장인물"/>
+        <div className="prop prop-next"><span>다음</span>
+          {conns.map((c,i)=>{const t=findTarget(sc,c.targetSceneId);return<span key={i} className={'conn'+(t?.kind==='ending'?' end':'')}>
+            <button onClick={()=>t&&goT(t)} title="이동">{t?.kind==='ending'?'🏁 ':''}{t?.title||'?'}</button>
+            <button onClick={()=>uS(s=>{s.connections.splice(i,1)})} title="연결 삭제" aria-label="연결 삭제"><X size={10}/></button></span>})}
+          <select value="" aria-label="연결 추가" onChange={e=>{const id=e.target.value;if(id)uS(s=>{s.connections.push({targetSceneId:id})})}}>
+            <option value="">+ 연결</option>
+            {sc.parts.map(p=><optgroup key={p.id} label={p.title}>{p.scenes.filter(s=>s.id!==scene.id&&!conns.some(c=>c.targetSceneId===s.id)).map(s=><option key={s.id} value={s.id}>{s.title}</option>)}</optgroup>)}
+            {sc.endings.length>0&&<optgroup label="엔딩">{sc.endings.filter(e=>!conns.some(c=>c.targetSceneId===e.id)).map(e=><option key={e.id} value={e.id}>🏁 {e.title}</option>)}</optgroup>}
+          </select></div>
       </div>
-      {r20On&&<R20P scene={scene}/>}
-    </div>}
-    {isCoco&&<CocoP scene={scene}/>}
-    {/* Floating command bar */}
-    <div data-block-list><BL entry={scene} upE={fn=>uS(s=>{fn(s)})} sc={sc} plat={plat} onManage={()=>setMdl('cmd')}/></div>
-  </div>;
-}
+      {isR20&&<div className="ed-prev">
+        <button className={'prev-tog'+(r20On?' on':'')} onClick={()=>setR20On(!r20On)} aria-pressed={r20On}><i/>Roll20 채팅 미리보기 {r20On?'켜짐':'꺼짐'}</button>
+        {r20On&&<R20P scene={scene}/>}</div>}
+      {isCoco&&<CocoP scene={scene}/>}
+      <div data-block-list><BL entry={scene} upE={fn=>uS(s=>{fn(s)})} sc={sc} plat={plat} onManage={()=>setMdl('cmd')}/></div>
+    </div>
+  </div>}

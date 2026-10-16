@@ -72,7 +72,7 @@ export function clueUsage(sc){const u={};const add=(cid,where)=>{if(!cid)return;
 export const moveIdx=(arr,from,to)=>{const[x]=arr.splice(from,1);arr.splice(to>from?to-1:to,0,x)};
 
 // ===== 세션 진행 (행동 순서·단서 획득·플래그) =====
-export const newSession=()=>({flags:{},found:{},order:[],turn:0,round:1});
+export const newSession=()=>({flags:{},found:{},order:[],turn:0,round:1,sent:{}});
 export function migSession(sc){
   sc.flags??=[];sc.pcs??=[]; // pcs: 예전 버전 데이터 보존용(화면에는 안 씀)
   // 예전 버전 PC(hp/san/dex 고정 필드) → 자유 수치 목록
@@ -84,7 +84,7 @@ export function migSession(sc){
       if(pc.skills)pc.notes=[pc.skills,pc.notes].filter(Boolean).join('\n');
       for(const k of['hp','hpMax','san','sanMax','dex','skills'])delete pc[k]}
     pc.init??=0}
-  const ss=sc.session??=newSession();ss.flags??={};ss.found??={};ss.order??=[];ss.turn??=0;ss.round??=1;
+  const ss=sc.session??=newSession();ss.flags??={};ss.found??={};ss.order??=[];ss.turn??=0;ss.round??=1;ss.sent??={}; /* sent: 세션 화면에서 이미 복사해 보낸 줄 */
   for(const p of sc.parts||[])for(const s of p.scenes||[])for(const b of s.blocks||[])if(b.type==='branches')for(const it of b.items||[])it.needs??=[];
   return sc}
 // 결론별 단서 진행: 전체 / 씬에 배치됨 / 이번 세션에 획득
