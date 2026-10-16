@@ -21,8 +21,9 @@ function Part({id,icon,title,extra,right,fold,children}){const closed=fold[0][id
 const Num=({value,onChange,w=42,label})=><input className="sp-num" type="number" inputMode="numeric" aria-label={label} value={value} style={{width:w}}
   onChange={e=>onChange(e.target.value===''?'':+e.target.value)} onFocus={e=>e.target.select()}/>;
 
-export function SessionPanel({sc,up,sel,setMdl,onClose}){
-  const dlg=useDialog();const{removed,toast}=useAct();const fold=useFold();
+// only: 'init'|'clue'|'flag' — 세션 화면의 탭처럼 한 부분만 보여 줄 때 (접기·위쪽 줄 없음)
+export function SessionPanel({sc,up,sel,setMdl,onClose,only}){
+  const dlg=useDialog();const{removed,toast}=useAct();const fold0=useFold();const fold=only?[{},()=>{}]:fold0;
   const uSc=fn=>up(d=>{fn(d.scenarios.find(x=>x.id===sel.sid))});
   const setS=fn=>uSc(s=>fn(s.session));
   const ss=sc.session;const order=sortOrder(ss.order);const cur=order[ss.turn]||null;
@@ -35,16 +36,17 @@ export function SessionPanel({sc,up,sel,setMdl,onClose}){
     removed('세션 진행 상태',()=>uSc(s=>{s.session=newSession()}))};
   const pcName=o=>o.pcId?(sc.pcs?.find(p=>p.id===o.pcId)?.name||o.name):o.name;
 
-  return<aside className="sp" aria-label="세션 패널">
-    <div className="sp-top">
+  const show=id=>!only||only===id;
+  return<aside className={'sp'+(only?' sp-only':'')} aria-label="세션 패널">
+    {!only&&<div className="sp-top">
       <Swords size={14} style={{color:'var(--purple)'}}/><b>세션</b>
       <span style={{flex:1}}/>
       <IB I={RotateCcw} s={13} title="새 세션 시작 (진행 상태 초기화)" onClick={resetSession}/>
       {onClose&&<IB I={X} s={14} title="세션 패널 닫기" onClick={onClose}/>}
-    </div>
+    </div>}
     <div className="sp-body">
       {/* 행동 순서 */}
-      <Part id="init" icon={<SkipForward size={12}/>} title="행동 순서" extra={order.length?`${ss.round}라운드`:null} fold={fold}
+      {show('init')&&<Part id="init" icon={<SkipForward size={12}/>} title="행동 순서" extra={order.length?`${ss.round}라운드`:null} fold={fold}
         right={<IB I={Plus} s={13} title="참가자 추가" onClick={addEntry}/>}>
         {!order.length?<div className="sp-hint">전투 등 차례가 필요할 때 <b>+</b>로 PC·NPC를 추가하고 값을 적으세요. 값이 높은 순서로 정렬됩니다.</div>:<>
           {order.map((o,i)=><div key={o.id} className={'sp-ord'+(i===ss.turn?' on':'')}>
@@ -55,11 +57,11 @@ export function SessionPanel({sc,up,sel,setMdl,onClose}){
             <Btn small primary onClick={nextTurn} style={{flex:1,justifyContent:'center'}}><SkipForward size={11}/>다음 차례{cur?` (${pcName(order[(ss.turn+1)%order.length])})`:''}</Btn>
             <Btn small onClick={()=>setS(x=>{x.turn=0;x.round=1})} title="1라운드 처음으로">처음으로</Btn>
             <Btn small onClick={()=>setS(x=>{x.order=[];x.turn=0;x.round=1})} title="행동 순서 비우기">비우기</Btn></div></>}
-      </Part>
+      </Part>}
 
       {/* 단서 획득 */}
-      <Part id="clue" icon={<Lightbulb size={12}/>} title="단서 획득" extra={sc.clues.length?`${foundN}/${sc.clues.length}`:null} fold={fold}>
-        {!sc.clues.length?<div className="sp-hint">사이드바 Clues에서 단서를 만들면 여기서 획득 여부를 체크할 수 있습니다.</div>
+      {show('clue')&&<Part id="clue" icon={<Lightbulb size={12}/>} title="단서 획득" extra={sc.clues.length?`${foundN}/${sc.clues.length}`:null} fold={fold}>
+        {!sc.clues.length?<div className="sp-hint">사이드바 단서에서 단서를 만들면 여기서 획득 여부를 체크할 수 있습니다.</div>
         :prog.map(g=>{const red=g.key==='__red',none=g.key==='__none';const need=3;
           return<div key={g.key} className="sp-cg">
             <div className="sp-cg-h"><span>{red?'미끼 단서':none?'결론 미지정':g.key}</span>
@@ -68,16 +70,17 @@ export function SessionPanel({sc,up,sel,setMdl,onClose}){
             {g.clues.map(c=><label key={c.id} className="sp-chk"><input type="checkbox" checked={!!ss.found[c.id]} onChange={e=>{const v=e.target.checked;setS(x=>{x.found[c.id]=v})}}/>
               <span style={{textDecoration:ss.found[c.id]?'line-through':'none',opacity:ss.found[c.id]?.6:1}}>{c.name}</span></label>)}
           </div>})}
-      </Part>
+      </Part>}
 
       {/* 플래그 */}
-      <Part id="flag" icon={<Flag size={12}/>} title="상태 플래그" extra={sc.flags.length?`${sc.flags.filter(f=>ss.flags[f.id]).length}/${sc.flags.length}`:null} fold={fold} right={<IB I={Plus} s={13} title="플래그 추가" onClick={addFlag}/>}>
+      {show('flag')&&<Part id="flag" icon={<Flag size={12}/>} title="상태 플래그" extra={sc.flags.length?`${sc.flags.filter(f=>ss.flags[f.id]).length}/${sc.flags.length}`:null} fold={fold} right={<IB I={Plus} s={13} title="플래그 추가" onClick={addFlag}/>}>
         {!sc.flags.length?<div className="sp-hint">"열쇠 획득", "경찰에 신고함" 같은 진행 상태를 만들어 두세요. 선택지 분기·엔딩에 필요한 플래그를 지정하면 충족 여부가 표시됩니다.</div>
         :sc.flags.map(f=><div key={f.id} className="sp-flag">
           <button role="switch" aria-checked={!!ss.flags[f.id]} className={'sw'+(ss.flags[f.id]?' on':'')} onClick={()=>setS(x=>{x.flags[f.id]=!x.flags[f.id]})}><span/></button>
           <span style={{flex:1,minWidth:0}}>{f.name}</span>
           <IB I={Pencil} s={11} title="이름 변경" onClick={async()=>{const n=await dlg.prompt('플래그 이름',f.name);if(n)uSc(s=>{s.flags.find(x=>x.id===f.id).name=n})}}/>
           <IB I={Trash2} s={11} danger title="플래그 삭제" onClick={()=>removed(`플래그 "${f.name}"`,()=>uSc(s=>{s.flags=s.flags.filter(x=>x.id!==f.id);delete s.session.flags[f.id]}))}/></div>)}
-      </Part>
+      </Part>}
+      {only&&<div style={{padding:'4px 14px 12px'}}><button className="sp-reset" onClick={resetSession}><RotateCcw size={11}/>새 세션 시작 (진행 상태 초기화)</button></div>}
     </div>
   </aside>}

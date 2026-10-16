@@ -6,7 +6,9 @@ import { countIn,eachText } from '../lib/data.js'
 function entriesIn(D,scope,sel){const out=[];
   for(const sc of D.scenarios){if(scope!=='all'&&sc.id!==sel.sid)continue;
     for(const p of sc.parts)for(const s of p.scenes){if(scope==='entry'&&s.id!==sel.scid)continue;out.push({sc,p,en:s,tp:'scene'})}
-    for(const e of sc.endings||[]){if(scope==='entry'&&e.id!==sel.eid)continue;out.push({sc,p:null,en:e,tp:'ending'})}}
+    for(const e of sc.endings||[]){if(scope==='entry'&&e.id!==sel.eid)continue;out.push({sc,p:null,en:e,tp:'ending'})}
+    // 자료실 항목도 찾기·바꾸기 대상 (블록 하나짜리 가짜 항목으로)
+    if(scope!=='entry')for(const k of['npcs','items','places'])for(const x of sc.library?.[k]||[])out.push({sc,p:null,en:{id:x.id,title:'',blocks:[x]},tp:'lib',kind:k,name:x.name})}
   return out}
 // 검색어 주변 문맥을 잘라 강조 표시
 function Snip({text,q}){const i=text.toLowerCase().indexOf(q.toLowerCase());if(i<0)return null;
@@ -14,7 +16,7 @@ function Snip({text,q}){const i=text.toLowerCase().indexOf(q.toLowerCase());if(i
   return<div style={{fontSize:12,color:'var(--tx2)',lineHeight:1.5,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
     {a>0&&'…'}{text.slice(a,i).replace(/\n/g,' ')}<mark className="hl">{text.slice(i,i+q.length)}</mark>{text.slice(i+q.length,b).replace(/\n/g,' ')}{b<text.length&&'…'}</div>}
 
-export function FindM({D,up,sel,setSel,setMode,onClose,toast}){const dlg=useDialog();const[t,setT]=useState('');const[rt,setRt]=useState('');const[rm,setRm]=useState('find');
+export function FindM({D,up,sel,setSel,setMode,onClose,toast,onLib}){const dlg=useDialog();const[t,setT]=useState('');const[rt,setRt]=useState('');const[rm,setRm]=useState('find');
   const scopes=[['all','전체'],...(sel.sid?[['here','이 시나리오']]:[]),...(sel.scid||sel.eid?[['entry',sel.scid?'이 씬':'이 엔딩']]:[])];
   const[scope,setScope]=useState('all');
   const res=useMemo(()=>{if(!t.trim())return[];const lt=t.toLowerCase(),r=[];
@@ -36,9 +38,9 @@ export function FindM({D,up,sel,setSel,setMode,onClose,toast}){const dlg=useDial
     {rm==='replace'&&t&&<div style={{fontSize:12,color:'var(--tx3)',padding:'6px 8px',border:'1px solid var(--bdr)',borderRadius:6,marginBottom:8}}>범위 안에서 <b style={{color:'var(--tx1)'}}>{countAll()}건</b> (대소문자 구분)</div>}
     {rm==='find'&&<div style={{maxHeight:360,overflowY:'auto'}}>{!t.trim()?<div style={{color:'var(--tx3)',fontSize:12}}>검색어를 입력하세요</div>:!res.length?<div style={{color:'var(--tx3)',fontSize:12}}>결과 없음</div>
       :<><div style={{fontSize:11,color:'var(--tx3)',marginBottom:6}}>{res.length}곳에서 {total}건</div>
-      {res.map((r,i)=><button key={i} onClick={()=>{if(r.tp==='scene')setSel({pid:r.sc.platformId,sid:r.sc.id,ptid:r.p.id,scid:r.en.id,eid:null});else setSel({pid:r.sc.platformId,sid:r.sc.id,ptid:null,scid:null,eid:r.en.id});setMode('edit');onClose()}}
+      {res.map((r,i)=><button key={i} onClick={()=>{if(r.tp==='lib'){setSel({pid:r.sc.platformId,sid:r.sc.id,ptid:null,scid:null,eid:null});onClose();onLib?.(r.kind,r.en.id);return}if(r.tp==='scene')setSel({pid:r.sc.platformId,sid:r.sc.id,ptid:r.p.id,scid:r.en.id,eid:null});else setSel({pid:r.sc.platformId,sid:r.sc.id,ptid:null,scid:null,eid:r.en.id});setMode('edit');onClose()}}
         className="find-hit" style={{display:'block',width:'100%',textAlign:'left',border:'1px solid var(--bdr)',borderRadius:6,padding:'7px 10px',marginBottom:4,cursor:'pointer'}}>
-        <div style={{display:'flex',gap:6,alignItems:'baseline'}}><span style={{fontFamily:'JetBrains Mono,monospace',fontWeight:600,fontSize:12,color:'var(--tx1)'}}>{r.tp==='ending'?'🏁 ':''}{r.en.title}</span>
+        <div style={{display:'flex',gap:6,alignItems:'baseline'}}><span style={{fontFamily:'var(--f-label)',fontWeight:600,fontSize:12,color:'var(--tx1)'}}>{r.tp==='ending'?'🏁 ':''}{r.tp==='lib'?'자료실 · '+(r.name||'(이름 없음)'):r.en.title}</span>
           <span style={{fontSize:10,color:'var(--tx3)'}}>{r.sc.title}{r.p?' / '+r.p.title:''} · {r.hits.length}건</span></div>
         {r.hits.slice(0,3).map((h,j)=><Snip key={j} text={h} q={t}/>)}{r.hits.length>3&&<div style={{fontSize:11,color:'var(--tx3)'}}>…외 {r.hits.length-3}건</div>}</button>)}</>}</div>}
   </Modal>}
