@@ -16,3 +16,7 @@ textarea{resize:none;overflow:hidden}
 .r20img{max-width:100%;border-radius:3px;margin:3px 0;display:block}
 @media print{.no-print{display:none!important}}
 
+
+/* 스크롤바: 브라우저 기본(밝은 회색) 대신 테마 색으로 얇게 */
+*{scrollbar-width:thin;scrollbar-color:var(--bdr2) transparent}
+*:hover{scrollbar-color:var(--tx4) transparent}
