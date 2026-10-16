@@ -657,3 +657,9 @@ textarea:focus,.fill-sel:focus{border-color:var(--blue)!important;box-shadow:0 0
 .ss-libc[open] summary{margin-bottom:6px}
 .ss-tag.here{color:var(--blue);background:var(--blueA)}
 @media (max-width:700px){.lib{grid-template-columns:1fr}.lib-main{border-left:0;padding-left:0;border-top:1px solid var(--bdr);padding-top:12px}.lib-list{max-height:30vh}}
+/* 세션 화면: 블록을 쓴 순서대로 */
+.ss-blk{display:flex;flex-direction:column;gap:6px;margin-top:4px}
+.ss-bh{display:flex;align-items:center;gap:6px;margin:2px 2px 0}
+.ss-btag{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:700;color:var(--c);background:color-mix(in srgb,var(--c) 11%,transparent);border-radius:5px;padding:1px 7px}
+.ss-img.sm{max-width:120px}
+.ss-sec.memo,.ss-sec.session-log{background:var(--goldA);border-color:color-mix(in srgb,var(--gold) 45%,transparent)}
