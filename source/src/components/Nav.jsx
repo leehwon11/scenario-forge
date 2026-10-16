@@ -41,7 +41,7 @@ export function Nav({sel,go,setSel,up,sc,plat,op,setOp,setMdl,toast,dlg,isMobile
   const newPart=async()=>{const n=await dlg.prompt('새 파트','',{placeholder:'파트 이름 (예: Ⅰ 도착)'});if(!n)return;const nid=uid();
     uSc(s=>{s.parts.push({id:nid,title:n,scenes:[]})});setOp(v=>({...v,[nid]:true}))};
   const newScene=async(p)=>{const n=await dlg.prompt('새 씬','',{placeholder:'씬 이름',message:`파트: ${p.title}`});if(!n)return;const nid=uid();
-    uSc(s=>{s.parts.find(x=>x.id===p.id).scenes.push({id:nid,title:n,location:'',timeOfDay:'',npcsPresent:'',done:false,blocks:[{id:uid(),type:'text',label:'나레이션',content:''}],sessionLog:[],connections:[]})});
+    uSc(s=>{s.parts.find(x=>x.id===p.id).scenes.push({id:nid,title:n,location:'',timeOfDay:'',npcsPresent:'',npcIds:[],done:false,blocks:[{id:uid(),type:'text',label:'나레이션',content:''}],sessionLog:[],connections:[]})});
     setOp(v=>({...v,[p.id]:true}));go({...base,ptid:p.id,scid:nid})};
   const moveScene=(from,toPt,beforeId)=>{if(from.id===beforeId)return;uSc(s=>{const fp=s.parts.find(x=>x.id===from.ptid);const i=fp.scenes.findIndex(x=>x.id===from.id);const[x]=fp.scenes.splice(i,1);
     const tp=s.parts.find(p=>p.id===toPt);const j=beforeId?tp.scenes.findIndex(y=>y.id===beforeId):-1;tp.scenes.splice(j<0?tp.scenes.length:j,0,x)});
@@ -114,7 +114,7 @@ export function Nav({sel,go,setSel,up,sc,plat,op,setOp,setMdl,toast,dlg,isMobile
           <div className="nav-log-b">{s.summary||'(눌러서 입력)'}</div></div>)}
         {!sc.sessionHistory?.length&&<button className="nav-add" onClick={addSession}><Plus size={12}/>오늘 세션 기록 남기기</button>}
       </More>
-      <button className="nav-link" onClick={()=>setMdl('lib')}><Users size={14}/>NPC · 장소 · 물건<span className="nm-c">{Object.values(sc.library||{}).reduce((a,v)=>a+(v?.length||0),0)}</span></button>
+      <button className="nav-link" onClick={()=>setMdl({type:'lib'})}><Users size={14}/>NPC · 아이템 · 장소<span className="nm-c">{Object.values(sc.library||{}).reduce((a,v)=>a+(v?.length||0),0)}</span></button>
       <button className="nav-link" onClick={()=>setMdl('tpl')}><Sparkles size={14}/>롤꾸 보관함<span className="nm-c">{plat?.templates?.length||0}</span></button>
       <button className="nav-link" onClick={()=>setMdl('cmd')}><Palette size={14}/>명령어 · 색<span className="nm-c">{plat?.commands?.length||0}</span></button>
     </div>

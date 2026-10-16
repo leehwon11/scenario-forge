@@ -24,11 +24,13 @@
 
 ## 데이터 모델 (요약)
 platforms[] { name, color, commands[{l,s,cat}], savedColors[], templates[{name,code}] }
-scenarios[] { platformId, title, setting, synopsis, parts[{title, scenes[{title, location, timeOfDay, npcsPresent, done, connections[{targetSceneId}], blocks[]}]}],
+scenarios[] { platformId, title, setting, synopsis, parts[{title, scenes[{title, location, timeOfDay, npcIds[](자료실 NPC), npcsPresent(직접 적은 이름), done, connections[{targetSceneId}], blocks[]}]}],
   endings[{title, endingType, condition, needs[], blocks[]}], endingTypes[{id,l,c}], clues[{name, description, leadsTo, isRedHerring}],
-  eventTimeline[], sessionHistory[{date, summary}], library{npcs,items,places},
+  eventTimeline[], sessionHistory[{date, summary}], library{npcs[{name,role,imageUrl,traits,lines,gmNote}], items/places[{name,imageUrl,description,gmNote}]},
   flags[{id,name}], session{flags{}, found{}, order[], turn, round, sent{}(세션 화면에서 보낸 줄)}, pcs[](예전 데이터 보존용, 화면 없음) }
 블록 타입: text, memo, truth, clue, lines, branches(items[].needs), checks, npc, handout, bgm, item, place, session-log
+npc·item·place 블록은 내용 없이 `refId`(자료실 항목 id, ''이면 아직 안 고름)만 가진다 → 표시할 때 `resolveB(sc,b)`, 쓰이는 곳은 `libUses(sc)`.
+예전 데이터는 `migLib`이 자료실로 옮김(같은 이름은 합침). 단서 결론은 `concKey`로 띄어쓰기 무시하고 묶는다.
 `mig()`가 구버전 데이터를 보정함 — 필드 추가 시 반드시 mig(또는 migSession)에도 기본값 추가.
 
 ## 디자인 규칙 ("Desk") — 사용자가 고른 시안 그대로 (시안: https://claude.ai/artifact/GCH21NKvJavGLFVTzBeTTb 의 Desk·Mini 아트보드)

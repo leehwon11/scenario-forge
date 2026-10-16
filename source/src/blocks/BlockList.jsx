@@ -2,13 +2,13 @@ import { useRef, useEffect } from "react";
 import { ArrowDown,ArrowUp,ChevronDown,ChevronUp,CopyPlus,GripVertical,ListIndentDecrease,ListIndentIncrease,Plus,Trash2 } from "lucide-react";
 import { useDrop } from '../components/dnd.js'
 import { Btn,IB,Inp,TA,useAct } from '../components/ui.jsx'
-import { BT,moveIdx,uid } from '../lib/data.js'
+import { BT,LIB_KIND,LIB_LABEL,libOf,libUses,moveIdx,newLibEntry,uid } from '../lib/data.js'
 import { SlashMenu } from './SlashMenu.jsx'
 import { QFillBtn } from '../modals/FillModal.jsx'
 import { FlagPicker } from '../components/flags.jsx'
 
 // ===== BLOCK LIST =====
-export function BL({entry,upE,sc,plat,onManage}){
+export function BL({entry,upE,upSc,openLib,sc,plat,onManage}){
   const{over,src,dst}=useDrop();const refs=useRef({});const root=useRef(null);const{removed}=useAct();
   const moveB=(fromId,beforeId)=>{if(fromId===beforeId)return;upE(e=>{const i=e.blocks.findIndex(x=>x.id===fromId);const j=beforeId?e.blocks.findIndex(x=>x.id===beforeId):e.blocks.length;if(i>=0)moveIdx(e.blocks,i,j)})};
   // 블록 전체가 아닌 손잡이에서만 드래그 시작 (텍스트 선택 방해 방지)
@@ -19,10 +19,9 @@ export function BL({entry,upE,sc,plat,onManage}){
   const addB=(type)=>{const nb={id:uid(),type,label:BT[type].l};
     if(['text','memo','truth','session-log','clue'].includes(type))nb.content='';if(type==='clue')nb.clueId='';
     if(['branches','checks','lines'].includes(type))nb.items=[];
-    if(type==='npc'){nb.name='';nb.imageUrl='';nb.role='';nb.traits='';nb.lines=''}
+    if(LIB_KIND[type])nb.refId='';
     if(type==='handout'){nb.title='';nb.content='';nb.gmNote='';nb.imageUrl=''}
     if(type==='bgm'){nb.title='';nb.url='';nb.note=''}
-    if(type==='item'||type==='place'){nb.name='';nb.imageUrl='';nb.description='';nb.gmNote=''}
     upE(e=>{e.blocks.push(nb)});return nb.id};
   // 새 블록으로 스크롤 + 첫 입력칸에 포커스
   const added=useRef(null);
@@ -47,7 +46,7 @@ export function BL({entry,upE,sc,plat,onManage}){
       return<div key={b.id} ref={el=>refs.current[b.id]=el} {...dst(b.id,acc,d=>moveB(d.id,b.id))}
         className={'blk blk-'+b.type+(b.collapsed?' collapsed':'')+(over===b.id?' drag-over-top':'')} style={{marginLeft:b.indent?28:0}}>
         {head(b,i,m,b.collapsed)}
-        {!b.collapsed&&<div className="blk-b"><BB b={b} upB={upB} sc={sc} upE={upE} i={i}/></div>}
+        {!b.collapsed&&<div className="blk-b"><BB b={b} upB={upB} sc={sc} upE={upE} upSc={upSc} openLib={openLib} i={i}/></div>}
       </div>})}
     <div {...dst('end',acc,d=>moveB(d.id,null))} className={'blk-end'+(over==='end'?' over':'')}>
       <AddBlock onAdd={t=>{added.current=addB(t)}}/>
@@ -65,7 +64,7 @@ export function AddBlock({onAdd}){
       <I size={12}/>{l}{GMONLY.has(t)&&<span className="add-gm">GM</span>}</button>})}
     <span className="add-or">또는 글 입력 중 <kbd className="kbd">/</kbd></span></div>}
 
-export function BB({b,upB,sc,upE,i}){
+export function BB({b,upB,sc,upE,upSc,openLib,i}){
   const up=fn=>upB(b.id,fn);
   if(['text','memo','truth','session-log'].includes(b.type)){
     const bgMap={memo:'var(--goldA)',truth:'var(--coralA)','session-log':'var(--purpleA)'};
@@ -74,10 +73,7 @@ export function BB({b,upB,sc,upE,i}){
     <select value={b.clueId||''} onChange={e=>up(x=>{x.clueId=e.target.value})} style={{width:'100%',padding:'5px 8px',border:'1px solid var(--bdr)',borderRadius:6,background:'var(--sf1)',color:'var(--tx1)',fontSize:12,marginBottom:5}}>
       <option value="">-- 단서 --</option>{(sc?.clues||[]).map(c=><option key={c.id} value={c.id}>{c.name}{c.isRedHerring?' (미끼)':''}</option>)}</select>
     <TA value={b.content||''} onChange={v=>up(x=>{x.content=v})} placeholder="단서 발견 상황" bg="var(--tealA)"/></div>;
-  if(b.type==='npc')return<div className="blk-sub">
-    <div style={{display:'flex',gap:8,marginBottom:6}}>{b.imageUrl&&<img src={b.imageUrl} style={{width:38,height:38,borderRadius:'50%',objectFit:'cover'}} onError={e=>{e.target.style.display='none'}}/>}
-      <div style={{flex:1,display:'flex',flexDirection:'column',gap:4}}><Inp value={b.name||''} onChange={v=>up(x=>{x.name=v})} placeholder="이름" mono/><Inp value={b.role||''} onChange={v=>up(x=>{x.role=v})} placeholder="역할"/><Inp value={b.imageUrl||''} onChange={v=>up(x=>{x.imageUrl=v})} placeholder="이미지 URL"/></div></div>
-    <TA value={b.traits||''} onChange={v=>up(x=>{x.traits=v})} placeholder="특징 (한 줄씩)" style={{marginTop:4}}/><TA value={b.lines||''} onChange={v=>up(x=>{x.lines=v})} placeholder="대사 (한 줄씩)" style={{marginTop:4}}/></div>;
+  if(LIB_KIND[b.type])return<LibBlock b={b} up={up} sc={sc} upSc={upSc} openLib={openLib}/>;
   if(b.type==='handout')return<div className="blk-sub">
     <Inp value={b.title||''} onChange={v=>up(x=>{x.title=v})} placeholder="핸드아웃 제목" style={{marginBottom:4}}/>
     <Inp value={b.imageUrl||''} onChange={v=>up(x=>{x.imageUrl=v})} placeholder="이미지 URL" style={{marginBottom:4}}/>
@@ -85,10 +81,6 @@ export function BB({b,upB,sc,upE,i}){
     <TA value={b.content||''} onChange={v=>up(x=>{x.content=v})} placeholder="내용"/><TA value={b.gmNote||''} onChange={v=>up(x=>{x.gmNote=v})} placeholder="GM 메모" bg="var(--goldA)" style={{marginTop:4}}/></div>;
   if(b.type==='bgm')return<div className="blk-sub">
     <Inp value={b.title||''} onChange={v=>up(x=>{x.title=v})} placeholder="트랙 이름" style={{marginBottom:4}}/><Inp value={b.url||''} onChange={v=>up(x=>{x.url=v})} placeholder="URL" style={{marginBottom:4}}/><TA value={b.note||''} onChange={v=>up(x=>{x.note=v})} placeholder="메모"/></div>;
-  if(b.type==='item'||b.type==='place')return<div className="blk-sub">
-    <Inp value={b.name||''} onChange={v=>up(x=>{x.name=v})} placeholder={b.type==='item'?'아이템':'장소'} style={{marginBottom:4}}/>
-    <Inp value={b.imageUrl||''} onChange={v=>up(x=>{x.imageUrl=v})} placeholder="이미지 URL" style={{marginBottom:4}}/>
-    <TA value={b.description||''} onChange={v=>up(x=>{x.description=v})} placeholder="설명"/><TA value={b.gmNote||''} onChange={v=>up(x=>{x.gmNote=v})} placeholder="GM 메모" bg="var(--goldA)" style={{marginTop:4}}/></div>;
   if(b.type==='branches'||b.type==='lines'){const tp=b.type;return<div>
     {(b.items||[]).map((it,ii)=><div key={it.id} className="blk-item">
       <div style={{display:'flex',gap:5,marginBottom:4}}><input className="ghost" value={it.label} onChange={e=>up(x=>{x.items[ii].label=e.target.value})} placeholder={tp==='branches'?'선택지':'화자'}
@@ -106,3 +98,26 @@ export function BB({b,upB,sc,upE,i}){
     </div>)}
     <Btn small onClick={()=>up(x=>{x.items.push({id:uid(),name:'',critSuccess:'',success:'',fail:'',critFail:''})})} style={{width:'100%',justifyContent:'center',borderStyle:'dashed'}}><Plus size={9}/>판정</Btn></div>;
   return null}
+
+// NPC · 아이템 · 장소 블록: 자료실 항목을 골라 연결하고, 여기서 고치면 자료실 항목이 바뀐다
+function LibBlock({b,up,sc,upSc,openLib}){
+  const kind=LIB_KIND[b.type];const e=libOf(sc,b);const list=sc?.library?.[kind]||[];const L=LIB_LABEL[kind];
+  const pick=<select value="" aria-label={L+' 고르기'} onChange={ev=>{const v=ev.target.value;if(!v)return;
+      if(v==='__new'){const ne=newLibEntry(kind);upSc(s=>{s.library[kind].push(ne)});up(x=>{x.refId=ne.id})}else up(x=>{x.refId=v})}}>
+    <option value="">{e?'다른 항목으로 바꾸기…':`자료실에서 ${L} 고르기…`}</option>
+    {list.filter(x=>x.id!==e?.id).map(x=><option key={x.id} value={x.id}>{x.name||'(이름 없음)'}</option>)}
+    <option value="__new">+ 새 {L} 만들기</option></select>;
+  if(!e)return<div className="lib-pick">{pick}<span>자료실의 {L}를 고르면 여기와 자료실이 같은 내용을 함께 씁니다.</span></div>;
+  const ue=fn=>upSc(s=>{const x=s.library[kind].find(y=>y.id===e.id);if(x)fn(x)});
+  const uses=libUses(sc)[e.id]||[];
+  return<div className="lib-blk">
+    <div className="lib-row">{e.imageUrl&&<img src={e.imageUrl} alt="" className="lib-img" onError={ev=>{ev.target.style.display='none'}}/>}
+      <div className="lib-f"><Inp value={e.name||''} onChange={v=>ue(x=>{x.name=v})} placeholder={L+' 이름'} aria-label={L+' 이름'}/>
+        {kind==='npcs'&&<Inp value={e.role||''} onChange={v=>ue(x=>{x.role=v})} placeholder="역할 (예: 등대지기의 아들)"/>}
+        <Inp value={e.imageUrl||''} onChange={v=>ue(x=>{x.imageUrl=v})} placeholder="이미지 URL (선택)"/></div></div>
+    {kind==='npcs'?<><TA value={e.traits||''} onChange={v=>ue(x=>{x.traits=v})} placeholder="특징 (한 줄씩)"/><TA value={e.lines||''} onChange={v=>ue(x=>{x.lines=v})} placeholder="대사 (한 줄씩 — 세션 화면에서 줄마다 복사)"/></>
+      :<TA value={e.description||''} onChange={v=>ue(x=>{x.description=v})} placeholder="설명 (플레이어에게 보여줄 내용)"/>}
+    <TA value={e.gmNote||''} onChange={v=>ue(x=>{x.gmNote=v})} placeholder="GM 메모 (플레이어에게 숨김)" bg="var(--goldA)"/>
+    <div className="lib-foot"><span>자료실 항목 · {uses.length}곳에서 사용{uses.length>1?' — 여기서 고치면 모두 바뀌어요':''}</span>
+      <button onClick={()=>openLib?.(kind,e.id)}>자료실에서 보기</button>{pick}</div>
+  </div>}

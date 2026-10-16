@@ -21,6 +21,6 @@ export function EndingP({ending,sc,plat,up,sel,setMdl}){
         <div className="blk-b"><TA value={ending.condition||''} onChange={v=>uE(en=>{en.condition=v})} placeholder="어떻게 하면 이 엔딩에 도달하나요?"/>
           <FlagPicker defs={sc.flags} value={ending.needs||[]} onChange={v=>uE(en=>{en.needs=v})}/></div>
       </div>
-      <div data-block-list><BL entry={ending} upE={fn=>uE(en=>{fn(en)})} sc={sc} plat={plat} onManage={()=>setMdl('cmd')}/></div>
+      <div data-block-list><BL entry={ending} upE={fn=>uE(en=>{fn(en)})} upSc={fn=>up(d=>fn(d.scenarios.find(x=>x.id===sel.sid)))} openLib={(kind,id)=>setMdl({type:'lib',kind,id})} sc={sc} plat={plat} onManage={()=>setMdl('cmd')}/></div>
     </div>
   </div>}

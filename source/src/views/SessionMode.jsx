@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Check,ChevronLeft,ChevronRight,Copy,Dice5,ExternalLink,Eye,EyeOff,Flag,GitBranch,Lightbulb,Music,PictureInPicture2,Pin,RotateCcw,X } from "lucide-react";
+import { Check,ChevronLeft,ChevronRight,Copy,Dice5,ExternalLink,Eye,EyeOff,Flag,GitBranch,Lightbulb,Music,PictureInPicture2,Pin,RotateCcw,Search,X } from "lucide-react";
 import { CopyBtn,Lines,copyText,useAct } from '../components/ui.jsx'
-import { allScenes,findTarget,mdR } from '../lib/data.js'
+import { LIB_LABEL,allScenes,findTarget,libUses,mdR,resolveB,sceneNpcNames } from '../lib/data.js'
 import { parseQueries } from '../lib/rollkku.js'
 import { colorCode } from '../components/CmdBar.jsx'
 import { FlagStatus } from '../components/flags.jsx'
@@ -15,9 +15,9 @@ import { isAudio,ytId } from './PlayView.jsx'
 
 const GMONLY=['memo','truth','session-log'];
 // 읽어 줄 줄: 나레이션 · 대사 · NPC 대사 (블록 순서대로)
-export function readLines(entry,isR20){const out=[];
+export function readLines(entry,isR20,sc){const out=[];
   const as=(who,l)=>isR20&&who?`/as "${who}" ${l}`:l;
-  for(const b of entry.blocks||[]){
+  for(const b0 of entry.blocks||[]){const b=sc?resolveB(sc,b0):b0;
     if(b.type==='text')(b.content||'').split('\n').forEach((l,i)=>{if(l.trim())out.push({key:`${b.id}:${i}`,text:l,copy:l})});
     if(b.type==='lines')for(const it of b.items||[])(it.text||'').split('\n').forEach((l,i)=>{if(l.trim())out.push({key:`${b.id}:${it.id}:${i}`,who:it.label,text:l,copy:as(it.label,l)})});
     if(b.type==='npc')(b.lines||'').split('\n').forEach((l,i)=>{if(l.trim())out.push({key:`${b.id}:n${i}`,who:b.name,text:l,copy:as(b.name,l)})})}
@@ -43,7 +43,7 @@ export function SessionMode({sc,plat,sel,go,up,gm,setGm,setMdl,onEnd,win,pip,onP
   // 처음 열었을 때 씬이 안 골라져 있으면 첫 씬으로
   useEffect(()=>{if(!scene&&!ending&&entry){if(flat[0])goScene(flat[0]);else goT({kind:'ending',id:entry.id})}},[]);
 
-  const lines=entry?readLines(entry,isR20):[];
+  const lines=entry?readLines(entry,isR20,sc):[];
   const next=lines.find(l=>!sent[l.key]);
   const say=t=>{setFlash(t);clearTimeout(ft.current);ft.current=setTimeout(()=>setFlash(null),1400)};
   const copyLine=async l=>{if(await copyText(l.copy)){setS(x=>{x.sent={...(x.sent||{}),[l.key]:true}});say('복사했어요 — 채팅창에 붙여넣으세요')}else say('복사하지 못했어요')};
@@ -61,7 +61,7 @@ export function SessionMode({sc,plat,sel,go,up,gm,setGm,setMdl,onEnd,win,pip,onP
   if(!entry)return<section className="ss"><div className="ss-empty">진행할 씬이 없어요. 먼저 집필 화면에서 씬을 만들어 주세요.
     <button className="ss-end" onClick={onEnd}>집필로 돌아가기</button></div></section>;
 
-  const blocks=(entry.blocks||[]).filter(b=>gm||!GMONLY.includes(b.type)&&b.type!=='clue');
+  const blocks=(entry.blocks||[]).map(b=>resolveB(sc,b)).filter(b=>(gm||!GMONLY.includes(b.type)&&b.type!=='clue')&&b.refId!=='');
   const of=t=>blocks.filter(b=>t.includes(b.type));
   const checks=of(['checks']).flatMap(b=>b.items||[]);
   const clues=of(['clue']);const mats=of(['handout','item','place','npc','bgm']);const gms=gm?of(GMONLY):[];
@@ -89,18 +89,18 @@ export function SessionMode({sc,plat,sel,go,up,gm,setGm,setMdl,onEnd,win,pip,onP
         <div className="ss-sc-t">
           <small>{scene?`SCENE ${String(idx+1).padStart(2,'0')}${scene.timeOfDay?' · '+scene.timeOfDay:''}`:'ENDING'}</small>
           <h1>{entry.title||'(제목 없음)'}</h1>
-          {scene&&(scene.location||scene.npcsPresent)&&<div className="ss-sc-m">{[scene.location,scene.npcsPresent].filter(Boolean).join(' · ')}</div>}
+          {scene&&(scene.location||sceneNpcNames(sc,scene))&&<div className="ss-sc-m">{[scene.location,sceneNpcNames(sc,scene)].filter(Boolean).join(' · ')}</div>}
         </div>
         <button className="ss-arr" disabled={!nextSc} onClick={goNext} aria-label="다음 씬" title={nextSc?nextSc.title+' → (이 씬은 완료로 표시)':''}><ChevronRight size={15}/></button>
       </div>
       <div className="ss-tabs" role="tablist">
-        {[['run','진행'],['init','행동 순서'],['clue',`단서 ${foundN}/${sc.clues.length}`],['flag',`플래그 ${flagN}/${sc.flags.length}`]].map(([k,l])=>
+        {[['run','진행'],['init','순서'],['clue',`단서 ${foundN}/${sc.clues.length}`],['flag',`플래그 ${flagN}/${sc.flags.length}`],['lib','자료']].map(([k,l])=>
           <button key={k} role="tab" aria-selected={tab===k} onClick={()=>setTab(k)}>{l}</button>)}
       </div>
     </div>
 
     <div className="ss-list">
-      {tab!=='run'?<SessionPanel sc={sc} up={up} sel={sel} setMdl={setMdl} only={tab}/>:<>
+      {tab==='lib'?<LibBrowse sc={sc} entry={entry} scene={scene} isR20={isR20} gm={gm}/>:tab!=='run'?<SessionPanel sc={sc} up={up} sel={sel} setMdl={setMdl} only={tab}/>:<>
         {ending&&(ending.condition||ending.needs?.length>0)&&<div className="ss-cond"><b>도달 조건</b>{ending.condition&&<div>{ending.condition}</div>}
           <FlagStatus defs={sc.flags} needs={ending.needs} state={ss.flags} onToggle={id=>setS(x=>{x.flags[id]=!x.flags[id]})}/></div>}
 
@@ -123,12 +123,12 @@ export function SessionMode({sc,plat,sel,go,up,gm,setGm,setMdl,onEnd,win,pip,onP
         {clues.map(b=>{const cl=sc.clues.find(c=>c.id===b.clueId);return<div key={b.id} className="ss-card">
           <div className="ss-card-h"><Lightbulb size={13} style={{color:'var(--teal)'}}/><b>{cl?.name||'(단서 미지정)'}</b>{cl?.isRedHerring&&<span className="ss-tag red">미끼</span>}{cl?.leadsTo&&!cl.isRedHerring&&<small>→ {cl.leadsTo}</small>}
             <span style={{flex:1}}/>{cl&&<button className={'found-btn'+(ss.found[cl.id]?' on':'')} onClick={()=>setS(x=>{x.found[cl.id]=!x.found[cl.id]})} aria-pressed={!!ss.found[cl.id]}>{ss.found[cl.id]?'✓ 획득함':'획득 표시'}</button>}</div>
-          {b.content&&<Lines text={b.content}/>}</div>})}
+          {cl?.description&&<div className="ss-note">{cl.description}</div>}{b.content&&<Lines text={b.content}/>}</div>})}
 
         {mats.length>0&&<div className="ss-lb">자료</div>}
         {mats.map(b=>{
           if(b.type==='npc')return<div key={b.id} className="ss-card"><div className="ss-card-h"><b>{b.name||'NPC'}</b>{b.role&&<small>{b.role}</small>}<span style={{flex:1}}/>{b.name&&<CopyBtn text={b.name} label="이름"/>}</div>
-            {b.traits&&<ul className="ss-ul">{b.traits.split('\n').filter(l=>l.trim()).map((t,i)=><li key={i}>{t}</li>)}</ul>}</div>;
+            {b.traits&&<ul className="ss-ul">{b.traits.split('\n').filter(l=>l.trim()).map((t,i)=><li key={i}>{t}</li>)}</ul>}{gm&&b.gmNote&&<div className="ss-sec"><b>GM만</b>{b.gmNote}</div>}</div>;
           if(b.type==='bgm')return<div key={b.id} className="ss-card"><div className="ss-card-h"><Music size={13} style={{color:'var(--coral)'}}/><b>{b.title||'BGM'}</b><span style={{flex:1}}/>
             {b.url&&<CopyBtn text={b.url} label="링크"/>}{/^https?:\/\//i.test(b.url||'')&&<a className="ss-a" href={b.url} target="_blank" rel="noopener noreferrer"><ExternalLink size={11}/>열기</a>}</div>
             {ytId(b.url)&&<details className="ss-yt"><summary>▶ 여기서 재생</summary><div className="ss-ytbox"><iframe src={`https://www.youtube-nocookie.com/embed/${ytId(b.url)}`} title={b.title||'BGM'} allow="autoplay; encrypted-media" allowFullScreen loading="lazy"/></div></details>}
@@ -166,3 +166,28 @@ export function SessionMode({sc,plat,sel,go,up,gm,setGm,setMdl,onEnd,win,pip,onP
         {next?<>다음 줄 복사 <kbd>Space</kbd></>:nextSc?<>다음 씬으로 — {nextSc.title} <ChevronRight size={14}/></>:<><Copy size={13}/>읽어 줄 줄을 모두 보냈어요</>}</button>
     </div>
   </section>}
+
+// 자료 탭: 자료실 전체를 찾아보기 (이 씬에 나오는 항목이 먼저)
+function LibBrowse({sc,entry,scene,isR20,gm}){
+  const[q,setQ]=useState('');const uses=libUses(sc);
+  const here=id=>(uses[id]||[]).some(w=>w.id===entry.id);
+  const as=(who,l)=>isR20&&who?`/as "${who}" ${l}`:l;
+  const m=e=>!q.trim()||[e.name,e.role,e.traits,e.description].some(v=>(v||'').toLowerCase().includes(q.trim().toLowerCase()));
+  const total=['npcs','items','places'].reduce((a,k)=>a+sc.library[k].length,0);
+  return<div className="ss-lib">
+    <label className="lib-q"><Search size={13}/><input value={q} onChange={e=>setQ(e.target.value)} placeholder="NPC · 아이템 · 장소 찾기" aria-label="자료 찾기"/></label>
+    {!total&&<div className="ss-empty">자료실이 비어 있어요. 집필 화면의 씬 목록 아래 "NPC · 아이템 · 장소"에서 만들 수 있어요.</div>}
+    {['npcs','items','places'].map(k=>{const l=[...sc.library[k]].filter(m).sort((a,b)=>(here(b.id)?1:0)-(here(a.id)?1:0));if(!l.length)return null;
+      return<div key={k} className="ss-libg"><div className="ss-lb">{LIB_LABEL[k]}<span>{l.length}</span></div>
+        {l.map(e=><details key={e.id} className="ss-card ss-libc" open={!!q.trim()||undefined}>
+          <summary className="ss-card-h"><b>{e.name||'(이름 없음)'}</b>{e.role&&<small>{e.role}</small>}{here(e.id)&&<span className="ss-tag here">이 {scene?'씬':'엔딩'}</span>}<span style={{flex:1}}/>
+            {e.name&&<CopyBtn text={e.name} label="이름"/>}</summary>
+          {e.imageUrl&&<img src={e.imageUrl} alt="" className="ss-img" onError={ev=>{ev.target.style.display='none'}}/>}
+          {e.traits&&<ul className="ss-ul">{e.traits.split('\n').filter(x=>x.trim()).map((t,i)=><li key={i}>{t}</li>)}</ul>}
+          {e.lines&&<Lines text={e.lines} wrap={l=>as(e.name,l)}/>}
+          {e.description&&<Lines text={e.description}/>}
+          {gm&&e.gmNote&&<div className="ss-sec"><b>GM만</b>{e.gmNote}</div>}
+          {sceneUses(uses[e.id])}
+        </details>)}</div>})}
+  </div>}
+const sceneUses=u=>u?.length?<div className="ss-note">나오는 곳: {u.map(w=>w.title).join(', ')}</div>:null;

@@ -37,6 +37,7 @@ for(const sc of(d.scenarios||[])){
   for(const c of sc.clues){c.isRedHerring??=false;c.leadsTo??=''}
   for(const e of sc.endings){e.blocks??=[];e.condition??='';e.endingType??='normal';e.needs??=[]}
   migSession(sc);
+  migLib(sc);
   for(const p of(sc.parts||[]))for(const s of(p.scenes||[])){
     if(!Array.isArray(s.blocks))s.blocks=[{id:uid(),type:'text',label:'나레이션',content:''}];
     s.location??='';s.timeOfDay??='';s.npcsPresent??='';s.sessionLog??=[];s.connections??=[];
@@ -89,7 +90,7 @@ export function migSession(sc){
   return sc}
 // 결론별 단서 진행: 전체 / 씬에 배치됨 / 이번 세션에 획득
 export function clueProgress(sc){const use=clueUsage(sc),found=sc.session?.found||{},g={};
-  for(const c of sc.clues){const k=c.isRedHerring?'__red':(c.leadsTo?.trim()||'__none');const x=g[k]??={key:k,clues:[],placed:0,found:0};x.clues.push(c);if(use[c.id])x.placed++;if(found[c.id])x.found++}
+  for(const c of sc.clues){const k=c.isRedHerring?'__red':(concKey(c.leadsTo)||'__none');const x=g[k]??={key:k.startsWith('__')?k:c.leadsTo.trim(),clues:[],placed:0,found:0};x.clues.push(c);if(use[c.id])x.placed++;if(found[c.id])x.found++}
   return Object.values(g).sort((a,b)=>(a.key.startsWith('__')?1:0)-(b.key.startsWith('__')?1:0))}
 // 행동 순서 정렬 (높은 값 먼저, 같으면 PC 먼저)
 export const sortOrder=o=>[...o].sort((a,b)=>(+b.init||0)-(+a.init||0)||(b.pcId?1:0)-(a.pcId?1:0));
@@ -98,3 +99,42 @@ export function collectBgm(sc){const out=[];
   for(const p of sc.parts)for(const s of p.scenes)for(const b of s.blocks||[])if(b.type==='bgm')out.push({b,ptid:p.id,scid:s.id,where:s.title});
   for(const e of sc.endings)for(const b of e.blocks||[])if(b.type==='bgm')out.push({b,eid:e.id,where:'엔딩 · '+(e.title||'')});
   return out}
+
+// ===== 자료실 (NPC · 아이템 · 장소) =====
+// 씬·엔딩의 NPC/아이템/장소 블록은 내용을 직접 갖지 않고 자료실 항목을 refId로 가리킨다.
+// 그래서 어디서 고쳐도 같은 항목이 바뀐다. refId가 ''이면 아직 고르지 않은 빈 블록.
+export const LIB_KIND={npc:'npcs',item:'items',place:'places'};
+export const LIB_BT={npcs:'npc',items:'item',places:'place'};
+export const LIB_LABEL={npcs:'NPC',items:'아이템',places:'장소'};
+const LIB_KEYS=['name','role','imageUrl','traits','lines','description','gmNote'];
+export const newLibEntry=(kind,name='')=>kind==='npcs'?{id:uid(),name,role:'',imageUrl:'',traits:'',lines:'',gmNote:''}:{id:uid(),name,imageUrl:'',description:'',gmNote:''};
+const normName=v=>String(v||'').replace(/\s+/g,'').toLowerCase();
+export const libOf=(sc,b)=>{const k=LIB_KIND[b?.type];return k&&b.refId?sc.library?.[k]?.find(e=>e.id===b.refId)||null:null};
+// 블록 + 자료실 내용을 합친 모습 (화면 표시·복사·점검용)
+export const resolveB=(sc,b)=>{const e=libOf(sc,b);return e?{...b,...e,id:b.id,label:b.label,type:b.type}:b};
+// 자료실 항목이 쓰이는 곳: {항목 id: [{kind:'scene'|'ending', ptid, id, title}]}
+export function libUses(sc){const u={};const add=(id,w)=>{if(!id)return;const l=u[id]??=[];if(!l.some(x=>x.id===w.id))l.push(w)};
+  for(const p of sc.parts)for(const s of p.scenes){const w={kind:'scene',ptid:p.id,id:s.id,title:s.title};for(const b of s.blocks||[])if(LIB_KIND[b.type])add(b.refId,w);for(const id of s.npcIds||[])add(id,w)}
+  for(const e of sc.endings)for(const b of e.blocks||[])if(LIB_KIND[b.type])add(b.refId,{kind:'ending',id:e.id,title:e.title});
+  return u}
+// 씬에 나오는 NPC 이름 (자료실에서 고른 NPC + 직접 적은 이름)
+export const sceneNpcNames=(sc,s)=>[...(s.npcIds||[]).map(id=>sc.library.npcs.find(n=>n.id===id)?.name).filter(Boolean),...(s.npcsPresent?[s.npcsPresent]:[])].join(', ');
+// 예전 데이터: 블록 안에 내용이 있던 NPC/아이템/장소 → 자료실로 옮기고 연결 (같은 이름이 있으면 그 항목에 합침)
+export function migLib(sc){const lib=sc.library;
+  for(const k of['npcs','items','places'])for(const e of lib[k]){e.id??=uid();for(const f of Object.keys(newLibEntry(k)))if(f!=='id')e[f]??=''}
+  const link=b=>{const k=LIB_KIND[b.type];if(!k||b.refId!==undefined)return;
+    const has=LIB_KEYS.some(f=>typeof b[f]==='string'&&b[f].trim());
+    if(!has){b.refId='';for(const f of LIB_KEYS)delete b[f];return}
+    let e=b.name?.trim()?lib[k].find(x=>normName(x.name)===normName(b.name)):null;
+    if(!e){e=newLibEntry(k);lib[k].push(e)}
+    for(const f of LIB_KEYS)if(f in e&&typeof b[f]==='string'&&b[f].trim()&&!String(e[f]||'').trim())e[f]=b[f];
+    b.refId=e.id;for(const f of LIB_KEYS)delete b[f]};
+  for(const p of sc.parts||[])for(const s of p.scenes||[]){(s.blocks||[]).forEach(link);
+    if(!Array.isArray(s.npcIds)){s.npcIds=[];
+      // "등장 NPC" 글자 중 자료실 NPC 이름과 같은 것은 연결로 바꾼다
+      const rest=[];for(const t of String(s.npcsPresent||'').split(/[,，、]/).map(x=>x.trim()).filter(Boolean)){const n=lib.npcs.find(x=>normName(x.name)===normName(t));if(n&&!s.npcIds.includes(n.id))s.npcIds.push(n.id);else if(!n)rest.push(t)}
+      s.npcsPresent=rest.join(', ')}}
+  for(const e of sc.endings||[])(e.blocks||[]).forEach(link);
+  return sc}
+// 결론 이름 비교: 띄어쓰기·대소문자 차이는 같은 결론으로 본다
+export const concKey=v=>String(v||'').replace(/\s+/g,'').toLowerCase();

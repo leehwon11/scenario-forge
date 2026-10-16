@@ -297,10 +297,10 @@ function AppInner(){
     {(modal==='account'||modal==='account-recovery')&&<AccountM user={user} sync={sync} SY={SY} recovery={modal==='account-recovery'} syncNow={()=>{setConflict(c=>c?.kind==='server'?c:null);syncNow()}} toast={toast}
       loadCloud={async()=>{try{const row=await fetchRow(user.id);if(!row){toast('클라우드에 저장된 데이터가 없습니다');return false}setConflict(null);adopt(row,user.id);toast('☁ 클라우드 내용을 불러왔습니다');return true}catch(e){toast(friendly(e),4000);return false}}}
       restoreBackup={async()=>{const b=await getItem('backup');if(!b?.data){toast('백업이 없습니다');return}backupLocal('백업을 되살리기 전');replaceD(mig(b.data),true);toast('백업을 되살렸습니다')}} onClose={()=>setMdl(null)}/>}
-    {modal==='find'&&<FindM D={D} up={up} sel={sel} setSel={go} setMode={setMode} onClose={()=>setMdl(null)} toast={toast}/>}
+    {modal==='find'&&<FindM D={D} up={up} sel={sel} setSel={go} setMode={setMode} onClose={()=>setMdl(null)} toast={toast} onLib={(kind,id)=>{setLive(false);setMdl({type:'lib',kind,id})}}/>}
     {(modal==='platform'||modal?.type==='platform')&&<PlatM D={D} up={up} setSel={setSel} sel={sel} editId={modal?.id} onClose={()=>setMdl(null)} toast={toast}/>}
     {modal==='cmd'&&<CmdM plat={plat} up={up} sel={sel} onClose={()=>setMdl(null)}/>}
-    {modal==='lib'&&<LibM sc={sc} up={up} sel={sel} scene={scene} onClose={()=>setMdl(null)} toast={toast}/>}
+    {(modal==='lib'||modal?.type==='lib')&&sc&&<LibM key={(modal?.kind||'')+(modal?.id||'')} sc={sc} up={up} sel={sel} scene={scene} ending={ending} go={go} initKind={modal?.kind||'npcs'} initId={modal?.id||null} onClose={()=>setMdl(null)} toast={toast}/>}
     {modal==='endingTypes'&&<ETM sc={sc} up={up} sel={sel} onClose={()=>setMdl(null)}/>}
     {modal==='help'&&<HelpModal onClose={()=>setMdl(null)}/>}
     {modal==='tpl'&&<TplM plat={plat} up={up} sel={sel} onClose={()=>setMdl(null)}/>}

@@ -1,4 +1,4 @@
-import { allScenes, clueUsage, collectBgm } from './data.js'
+import { allScenes, clueUsage, collectBgm, concKey, resolveB } from './data.js'
 
 // ===== 준비 점검 =====
 // 세션 전에 빠진 곳을 찾는다. 씬 목록의 색 점(초록·노랑·빨강)과 오른쪽 "준비 점검" 칸이 같은 결과를 쓴다.
@@ -21,7 +21,8 @@ export function entryIssues(sc){
   const incoming=new Set();for(const s of flat)for(const c of s.connections||[])incoming.add(c.targetSceneId);
   const valid=s=>(s.connections||[]).filter(c=>endIds.has(c.targetSceneId)||flat.some(x=>x.id===c.targetSceneId));
   flat.forEach((s,i)=>{const notes=[];const conns=valid(s);
-    if(!(s.blocks||[]).some(blockFilled))notes.push({lv:'bad',t:'내용이 비어 있어요'});
+    if(!(s.blocks||[]).some(b=>blockFilled(resolveB(sc,b))))notes.push({lv:'bad',t:'내용이 비어 있어요'});
+    if((s.blocks||[]).some(b=>b.refId===''))notes.push({lv:'warn',t:'NPC·아이템·장소 블록에 항목이 골라져 있지 않아요'});
     const last=i===flat.length-1;const nextInPart=flat[i+1]&&flat[i+1].ptid===s.ptid;
     if(last&&sc.endings.length&&!conns.some(c=>endIds.has(c.targetSceneId)))notes.push({lv:'bad',t:'이어지는 엔딩이 없어요'});
     else if(!last&&!nextInPart&&!conns.length)notes.push({lv:'warn',t:'다음 씬 연결이 없어요'});
@@ -29,14 +30,14 @@ export function entryIssues(sc){
     res[s.id]={lv:lvOf(notes),notes}});
   for(const e of sc.endings){const notes=[];
     if(!incoming.has(e.id))notes.push({lv:'warn',t:'이 엔딩으로 이어지는 씬이 없어요'});
-    if(!(e.blocks||[]).some(blockFilled))notes.push({lv:'warn',t:'엔딩 내용이 비어 있어요'});
+    if(!(e.blocks||[]).some(b=>blockFilled(resolveB(sc,b))))notes.push({lv:'warn',t:'엔딩 내용이 비어 있어요'});
     res[e.id]={lv:lvOf(notes),notes}}
   return res}
 
 // 결론별 단서 수 (씬·엔딩에 배치된 단서만 센다)
 export function conclusions(sc){const use=clueUsage(sc);const conc={};
-  for(const c of sc.clues)if(c.leadsTo?.trim()&&!c.isRedHerring){const k=c.leadsTo.trim();conc[k]??={all:0,placed:0};conc[k].all++;if(use[c.id])conc[k].placed++}
-  return Object.entries(conc).map(([k,v])=>({key:k,...v}))}
+  for(const c of sc.clues)if(c.leadsTo?.trim()&&!c.isRedHerring){const k=concKey(c.leadsTo);conc[k]??={key:c.leadsTo.trim(),all:0,placed:0};conc[k].all++;if(use[c.id])conc[k].placed++}
+  return Object.values(conc)}
 
 // 플래그: 어디에도 조건으로 안 쓰인 플래그, 지워진 플래그를 가리키는 조건
 export function flagIssues(sc){const used=new Set();
@@ -46,6 +47,6 @@ export function flagIssues(sc){const used=new Set();
   return{unused:sc.flags.filter(f=>!used.has(f.id)),missing:[...used].filter(id=>!ids.has(id)).length,used:used.size}}
 
 // 세션에 쓸 것 개수
-export function sessionAssets(sc,plat){let handouts=0,npcs=0;
-  for(const p of sc.parts)for(const s of p.scenes)for(const b of s.blocks||[]){if(b.type==='handout')handouts++;if(b.type==='npc')npcs++}
-  return{bgm:collectBgm(sc).length,tpl:plat?.templates?.length||0,handouts,npcs}}
+export function sessionAssets(sc,plat){let handouts=0;
+  for(const p of sc.parts)for(const s of p.scenes)for(const b of s.blocks||[])if(b.type==='handout')handouts++;
+  return{bgm:collectBgm(sc).length,tpl:plat?.templates?.length||0,handouts,npcs:sc.library.npcs.length}}
