@@ -17,21 +17,21 @@ export function SceneP({scene,pt,sc,plat,mode,gm,up,sel,toast,isR20,isCoco,r20On
     <div className="crumb">{plat?.name||''} / {sc.title} / {pt.title}</div>
     <input className="ghost page-title" aria-label="씬 제목" value={scene.title} onChange={e=>uS(s=>{s.title=e.target.value})} style={{fontSize:26,marginBottom:2}}/>
     <div style={{display:'flex',flexWrap:'wrap',gap:16,padding:'8px 0',marginBottom:14,borderBottom:'1px solid var(--bdr)'}}>
-      {[['Location','장소','location'],['Time','시간대','timeOfDay'],['NPCs','등장인물','npcsPresent']].map(([k,ph,f])=>
+      {[['장소','장소','location'],['시간','시간대','timeOfDay'],['등장 NPC','등장인물','npcsPresent']].map(([k,ph,f])=>
         <div key={f} style={{display:'flex',flexDirection:'column',gap:1}}>
-          <span style={{fontFamily:'JetBrains Mono,monospace',fontSize:10,fontWeight:600,color:'var(--tx3)',letterSpacing:'.04em',textTransform:'uppercase'}}>{k}</span>
+          <span style={{fontFamily:'var(--f-label)',fontSize:10,fontWeight:600,color:'var(--tx3)',letterSpacing:'.02em'}}>{k}</span>
           <input className="ghost" value={scene[f]||''} onChange={e=>uS(s=>{s[f]=e.target.value})} placeholder={ph}
             style={{border:'none',borderBottom:'1px dashed var(--bdr2)',background:'transparent',fontSize:12,color:'var(--tx2)',padding:'2px 4px',outline:'none',minWidth:100}}/>
         </div>)}
     </div>
     <div style={{marginBottom:12}}>
-      <span style={{fontFamily:'JetBrains Mono,monospace',fontSize:10,fontWeight:600,color:'var(--tx3)',textTransform:'uppercase',marginRight:6}}>Connections</span>
+      <span style={{fontFamily:'var(--f-label)',fontSize:10,fontWeight:600,color:'var(--tx3)',marginRight:6}}>연결</span>
       {(scene.connections||[]).map((c,i)=>{const t=findTarget(sc,c.targetSceneId);const col=t?.kind==='ending'?'var(--coral)':'var(--blue)';
-        return<span key={i} style={{display:'inline-flex',alignItems:'center',gap:3,background:t?.kind==='ending'?'var(--coralA)':'var(--blueA)',color:col,padding:'1px 4px 1px 8px',borderRadius:12,fontFamily:'JetBrains Mono,monospace',fontSize:10,fontWeight:600,marginRight:4,marginBottom:3}}>
+        return<span key={i} style={{display:'inline-flex',alignItems:'center',gap:3,background:t?.kind==='ending'?'var(--coralA)':'var(--blueA)',color:col,padding:'1px 4px 1px 8px',borderRadius:12,fontFamily:'var(--f-label)',fontSize:10,fontWeight:600,marginRight:4,marginBottom:3}}>
           <button onClick={()=>t&&goT(t)} title="이동" style={{color:'inherit',fontWeight:600,fontSize:10}}>→ {t?.kind==='ending'?'🏁 ':''}{t?.title||'?'}</button>
           <button onClick={()=>uS(s=>{s.connections.splice(i,1)})} title="연결 삭제" aria-label="연결 삭제" style={{color:'inherit',cursor:'pointer',fontSize:10,padding:'0 3px'}}>✕</button></span>})}
       <select value="" onChange={e=>{const id=e.target.value;if(id)uS(s=>{s.connections.push({targetSceneId:id})})}}
-        style={{fontFamily:'JetBrains Mono,monospace',fontSize:10,color:'var(--blue)',background:'var(--blueA)',border:'1px dashed var(--blue)',borderRadius:12,padding:'1px 7px',cursor:'pointer',outline:'none'}}>
+        style={{fontFamily:'var(--f-label)',fontSize:10,color:'var(--blue)',background:'var(--blueA)',border:'1px dashed var(--blue)',borderRadius:12,padding:'1px 7px',cursor:'pointer',outline:'none'}}>
         <option value="">+ 연결</option>
         {sc.parts.map(p=><optgroup key={p.id} label={p.title}>{p.scenes.filter(s=>s.id!==scene.id&&!(scene.connections||[]).some(c=>c.targetSceneId===s.id)).map(s=><option key={s.id} value={s.id}>{s.title}</option>)}</optgroup>)}
         {sc.endings.length>0&&<optgroup label="엔딩">{sc.endings.filter(e=>!(scene.connections||[]).some(c=>c.targetSceneId===e.id)).map(e=><option key={e.id} value={e.id}>🏁 {e.title}</option>)}</optgroup>}
@@ -40,7 +40,7 @@ export function SceneP({scene,pt,sc,plat,mode,gm,up,sel,toast,isR20,isCoco,r20On
     {/* R20/Coco preview with toggle */}
     {isR20&&<div style={{marginBottom:16}}>
       <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:r20On?8:0}}>
-        <button onClick={()=>setR20On(!r20On)} style={{display:'flex',alignItems:'center',gap:5,fontFamily:'JetBrains Mono,monospace',fontSize:10,fontWeight:600,padding:'3px 10px',borderRadius:20,cursor:'pointer',
+        <button onClick={()=>setR20On(!r20On)} style={{display:'flex',alignItems:'center',gap:5,fontFamily:'var(--f-label)',fontSize:10,fontWeight:600,padding:'3px 10px',borderRadius:20,cursor:'pointer',
           border:`1px solid ${r20On?'var(--red)':'var(--bdr)'}`,color:r20On?'var(--red)':'var(--tx4)',background:r20On?'var(--redA)':'transparent'}}>
           <span style={{width:6,height:6,borderRadius:'50%',background:r20On?'var(--red)':'var(--tx4)'}}/>Roll20 미리보기 {r20On?'ON':'OFF'}
         </button>

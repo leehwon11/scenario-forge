@@ -14,7 +14,7 @@ export function LibM({sc,up,sel,scene,onClose,toast}){const[tab,setTab]=useState
           background:tab===t?'var(--blue)':'transparent',color:tab===t?'#fff':'var(--tx4)'}}>{lbs[t]}</button>)}</div>
     <div style={{display:'flex',flexWrap:'wrap',gap:4,marginBottom:8}}>
       {lib.map(e=><button key={e.id} onClick={()=>setEi(ei===e.id?null:e.id)}
-        style={{padding:'3px 8px',borderRadius:20,fontSize:10,fontWeight:600,fontFamily:'JetBrains Mono,monospace',cursor:'pointer',
+        style={{padding:'3px 8px',borderRadius:20,fontSize:10,fontWeight:600,fontFamily:'var(--f-label)',cursor:'pointer',
           border:`1px solid ${ei===e.id?'var(--blue)':'var(--bdr)'}`,background:ei===e.id?'var(--blue)':'transparent',color:ei===e.id?'#fff':'var(--tx3)'}}>{e.name||'?'}</button>)}</div>
     {ed&&<div style={{border:'1px solid var(--bdr)',borderRadius:8,padding:10,background:'var(--sf2)',marginBottom:8}}>
       <Inp value={ed.name||''} onChange={v=>uS(s=>{s.library[tab].find(x=>x.id===ei).name=v})} placeholder="이름" style={{marginBottom:4}}/>

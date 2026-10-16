@@ -1,24 +1,33 @@
-/* 색상 토큰 — 다크(기본) / 라이트 */
+/* 색상·글꼴 토큰 — "Desk" 디자인: 라이트(기본, 흰 종이 + 코발트) / 다크(남색) */
 
-:root,[data-theme="dark"]{color-scheme:dark;
---bg:#0a0c10;--bg2:#0e1117;--sf1:#161b22;--sf2:#1c2129;--sf3:#21262d;--sf4:#282e36;
---bdr:#30363d;--bdr2:#444c56;--tx1:#e6edf3;--tx2:#c9d1d9;--tx3:#8b949e;--tx4:#6e7681;
---blue:#58a6ff;--blue2:#1f6feb;--blueA:rgba(88,166,255,.1);
---green:#3fb950;--greenA:rgba(63,185,80,.1);
---gold:#d29922;--goldA:rgba(210,153,34,.08);
---red:#f85149;--redA:rgba(248,81,73,.08);
---purple:#bc8cff;--purpleA:rgba(188,140,255,.08);
---teal:#39d2c0;--tealA:rgba(57,210,192,.08);
---coral:#f97583;--coralA:rgba(249,117,131,.08);
+:root{
+--f-ui:'IBM Plex Sans KR',system-ui,sans-serif;   /* 화면 글자 */
+--f-label:'IBM Plex Sans KR',system-ui,sans-serif;/* 작은 라벨 */
+--f-title:'Hahmlet',serif;                        /* 제목 */
+--f-read:'Hahmlet',serif;                         /* 읽어 줄 지문·대사 (진행 화면) */
+--f-mono:'JetBrains Mono',ui-monospace,monospace; /* 명령어·롤꾸 코드 */
 }
-[data-theme="light"]{color-scheme:light;
---bg:#f6f8fa;--bg2:#fff;--sf1:#fff;--sf2:#f6f8fa;--sf3:#eaeef2;--sf4:#d8dee4;
---bdr:#d0d7de;--bdr2:#afb8c1;--tx1:#1f2328;--tx2:#424a53;--tx3:#59636e;--tx4:#6e7781;
---blue:#0969da;--blue2:#0550ae;--blueA:rgba(9,105,218,.06);
---green:#1a7f37;--greenA:rgba(26,127,55,.06);
---gold:#9a6700;--goldA:rgba(154,103,0,.06);
---red:#cf222e;--redA:rgba(207,34,46,.06);
---purple:#8250df;--purpleA:rgba(130,80,223,.06);
---teal:#0d7d6c;--tealA:rgba(13,125,108,.06);
---coral:#cf222e;--coralA:rgba(207,34,46,.06);
+:root,[data-theme="light"]{color-scheme:light;
+--bg:#F5F6F9;--bg2:#F5F6F9;--sf1:#fff;--sf2:#F0F2F6;--sf3:#E7EAF1;--sf4:#D6DBE6;
+--bdr:#E2E5EE;--bdr2:#CBD0DC;--tx1:#141B2D;--tx2:#2F3750;--tx3:#69708A;--tx4:#8A90A6;
+--blue:#2F55E4;--blue2:#2445C0;--blueA:#2F55E414;
+--green:#1F9D6B;--greenA:#1F9D6B14;
+--gold:#C98A0B;--goldA:#F3B42A1F;
+--red:#E2483B;--redA:#E2483B12;
+--purple:#6B4FD8;--purpleA:#6B4FD812;
+--teal:#0E8F86;--tealA:#0E8F8612;
+--coral:#E2483B;--coralA:#E2483B12;
+--sb:#CBD0DC;--sbh:#9AA1B6;--shadow:0 1px 2px #141B2D0F;
+}
+[data-theme="dark"]{color-scheme:dark;
+--bg:#0E1220;--bg2:#0E1220;--sf1:#161B2C;--sf2:#1C2236;--sf3:#242B42;--sf4:#2F3753;
+--bdr:#272E46;--bdr2:#3A4260;--tx1:#EEF1F8;--tx2:#C9CEDD;--tx3:#8C93AB;--tx4:#6B7290;
+--blue:#7390FF;--blue2:#5675F0;--blueA:#7390FF1F;
+--green:#3CC48C;--greenA:#3CC48C1A;
+--gold:#F0B43C;--goldA:#F0B43C17;
+--red:#FF6B5E;--redA:#FF6B5E17;
+--purple:#A893FF;--purpleA:#A893FF17;
+--teal:#3CC9BD;--tealA:#3CC9BD17;
+--coral:#FF7E73;--coralA:#FF7E7317;
+--sb:#2F3753;--sbh:#4A547A;--shadow:0 1px 2px #0006;
 }

@@ -22,7 +22,7 @@ export function FlowV({sc,sel,setSel,setMode}){
       const nx=p.scenes[i+1];if(nx&&!own.length)edges.push({from:s.id,to:nx.id,kind:'seq'})}));
     return{pos,rows,edges,w:Math.max(maxX+PAD,320),h:y-GY+PAD}},[sc]);
 
-  if(!sc.parts.length&&!sc.endings.length)return<div style={{color:'var(--tx3)',textAlign:'center',padding:40,fontFamily:'JetBrains Mono,monospace',fontSize:13}}>파트와 씬을 먼저 만들어주세요</div>;
+  if(!sc.parts.length&&!sc.endings.length)return<div style={{color:'var(--tx3)',textAlign:'center',padding:40,fontFamily:'var(--f-label)',fontSize:13}}>파트와 씬을 먼저 만들어주세요</div>;
 
   const etOf=e=>sc.endingTypes.find(t=>t.id===e.endingType)||{l:'?',c:'#8b949e'};
   const path=(a,b)=>{
@@ -32,11 +32,11 @@ export function FlowV({sc,sel,setSel,setMode}){
       return`M${a.x+CW/2},${a.y} C${a.x+CW/2},${a.y-40} ${b.x+CW/2},${b.y-40} ${b.x+CW/2},${b.y}`}
     return`M${a.x+CW/2},${a.y+CH} C${a.x+CW/2},${a.y+CH+40} ${b.x+CW/2},${b.y+CH+40} ${b.x+CW/2},${b.y+CH}`};
   const active=e=>!hov||e.from===hov||e.to===hov;
-  const badge=(bg,c,t,title)=><span title={title} style={{fontFamily:'JetBrains Mono,monospace',fontSize:10,fontWeight:700,padding:'0 5px',borderRadius:8,background:bg,color:c}}>{t}</span>;
+  const badge=(bg,c,t,title)=><span title={title} style={{fontFamily:'var(--f-label)',fontSize:10,fontWeight:700,padding:'0 5px',borderRadius:8,background:bg,color:c}}>{t}</span>;
 
   return<div>
     <div style={{display:'flex',alignItems:'baseline',gap:12,flexWrap:'wrap',marginBottom:12}}>
-      <div style={{fontFamily:'JetBrains Mono,monospace',fontSize:20,fontWeight:700,color:'var(--tx1)'}}>flow</div>
+      <div style={{fontFamily:'var(--f-label)',fontSize:20,fontWeight:700,color:'var(--tx1)'}}>흐름도</div>
       <div style={{display:'flex',gap:12,fontSize:11,color:'var(--tx3)',flexWrap:'wrap'}}>
         <span><svg width="22" height="8"><line x1="0" y1="4" x2="22" y2="4" stroke="var(--blue)" strokeWidth="2"/></svg> 씬 연결</span>
         <span><svg width="22" height="8"><line x1="0" y1="4" x2="22" y2="4" stroke="var(--bdr2)" strokeWidth="1.5" strokeDasharray="4 3"/></svg> 순서</span>
@@ -54,15 +54,15 @@ export function FlowV({sc,sel,setSel,setMode}){
             return<path key={i} d={path(a,b)} fill="none" stroke={col} strokeWidth={e.kind==='seq'?1.5:hov&&on?2.5:1.8} strokeDasharray={e.kind==='seq'?'4 3':undefined}
               opacity={on?1:.15} markerEnd={`url(#${e.kind==='seq'?'a-seq':toEnd?'a-end':'a-conn'})`} style={{transition:'opacity .12s'}}/>})}
         </svg>
-        {L.rows.map((r,i)=><div key={i} style={{position:'absolute',left:PAD,top:r.y,fontFamily:'JetBrains Mono,monospace',fontWeight:700,fontSize:12,color:'var(--tx1)',display:'flex',gap:6,alignItems:'center',whiteSpace:'nowrap'}}>
+        {L.rows.map((r,i)=><div key={i} style={{position:'absolute',left:PAD,top:r.y,fontFamily:'var(--f-label)',fontWeight:700,fontSize:12,color:'var(--tx1)',display:'flex',gap:6,alignItems:'center',whiteSpace:'nowrap'}}>
           {r.kind==='part'?<>{r.p.title}<span style={{fontSize:10,color:'var(--tx3)',fontWeight:500}}>{r.p.scenes.filter(s=>s.done).length}/{r.p.scenes.length}</span>
             {!r.p.scenes.length&&<span style={{fontSize:11,color:'var(--tx3)',fontWeight:400}}>— 씬 없음</span>}</>
-          :<>endings/<span style={{fontSize:10,color:'var(--tx3)',fontWeight:500}}>{sc.endings.length}</span></>}</div>)}
+          :<>엔딩 <span style={{fontSize:10,color:'var(--tx3)',fontWeight:500}}>{sc.endings.length}</span></>}</div>)}
         {Object.entries(L.pos).map(([id,P])=>{const hl=hov===id||(hov&&L.edges.some(e=>(e.from===hov&&e.to===id)||(e.to===hov&&e.from===id)&&e.kind==='conn'));
           if(P.kind==='scene'){const s=P.s;const cnt=t=>s.blocks?.filter(b=>b.type===t).length||0;const cur=sel.scid===id;
             return<button key={id} className={'fcard'+(hl?' hl':'')} onClick={()=>goScene(P.ptid,id)} onMouseEnter={()=>setHov(id)} onMouseLeave={()=>setHov(null)} onFocus={()=>setHov(id)} onBlur={()=>setHov(null)}
               style={{position:'absolute',left:P.x,top:P.y,width:CW,height:CH,textAlign:'left',border:`1px solid ${cur?'var(--blue)':'var(--bdr)'}`,borderLeft:s.done?'3px solid var(--green)':undefined,borderRadius:8,background:'var(--sf1)',padding:'8px 10px',cursor:'pointer',display:'flex',flexDirection:'column',gap:4,overflow:'hidden'}}>
-              <div style={{fontFamily:'JetBrains Mono,monospace',fontSize:12,fontWeight:600,color:s.done?'var(--tx3)':'var(--tx1)',overflow:'hidden',display:'-webkit-box',WebkitLineClamp:2,WebkitBoxOrient:'vertical',lineHeight:1.35}}>{s.title}</div>
+              <div style={{fontFamily:'var(--f-label)',fontSize:12,fontWeight:600,color:s.done?'var(--tx3)':'var(--tx1)',overflow:'hidden',display:'-webkit-box',WebkitLineClamp:2,WebkitBoxOrient:'vertical',lineHeight:1.35}}>{s.title}</div>
               <div style={{display:'flex',gap:3,marginTop:'auto',flexWrap:'wrap'}}>
                 {s.done&&badge('var(--greenA)','var(--green)','✓ 완료')}
                 {cnt('clue')>0&&badge('var(--tealA)','var(--teal)','🔍'+cnt('clue'),'단서 블록')}
@@ -72,8 +72,8 @@ export function FlowV({sc,sel,setSel,setMode}){
           const e=P.e,et=etOf(e);
           return<button key={id} className={'fcard'+(hl?' hl':'')} onClick={()=>goEnding(id)} onMouseEnter={()=>setHov(id)} onMouseLeave={()=>setHov(null)} onFocus={()=>setHov(id)} onBlur={()=>setHov(null)}
             style={{position:'absolute',left:P.x,top:P.y,width:CW,height:CH,textAlign:'left',border:'1px solid var(--bdr)',borderTop:`3px solid ${et.c}`,borderRadius:8,background:'var(--sf1)',padding:'8px 10px',cursor:'pointer',display:'flex',flexDirection:'column',gap:4}}>
-            <div style={{fontFamily:'JetBrains Mono,monospace',fontSize:12,fontWeight:600,color:'var(--tx1)',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>🏁 {e.title||'?'}</div>
-            <div style={{fontFamily:'JetBrains Mono,monospace',fontSize:10,fontWeight:700,color:et.c}}>{et.l}</div>
+            <div style={{fontFamily:'var(--f-label)',fontSize:12,fontWeight:600,color:'var(--tx1)',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>🏁 {e.title||'?'}</div>
+            <div style={{fontFamily:'var(--f-label)',fontSize:10,fontWeight:700,color:et.c}}>{et.l}</div>
             {!L.edges.some(x=>x.to===id)&&<div style={{fontSize:10,color:'var(--gold)'}}>⚠ 연결된 씬 없음</div>}</button>})}
       </div>
     </div>

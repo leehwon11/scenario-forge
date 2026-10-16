@@ -49,7 +49,7 @@ export function Sidebar({D,sel,go,setSel,up,sc,plat,op,setOp,setMdl,toast,dlg,is
 
   return<>
     {/* Platforms */}
-    <Sec id="plat" title="Platforms" count={D.platforms.length} fold={fold}>
+    <Sec id="plat" title="사이트" count={D.platforms.length} fold={fold}>
       {D.platforms.map(p=><div key={p.id} className={'row'+(sel.pid===p.id?' sel':'')} onClick={()=>go({pid:p.id,sid:null,ptid:null,scid:null,eid:null})} style={rowSt(sel.pid===p.id)}>
         <span style={{width:7,height:7,borderRadius:'50%',background:p.color,flexShrink:0}}/><span style={ell}>{p.name}</span>
         <span style={{fontSize:10,color:'var(--tx3)',fontWeight:500}}>{D.scenarios.filter(s=>s.platformId===p.id).length}</span>
@@ -57,7 +57,7 @@ export function Sidebar({D,sel,go,setSel,up,sc,plat,op,setOp,setMdl,toast,dlg,is
       <Btn small onClick={()=>setMdl('platform')} style={{width:'100%',marginTop:4,justifyContent:'center',borderStyle:'dashed'}}><Plus size={10}/>사이트</Btn>
     </Sec>
     {/* Scenarios */}
-    <Sec id="scn" title="Scenarios" count={scs.length} fold={fold} right={<IB I={Plus} s={13} title="새 시나리오" onClick={newScenario}/>}>
+    <Sec id="scn" title="시나리오" count={scs.length} fold={fold} right={<IB I={Plus} s={13} title="새 시나리오" onClick={newScenario}/>}>
       {!scs.length&&<button onClick={newScenario} style={{width:'100%',color:'var(--tx3)',fontSize:11,textAlign:'center',padding:8,border:'1px dashed var(--bdr)',borderRadius:6}}>+ 첫 시나리오 만들기</button>}
       {scs.map(s=><div key={s.id} className={'row'+(sel.sid===s.id?' sel':'')} onClick={()=>go({pid:sel.pid,sid:s.id,ptid:null,scid:null,eid:null})} style={rowSt(sel.sid===s.id)}>
         <span style={ell}>{s.title}</span>
@@ -66,13 +66,13 @@ export function Sidebar({D,sel,go,setSel,up,sc,plat,op,setOp,setMdl,toast,dlg,is
     </Sec>
     {sc&&<>
     {/* Scene Tree */}
-    <Sec id="scenes" title="Scenes" count={sc.parts.reduce((a,p)=>a+p.scenes.length,0)} fold={fold} right={<IB I={Settings} s={13} onClick={()=>setMdl('cmd')} title="명령어 라이브러리"/>}>
+    <Sec id="scenes" title="씬" count={sc.parts.reduce((a,p)=>a+p.scenes.length,0)} fold={fold} right={<IB I={Settings} s={13} onClick={()=>setMdl('cmd')} title="명령어 라이브러리"/>}>
       {sc.parts.map(p=>{const isO=op[p.id];const dc=p.scenes.filter(s=>s.done).length;const pk='p'+p.id;
         return<div key={p.id} style={{marginBottom:2}}>
           <div className={'row'+(over===pk?(DRAG?.kind==='part'?' drag-over-top':' drag-over-in'):'')} {...src({kind:'part',id:p.id})}
             {...dst(pk,d=>d.kind==='part'||d.kind==='scene',d=>d.kind==='part'?movePart(d.id,p.id):moveScene(d,p.id,null))}
             onClick={()=>setOp(v=>({...v,[p.id]:!v[p.id]}))}
-            style={{display:'flex',alignItems:'center',gap:4,padding:'4px 6px',borderRadius:6,cursor:'pointer',fontFamily:'JetBrains Mono,monospace',fontSize:11,fontWeight:600,color:'var(--tx2)'}}>
+            style={{display:'flex',alignItems:'center',gap:4,padding:'4px 6px',borderRadius:6,cursor:'pointer',fontFamily:'var(--f-label)',fontSize:11,fontWeight:600,color:'var(--tx2)'}}>
             <span style={{fontSize:10,color:'var(--tx3)',width:12,textAlign:'center',transition:'transform .1s',transform:isO?'rotate(90deg)':'none'}}>▶</span>
             <span style={ell}>{p.title}</span>
             <span style={{fontSize:10,color:'var(--tx3)'}}>{dc}/{p.scenes.length}</span>
@@ -86,7 +86,7 @@ export function Sidebar({D,sel,go,setSel,up,sc,plat,op,setOp,setMdl,toast,dlg,is
             {p.scenes.map(s=>{const k='s'+s.id;const on=sel.scid===s.id;return<div key={s.id} className={'row'+(on?' sel':'')+(over===k?' drag-over-top':'')} {...src({kind:'scene',id:s.id,ptid:p.id})}
               {...dst(k,d=>d.kind==='scene',d=>moveScene(d,p.id,s.id))}
               onClick={()=>go({pid:sel.pid,sid:sel.sid,ptid:p.id,scid:s.id,eid:null})}
-              style={{display:'flex',alignItems:'center',gap:5,padding:'3px 6px',borderRadius:5,cursor:'pointer',fontFamily:'JetBrains Mono,monospace',fontSize:11,
+              style={{display:'flex',alignItems:'center',gap:5,padding:'3px 6px',borderRadius:5,cursor:'pointer',fontFamily:'var(--f-label)',fontSize:11,
                 boxShadow:over===k?'0 -2px 0 0 var(--blue)':undefined,borderLeft:`2px solid ${s.done?'var(--green)':'transparent'}`,
                 background:on?'var(--blueA)':undefined,color:on?'var(--blue)':s.done?'var(--tx3)':'var(--tx2)',textDecoration:s.done?'line-through':'none'}}>
               <input type="checkbox" checked={s.done||false} title="진행 완료" onChange={e=>{const v=e.target.checked;uSc(x=>{x.parts.find(y=>y.id===p.id).scenes.find(y=>y.id===s.id).done=v})}}
@@ -104,24 +104,24 @@ export function Sidebar({D,sel,go,setSel,up,sc,plat,op,setOp,setMdl,toast,dlg,is
       {sc.parts.some(p=>p.scenes.length>1)&&!isMobile&&<div style={{fontSize:10,color:'var(--tx3)',marginTop:6,textAlign:'center'}}>씬·파트는 끌어서 순서를 바꿀 수 있습니다</div>}
     </Sec>
     {/* Endings */}
-    <Sec id="end" title="Endings" count={sc.endings.length} fold={fold} right={<IB I={Plus} s={13} title="새 엔딩" onClick={newEnding}/>}>
+    <Sec id="end" title="엔딩" count={sc.endings.length} fold={fold} right={<IB I={Plus} s={13} title="새 엔딩" onClick={newEnding}/>}>
       {!sc.endings.length&&<div style={{color:'var(--tx3)',fontSize:11,padding:'2px 8px'}}>없음</div>}
       {sc.endings.map(e=>{const et=sc.endingTypes.find(t=>t.id===e.endingType)||{l:'?',c:'#8b949e'};const on=sel.eid===e.id;
         return<div key={e.id} className={'row'+(on?' sel':'')} onClick={()=>go({pid:sel.pid,sid:sel.sid,ptid:null,scid:null,eid:e.id})} style={{...rowSt(on),fontSize:12,padding:'3px 8px'}}>
           <span style={{width:7,height:7,borderRadius:'50%',background:et.c,flexShrink:0}}/>
           <span style={ell}>{e.title||'(제목 없음)'}</span>
-          <span style={{fontFamily:'JetBrains Mono,monospace',fontSize:10,fontWeight:700,color:et.c,flexShrink:0}}>{et.l}</span>
+          <span style={{fontFamily:'var(--f-label)',fontSize:10,fontWeight:700,color:et.c,flexShrink:0}}>{et.l}</span>
           <span className="acts" onClick={ev=>ev.stopPropagation()}><IB I={Trash2} s={11} danger title="엔딩 삭제" onClick={()=>{
             removed(`엔딩 "${e.title}"`,()=>uSc(s=>{s.endings=s.endings.filter(x=>x.id!==e.id);dropConns(s,new Set([e.id]))}));if(sel.eid===e.id)setSel(v=>({...v,eid:null}))}}/></span>
         </div>})}
     </Sec>
     {/* Clues */}
-    <Sec id="clue" title="Clues" count={sc.clues.length} fold={fold} right={<IB I={Plus} s={13} title="새 단서" onClick={newClue}/>}>
+    <Sec id="clue" title="단서" count={sc.clues.length} fold={fold} right={<IB I={Plus} s={13} title="새 단서" onClick={newClue}/>}>
       {(()=>{const use=clueUsage(sc);return sc.clues.map(c=><div key={c.id} className="row" onClick={()=>setMdl({type:'clueEdit',clueId:c.id})} style={{...rowSt(false),fontSize:12,padding:'3px 8px',color:'var(--tx2)'}}>
         <span style={{width:6,height:6,borderRadius:'50%',background:c.isRedHerring?'var(--red)':'var(--teal)',flexShrink:0}}/>
         <span style={ell}>{c.name}</span>
         {!use[c.id]&&<span title="어느 씬에도 배치되지 않음"><AlertTriangle size={11} style={{color:'var(--gold)'}}/></span>}
-        {c.isRedHerring&&<span style={{fontFamily:'JetBrains Mono,monospace',fontSize:10,fontWeight:700,color:'var(--red)',background:'var(--redA)',padding:'0 5px',borderRadius:8}}>미끼</span>}
+        {c.isRedHerring&&<span style={{fontFamily:'var(--f-label)',fontSize:10,fontWeight:700,color:'var(--red)',background:'var(--redA)',padding:'0 5px',borderRadius:8}}>미끼</span>}
         <span className="acts" onClick={e=>e.stopPropagation()}><IB I={Trash2} s={11} danger title="단서 삭제" onClick={()=>removed(`단서 "${c.name}"`,()=>uSc(s=>{s.clues=s.clues.filter(x=>x.id!==c.id)}))}/></span>
       </div>)})()}
       {!sc.clues.length&&<div style={{color:'var(--tx3)',fontSize:11,padding:'2px 8px'}}>없음</div>}
@@ -139,7 +139,7 @@ export function Sidebar({D,sel,go,setSel,up,sc,plat,op,setOp,setMdl,toast,dlg,is
         </div>})}
     </Sec>
     {/* Sessions — 세션 기록 (여러 줄, 최신이 위) */}
-    <Sec id="sess" title="Sessions" count={sc.sessionHistory?.length||0} fold={fold} right={<IB I={Plus} s={13} title="오늘 세션 기록 추가" onClick={addSession}/>}>
+    <Sec id="sess" title="세션 기록" count={sc.sessionHistory?.length||0} fold={fold} right={<IB I={Plus} s={13} title="오늘 세션 기록 추가" onClick={addSession}/>}>
       {(sc.sessionHistory||[]).map(s=><div key={s.id} className="row sb-sess" onClick={async()=>{const v=await dlg.prompt(`세션 기록 — ${s.date}`,s.summary,{multiline:true});if(v!==null)uSc(x=>{x.sessionHistory.find(y=>y.id===s.id).summary=v})}}>
         <div style={{display:'flex',alignItems:'center',gap:5}}><span className="sb-date">{s.date}</span><span style={{flex:1}}/>
           <span className="acts" onClick={e=>e.stopPropagation()}><IB I={Trash2} s={11} danger title="세션 기록 삭제" onClick={()=>removed(`${s.date} 세션 기록`,()=>uSc(x=>{x.sessionHistory=x.sessionHistory.filter(y=>y.id!==s.id)}))}/></span></div>

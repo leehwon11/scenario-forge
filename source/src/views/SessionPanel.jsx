@@ -59,7 +59,7 @@ export function SessionPanel({sc,up,sel,setMdl,onClose}){
 
       {/* 단서 획득 */}
       <Part id="clue" icon={<Lightbulb size={12}/>} title="단서 획득" extra={sc.clues.length?`${foundN}/${sc.clues.length}`:null} fold={fold}>
-        {!sc.clues.length?<div className="sp-hint">사이드바 Clues에서 단서를 만들면 여기서 획득 여부를 체크할 수 있습니다.</div>
+        {!sc.clues.length?<div className="sp-hint">사이드바 단서에서 단서를 만들면 여기서 획득 여부를 체크할 수 있습니다.</div>
         :prog.map(g=>{const red=g.key==='__red',none=g.key==='__none';const need=3;
           return<div key={g.key} className="sp-cg">
             <div className="sp-cg-h"><span>{red?'미끼 단서':none?'결론 미지정':g.key}</span>

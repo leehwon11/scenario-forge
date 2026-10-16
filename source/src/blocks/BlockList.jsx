@@ -33,14 +33,14 @@ export function BL({entry,upE,sc,plat,onManage}){
       if(b.collapsed)return<div key={b.id} ref={el=>refs.current[b.id]=el} {...dst(b.id,acc,d=>moveB(d.id,b.id))} className={'rail'+(over===b.id?' drag-over-top':'')} style={{marginBottom:8,borderLeftColor:m.c,opacity:.6,marginLeft:b.indent?28:0}}>
         <div className="rail-dot" style={{borderColor:m.c,top:6}}/>
         <div style={{display:'flex',alignItems:'center',gap:5}}>{grip(b)}
-          <span style={{fontFamily:'JetBrains Mono,monospace',fontSize:10,fontWeight:600,color:'var(--tx3)',flex:1}}>// {b.label} <span style={{color:'var(--tx3)',fontSize:10}}>▸ 접힘</span></span>
+          <span style={{fontFamily:'var(--f-label)',fontSize:10,fontWeight:600,color:'var(--tx3)',flex:1}}>{b.label} <span style={{color:'var(--tx3)',fontSize:10}}>▸ 접힘</span></span>
           <IB I={ChevronDown} s={12} title="펼치기" onClick={()=>upB(b.id,x=>{x.collapsed=false})}/><IB I={CopyPlus} s={12} title="블록 복제" onClick={()=>upE(e=>{const cp=JSON.parse(JSON.stringify(b));cp.id=uid();cp.label+=' (복사)';e.blocks.splice(i+1,0,cp)})}/><IB I={Trash2} s={12} danger title="블록 삭제" onClick={()=>removed(`블록 "${b.label}"`,()=>upE(e=>{e.blocks=e.blocks.filter(x=>x.id!==b.id)}))}/>
         </div></div>;
       return<div key={b.id} ref={el=>refs.current[b.id]=el} {...dst(b.id,acc,d=>moveB(d.id,b.id))} className={'rail'+(over===b.id?' drag-over-top':'')} style={{marginBottom:16,borderLeftColor:m.c,marginLeft:b.indent?28:0}}>
         <div className="rail-dot" style={{borderColor:m.c}}/>
         <div style={{display:'flex',alignItems:'center',gap:4,marginBottom:5}}>{grip(b)}
           <input className="ghost" aria-label="블록 이름" value={b.label} onChange={e=>upB(b.id,x=>{x.label=e.target.value})}
-            style={{fontFamily:'JetBrains Mono,monospace',fontSize:11,fontWeight:600,color:'var(--tx3)',border:'none',background:'transparent',padding:'1px 4px',flex:1,minWidth:0,outline:'none'}}/>
+            style={{fontFamily:'var(--f-label)',fontSize:11,fontWeight:600,color:'var(--tx3)',border:'none',background:'transparent',padding:'1px 4px',flex:1,minWidth:0,outline:'none'}}/>
           <IB I={b.indent?ListIndentDecrease:ListIndentIncrease} s={12} title={b.indent?'들여쓰기 해제':'들여쓰기 (하위 내용 표시)'} onClick={()=>upB(b.id,x=>{x.indent=!x.indent})}/>
           <IB I={ChevronUp} s={12} onClick={()=>upB(b.id,x=>{x.collapsed=true})} title="접기"/>
           <IB I={ArrowUp} s={12} title="위로" disabled={i===0} onClick={()=>upE(e=>{[e.blocks[i-1],e.blocks[i]]=[e.blocks[i],e.blocks[i-1]]})}/>
@@ -107,7 +107,7 @@ export function BB({b,upB,sc,upE,i}){
         style={{flex:1,border:'none',borderBottom:'1px dashed var(--bdr2)',background:'transparent',fontWeight:700,fontSize:12,padding:'2px 0',outline:'none',color:'var(--tx1)'}}/><IB I={Trash2} s={12} danger title="삭제" onClick={()=>up(x=>{x.items.splice(ci,1)})}/></div>
       <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:4}}>
         {[['critSuccess','대성공','var(--goldA)','var(--gold)'],['success','성공','var(--greenA)','var(--green)'],['fail','실패','var(--sf2)','var(--tx4)'],['critFail','대실패','var(--redA)','var(--red)']].map(([k,lb,bg,cl])=>
-          <div key={k}><span style={{fontFamily:'JetBrains Mono,monospace',fontSize:10,fontWeight:700,color:cl}}>{lb}</span><TA value={c[k]||''} onChange={v=>up(x=>{x.items[ci][k]=v})} bg={bg}/></div>)}</div>
+          <div key={k}><span style={{fontFamily:'var(--f-label)',fontSize:10,fontWeight:700,color:cl}}>{lb}</span><TA value={c[k]||''} onChange={v=>up(x=>{x.items[ci][k]=v})} bg={bg}/></div>)}</div>
     </div>)}
     <Btn small onClick={()=>up(x=>{x.items.push({id:uid(),name:'',critSuccess:'',success:'',fail:'',critFail:''})})} style={{width:'100%',justifyContent:'center',borderStyle:'dashed'}}><Plus size={9}/>판정</Btn></div>;
   return null}

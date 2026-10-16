@@ -26,9 +26,9 @@ export const download=(obj,name)=>{const b=new Blob([JSON.stringify(obj,null,2)]
 export function defData(){const r=uid(),k=uid();return{platforms:[
   {id:r,name:'Roll20',color:'#58a6ff',commands:[{id:uid(),l:'/desc',s:'/desc ',cat:'기본'},{id:uid(),l:'굵게',s:'**텍스트**',cat:'서식'},{id:uid(),l:'/emas',s:'/emas "이름" ',cat:'기본'},{id:uid(),l:'/as',s:'/as "이름" ',cat:'기본'},{id:uid(),l:'Oosh',s:'[텍스트](#" style="color:#AA0000;text-decoration:none;)',cat:'롤꾸'}]},
   {id:k,name:'코코포리아',color:'#bc8cff',commands:[{id:uid(),l:'귓속말',s:'((귓속말: ))',cat:'기본'},{id:uid(),l:'설명',s:'【설명】',cat:'기본'}]}
-],scenarios:[],theme:'dark'}}
+],scenarios:[],theme:'light'}}
 
-export function mig(d){delete d.cloud; /* 예전 Gist 토큰 등은 더 이상 쓰지 않으므로 제거 */d.theme??='dark';
+export function mig(d){delete d.cloud; /* 예전 Gist 토큰 등은 더 이상 쓰지 않으므로 제거 */d.theme??='light';
 // 사이트: 명령어·저장 색·롤꾸 템플릿 (Roll20은 기본 템플릿을 넣어 줌)
 for(const p of(d.platforms||[])){p.commands??=[];p.savedColors??=[];if(p.templates===undefined)p.templates=/roll20/i.test(p.name||'')?defTpl():[]}
 for(const sc of(d.scenarios||[])){

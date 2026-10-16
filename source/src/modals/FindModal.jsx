@@ -38,7 +38,7 @@ export function FindM({D,up,sel,setSel,setMode,onClose,toast}){const dlg=useDial
       :<><div style={{fontSize:11,color:'var(--tx3)',marginBottom:6}}>{res.length}곳에서 {total}건</div>
       {res.map((r,i)=><button key={i} onClick={()=>{if(r.tp==='scene')setSel({pid:r.sc.platformId,sid:r.sc.id,ptid:r.p.id,scid:r.en.id,eid:null});else setSel({pid:r.sc.platformId,sid:r.sc.id,ptid:null,scid:null,eid:r.en.id});setMode('edit');onClose()}}
         className="find-hit" style={{display:'block',width:'100%',textAlign:'left',border:'1px solid var(--bdr)',borderRadius:6,padding:'7px 10px',marginBottom:4,cursor:'pointer'}}>
-        <div style={{display:'flex',gap:6,alignItems:'baseline'}}><span style={{fontFamily:'JetBrains Mono,monospace',fontWeight:600,fontSize:12,color:'var(--tx1)'}}>{r.tp==='ending'?'🏁 ':''}{r.en.title}</span>
+        <div style={{display:'flex',gap:6,alignItems:'baseline'}}><span style={{fontFamily:'var(--f-label)',fontWeight:600,fontSize:12,color:'var(--tx1)'}}>{r.tp==='ending'?'🏁 ':''}{r.en.title}</span>
           <span style={{fontSize:10,color:'var(--tx3)'}}>{r.sc.title}{r.p?' / '+r.p.title:''} · {r.hits.length}건</span></div>
         {r.hits.slice(0,3).map((h,j)=><Snip key={j} text={h} q={t}/>)}{r.hits.length>3&&<div style={{fontSize:11,color:'var(--tx3)'}}>…외 {r.hits.length-3}건</div>}</button>)}</>}</div>}
   </Modal>}

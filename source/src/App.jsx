@@ -36,7 +36,7 @@ function AppInner(){
   const[D,setD]=useState(null);const[loading,setL]=useState(true);
   const[sel,setSel]=useState({pid:null,sid:null,ptid:null,scid:null,eid:null});
   const[mode,setMode]=useState('edit');const[gm,setGm]=useState(true);
-  const[theme,setThm]=useState('dark');const[op,setOp]=useState({});
+  const[theme,setThm]=useState('light');const[op,setOp]=useState({});
   const[modal,setMdl]=useState(null);
   const isMobile=useMedia('(max-width:767px)');
   const[sbOpen,setSb]=useState(()=>typeof matchMedia==='undefined'||!matchMedia('(max-width:767px)').matches);
@@ -62,7 +62,7 @@ function AppInner(){
   const meta=useRef({uid:null,base:null,hash:null});const synced=useRef(null);const busy=useRef(false);
 
   useEffect(()=>{Promise.all([getItem('data'),getItem('meta')]).then(([raw,m])=>{const d=mig(raw||defData());
-    setD(d);setThm(d.theme||'dark');if(m)meta.current=m;
+    setD(d);setThm(d.theme||'light');if(m)meta.current=m;
     if(d.platforms?.length)setSel(s=>({...s,pid:s.pid||d.platforms[0].id}));
     hist.current=[JSON.stringify(d)];hi.current=0;setL(false)})},[]);
 
@@ -89,7 +89,7 @@ function AppInner(){
   const backupLocal=useCallback(reason=>{const d=Dref.current;if(d)setItem('backup',{at:new Date().toISOString(),data:JSON.parse(JSON.stringify(d)),reason})},[]);
   const adopt=useCallback((row,uid)=>{const nd=mig(JSON.parse(JSON.stringify(row.data)));const body=bodyOf(nd);
     if(bodyOf(Dref.current||{})!==body)backupLocal('클라우드 내용을 불러오기 전');
-    setD(nd);setThm(nd.theme||'dark');setSel(s=>nd.platforms.some(p=>p.id===s.pid)?s:{pid:nd.platforms?.[0]?.id||null,sid:null,ptid:null,scid:null,eid:null});
+    setD(nd);setThm(nd.theme||'light');setSel(s=>nd.platforms.some(p=>p.id===s.pid)?s:{pid:nd.platforms?.[0]?.id||null,sid:null,ptid:null,scid:null,eid:null});
     markSynced(uid,row.updated_at,body)},[]);
   const push=useCallback(async()=>{const u=userRef.current;if(!u||busy.current||conflictRef.current)return;
     const d=Dref.current;const body=bodyOf(d);if(body===synced.current){setSync(s=>s.s==='pending'?{s:'ok',t:s.t||new Date()}:s);return}
@@ -149,7 +149,7 @@ function AppInner(){
   const useCode=useCallback((code,title)=>{if(!parseQueries(code).length){putText(code);return}setFill({code,title,mode:'insert',onApply:putText})},[putText]);
   const act=useMemo(()=>({toast,removed,useCode,openFill:setFill}),[toast,removed,useCode]);
   // 데이터 전체 교체 (가져오기·다른 탭 내용) — 테마·선택 상태도 함께 맞춤
-  const replaceD=useCallback((nd,keepSel)=>{setD(nd);setThm(nd.theme||'dark');
+  const replaceD=useCallback((nd,keepSel)=>{setD(nd);setThm(nd.theme||'light');
     setSel(s=>keepSel&&nd.platforms.some(p=>p.id===s.pid)?s:{pid:nd.platforms?.[0]?.id||null,sid:null,ptid:null,scid:null,eid:null})},[]);
   const undo=useCallback(()=>{commitHist();if(hi.current<=0){toast('되돌릴 수 없음');return}hi.current--;setD(mig(JSON.parse(hist.current[hi.current])));toast('실행 취소')},[toast,commitHist]);
   const redo=useCallback(()=>{commitHist();if(hi.current>=hist.current.length-1){toast('다시 실행할 내용 없음');return}hi.current++;setD(mig(JSON.parse(hist.current[hi.current])));toast('다시 실행')},[toast,commitHist]);
@@ -202,23 +202,20 @@ function AppInner(){
   const sidebarProps={D,sel,go,setSel,up,sc,plat,op,setOp,setMdl,toast,dlg,setSb,isMobile};
 
   return(<ActCtx.Provider value={act}>
-    <div style={{display:'grid',gridTemplateColumns:isMobile?'1fr':(sbOpen?`${sbW}px 1fr`:'0 1fr')+(spShow?' minmax(280px,320px)':''),gridTemplateRows:'44px auto 1fr',height:`calc(100vh / ${zoom})`,zoom,position:'relative',transition:'grid-template-columns .15s'}}>
+    <div style={{display:'grid',gridTemplateColumns:isMobile?'1fr':(sbOpen?`${sbW}px 1fr`:'0 1fr')+(spShow?' minmax(280px,320px)':''),gridTemplateRows:'52px auto 1fr',height:`calc(100vh / ${zoom})`,zoom,position:'relative',transition:'grid-template-columns .15s'}}>
       {/* TOPBAR */}
-      <div className="no-print topbar" style={{gridColumn:'1/-1',display:'flex',alignItems:'center',gap:6,padding:'0 12px',background:'var(--sf1)',borderBottom:'1px solid var(--bdr)',overflowX:'auto'}}>
+      <div className="no-print topbar" style={{gridColumn:'1/-1',display:'flex',alignItems:'center',gap:8,padding:'0 16px',background:'var(--sf1)',borderBottom:'1px solid var(--bdr)',overflowX:'auto'}}>
         {(!sbOpen||isMobile)&&<IB I={isMobile?Menu:PanelLeftOpen} onClick={()=>setSb(!sbOpen)} title="사이드바 열기"/>}
         <div style={{display:'flex',alignItems:'center',gap:6,marginRight:4,flexShrink:0}}>
-          <div style={{width:22,height:22,borderRadius:5,background:'linear-gradient(135deg,var(--blue),var(--purple))',display:'flex',alignItems:'center',justifyContent:'center',fontFamily:'JetBrains Mono,monospace',fontWeight:700,fontSize:10,color:'#fff'}}>S.</div>
-          <span className="hide-m" style={{fontFamily:'JetBrains Mono,monospace',fontWeight:600,fontSize:12,color:'var(--tx1)',letterSpacing:'-.03em'}}>scenario-forge</span>
+          <div className="tb-logo" aria-hidden="true">鍛</div>
+          <span className="hide-m tb-name">시나리오 대장간</span>
         </div>
         <div style={{flex:1}}/>
-        <button onClick={()=>setGm(!gm)} title={gm?'GM 전용 블록 표시 중 — 클릭하면 플레이어 공개용으로 숨김':'플레이어 공개 화면 — 클릭하면 GM 블록 표시'} style={{display:'flex',alignItems:'center',gap:5,fontFamily:'JetBrains Mono,monospace',fontSize:10,fontWeight:600,padding:'3px 10px',borderRadius:20,cursor:'pointer',flexShrink:0,
-          border:`1px solid ${gm?'var(--green)':'var(--bdr)'}`,color:gm?'var(--green)':'var(--tx3)',background:gm?'var(--greenA)':'transparent'}}>● {gm?'GM':'공개'}</button>
-        <div role="tablist" style={{display:'flex',background:'var(--sf2)',borderRadius:8,padding:2,border:'1px solid var(--bdr)',flexShrink:0}}>
-          {['edit','play','flow'].map(m=><button key={m} role="tab" aria-selected={mode===m} onClick={()=>setMode(m)} style={{padding:isMobile?'4px 8px':'4px 12px',borderRadius:6,fontFamily:'JetBrains Mono,monospace',fontSize:11,fontWeight:600,
-            border:'none',cursor:'pointer',background:mode===m?'var(--sf1)':'transparent',color:mode===m?'var(--tx1)':'var(--tx3)',boxShadow:mode===m?'0 1px 3px rgba(0,0,0,.1)':'none'}}>{m}</button>)}
+        <button className={'gm-tog'+(gm?' on':'')} onClick={()=>setGm(!gm)} aria-pressed={gm} title={gm?'GM 전용 블록 표시 중 — 클릭하면 플레이어 공개용으로 숨김':'플레이어 공개 화면 — 클릭하면 GM 블록 표시'}><i/>{isMobile?(gm?'GM':'공개'):(gm?'GM 정보 보기':'공개 화면')}</button>
+        <div role="tablist" className="seg">
+          {[['edit','집필'],['play','진행'],['flow','흐름도']].map(([m,l])=><button key={m} role="tab" aria-selected={mode===m} onClick={()=>setMode(m)} style={isMobile?{padding:'5px 9px'}:undefined}>{l}</button>)}
         </div>
-        <Btn small onClick={()=>setSpOpen(!spOpen)} disabled={!sc} aria-pressed={spOpen} title={sc?'세션 패널 (행동 순서·단서 획득·플래그)':'시나리오를 먼저 선택하세요'}
-          style={spOpen&&sc?{borderColor:'var(--purple)',color:'var(--purple)',background:'var(--purpleA)'}:undefined}><Swords size={11}/><span className="hide-m">세션</span></Btn>
+        <button className={'sess-btn'+(spOpen&&sc?' on':'')} onClick={()=>setSpOpen(!spOpen)} disabled={!sc} aria-pressed={spOpen} title={sc?'세션 패널 (행동 순서·단서 획득·플래그)':'시나리오를 먼저 선택하세요'}><Swords size={13}/><span className="hide-m">{spOpen&&sc?'세션 패널 닫기':'세션'}</span></button>
         <IB I={Undo2} onClick={undo} title="실행 취소 (Ctrl+Z)"/><IB I={Redo2} onClick={redo} title="다시 실행 (Ctrl+Shift+Z)"/>
         {isMobile?<IB I={MoreHorizontal} onClick={()=>setMenu(!menu)} title="더보기" active={menu}/>:<>
         <Btn small onClick={()=>setMdl('find')} title="찾기 · 바꾸기 (Ctrl+F)"><Search size={11}/>찾기</Btn>
@@ -237,7 +234,7 @@ function AppInner(){
 
       {/* 모바일 더보기 메뉴 */}
       {isMobile&&menu&&<><div className="no-print" onClick={()=>setMenu(false)} style={{position:'fixed',inset:0,zIndex:60}}/>
-        <div className="no-print" role="menu" style={{position:'fixed',top:48,right:8,zIndex:61,background:'var(--sf1)',border:'1px solid var(--bdr)',borderRadius:10,boxShadow:'0 8px 30px rgba(0,0,0,.35)',padding:6,minWidth:200,display:'flex',flexDirection:'column',gap:2}}>
+        <div className="no-print" role="menu" style={{position:'fixed',top:56,right:8,zIndex:61,background:'var(--sf1)',border:'1px solid var(--bdr)',borderRadius:10,boxShadow:'0 8px 30px rgba(0,0,0,.35)',padding:6,minWidth:200,display:'flex',flexDirection:'column',gap:2}}>
           {[[Search,'찾기 · 바꾸기',()=>setMdl('find')],[user?Cloud:LogIn,user?'클라우드 · '+SY[1]:'로그인 (클라우드 저장)',()=>setMdl('account')],[FileDown,'전체 JSON 내보내기',exportAll],[FileUp,'JSON 가져오기',()=>document.getElementById('imp')?.click()],[theme==='dark'?Sun:Moon,theme==='dark'?'라이트 테마':'다크 테마',toggleTheme],[CircleQuestionMark,'사용법',()=>setMdl('help')]].map(([I,l,fn])=>
             <button key={l} role="menuitem" onClick={()=>{setMenu(false);fn()}} style={{display:'flex',alignItems:'center',gap:8,padding:'9px 10px',borderRadius:6,fontSize:13,color:'var(--tx1)',textAlign:'left'}}><I size={14}/>{l}</button>)}
           <div style={{display:'flex',alignItems:'center',gap:6,padding:'6px 10px',borderTop:'1px solid var(--bdr)',marginTop:2,fontSize:12,color:'var(--tx3)'}}>글자 크기
@@ -257,9 +254,9 @@ function AppInner(){
       </div>
 
       {/* SIDEBAR */}
-      {isMobile&&sbOpen&&<div className="no-print" onClick={()=>setSb(false)} style={{position:'fixed',inset:0,top:44,background:'rgba(0,0,0,.45)',zIndex:40}}/>}
+      {isMobile&&sbOpen&&<div className="no-print" onClick={()=>setSb(false)} style={{position:'fixed',inset:0,top:52,background:'rgba(0,0,0,.45)',zIndex:40}}/>}
       <div className="no-print" style={isMobile
-        ?{position:'fixed',top:44,left:0,bottom:0,width:'min(300px,86vw)',zIndex:41,background:'var(--sf1)',borderRight:'1px solid var(--bdr)',overflowY:'auto',overflowX:'hidden',display:sbOpen?'flex':'none',flexDirection:'column',fontSize:12,boxShadow:'4px 0 24px rgba(0,0,0,.3)'}
+        ?{position:'fixed',top:52,left:0,bottom:0,width:'min(300px,86vw)',zIndex:41,background:'var(--sf1)',borderRight:'1px solid var(--bdr)',overflowY:'auto',overflowX:'hidden',display:sbOpen?'flex':'none',flexDirection:'column',fontSize:12,boxShadow:'4px 0 24px rgba(0,0,0,.3)'}
         :{background:'var(--sf1)',borderRight:'1px solid var(--bdr)',overflowY:'auto',overflowX:'hidden',display:'flex',flexDirection:'column',visibility:sbOpen?'visible':'hidden',position:'relative',fontSize:12,minHeight:0}}>
         {sbOpen&&!isMobile&&<IB I={PanelLeftClose} onClick={()=>setSb(false)} title="사이드바 닫기" style={{position:'absolute',top:6,right:6,zIndex:5}}/>}
         <Sidebar {...sidebarProps}/>
@@ -274,13 +271,13 @@ function AppInner(){
         :scene?<SceneP scene={scene} pt={pt} sc={sc} plat={plat} mode={mode} gm={gm} up={up} sel={sel} toast={toast} isR20={isR20} isCoco={isCoco} r20On={r20On} setR20On={setR20On} go={go} setMdl={setMdl} sess={sess}/>
         :sc?<OverviewP sc={sc} plat={plat} up={up} sel={sel} toast={toast} exportSingle={exportSingle} mergeImp={mergeImp} setMdl={setMdl} go={go}/>
         :<div style={{height:'100%',display:'flex',alignItems:'center',justifyContent:'center',flexDirection:'column',gap:10,color:'var(--tx3)',textAlign:'center'}}>
-          <BookOpen size={32} strokeWidth={1.5} style={{opacity:.5}}/><h3 style={{fontFamily:'JetBrains Mono,monospace',fontSize:14,color:'var(--tx2)'}}>{D.scenarios.some(s=>s.platformId===sel.pid)?'시나리오를 선택하세요':'새 시나리오를 만들어 보세요'}</h3>
+          <BookOpen size={32} strokeWidth={1.5} style={{opacity:.5}}/><h3 style={{fontFamily:'var(--f-title)',fontSize:18,fontWeight:700,color:'var(--tx2)'}}>{D.scenarios.some(s=>s.platformId===sel.pid)?'시나리오를 선택하세요':'새 시나리오를 만들어 보세요'}</h3>
           {isMobile&&!sbOpen&&<Btn onClick={()=>setSb(true)}><Menu size={12}/>목록 열기</Btn>}</div>}
       </div>
       {/* 세션 패널: 데스크톱은 오른쪽 열, 모바일은 겹쳐 띄움 */}
       {spShow&&!isMobile&&<div className="no-print" style={{minHeight:0,borderLeft:'1px solid var(--bdr)',background:'var(--sf1)',overflow:'hidden'}}><SessionPanel sc={sc} up={up} sel={sel} setMdl={setMdl} onClose={()=>setSpOpen(false)}/></div>}
-      {spShow&&isMobile&&<><div className="no-print" onClick={()=>setSpOpen(false)} style={{position:'fixed',inset:0,top:44,background:'rgba(0,0,0,.45)',zIndex:40}}/>
-        <div className="no-print" style={{position:'fixed',top:44,right:0,bottom:0,width:'min(340px,92vw)',zIndex:41,background:'var(--sf1)',borderLeft:'1px solid var(--bdr)',boxShadow:'-4px 0 24px rgba(0,0,0,.3)'}}><SessionPanel sc={sc} up={up} sel={sel} setMdl={setMdl} onClose={()=>setSpOpen(false)}/></div></>}
+      {spShow&&isMobile&&<><div className="no-print" onClick={()=>setSpOpen(false)} style={{position:'fixed',inset:0,top:52,background:'rgba(0,0,0,.45)',zIndex:40}}/>
+        <div className="no-print" style={{position:'fixed',top:52,right:0,bottom:0,width:'min(340px,92vw)',zIndex:41,background:'var(--sf1)',borderLeft:'1px solid var(--bdr)',boxShadow:'-4px 0 24px rgba(0,0,0,.3)'}}><SessionPanel sc={sc} up={up} sel={sel} setMdl={setMdl} onClose={()=>setSpOpen(false)}/></div></>}
     </div>
     {/* MODALS */}
     {(modal==='account'||modal==='account-recovery')&&<AccountM user={user} sync={sync} SY={SY} recovery={modal==='account-recovery'} syncNow={()=>{setConflict(c=>c?.kind==='server'?c:null);syncNow()}} toast={toast}
