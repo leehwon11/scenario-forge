@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Check,ChevronLeft,ChevronRight,Copy,Dice5,ExternalLink,Eye,EyeOff,Flag,GitBranch,Lightbulb,Music,PictureInPicture2,Pin,RotateCcw,Search,X } from "lucide-react";
 import { CopyBtn,Lines,copyText,useAct } from '../components/ui.jsx'
-import { LIB_LABEL,allScenes,findTarget,libUses,mdR,resolveB,sceneNpcNames } from '../lib/data.js'
+import { BT,LIB_LABEL,allScenes,findTarget,libUses,mdR,resolveB,sceneNpcNames } from '../lib/data.js'
+import { blockFilled } from '../lib/check.js'
 import { parseQueries } from '../lib/rollkku.js'
 import { colorCode } from '../components/CmdBar.jsx'
 import { FlagStatus } from '../components/flags.jsx'
@@ -18,9 +19,9 @@ const GMONLY=['memo','truth','session-log'];
 export function readLines(entry,isR20,sc){const out=[];
   const as=(who,l)=>isR20&&who?`/as "${who}" ${l}`:l;
   for(const b0 of entry.blocks||[]){const b=sc?resolveB(sc,b0):b0;
-    if(b.type==='text')(b.content||'').split('\n').forEach((l,i)=>{if(l.trim())out.push({key:`${b.id}:${i}`,text:l,copy:l})});
-    if(b.type==='lines')for(const it of b.items||[])(it.text||'').split('\n').forEach((l,i)=>{if(l.trim())out.push({key:`${b.id}:${it.id}:${i}`,who:it.label,text:l,copy:as(it.label,l)})});
-    if(b.type==='npc')(b.lines||'').split('\n').forEach((l,i)=>{if(l.trim())out.push({key:`${b.id}:n${i}`,who:b.name,text:l,copy:as(b.name,l)})})}
+    if(b.type==='text')(b.content||'').split('\n').forEach((l,i)=>{if(l.trim())out.push({key:`${b.id}:${i}`,bid:b.id,text:l,copy:l})});
+    if(b.type==='lines')for(const it of b.items||[])(it.text||'').split('\n').forEach((l,i)=>{if(l.trim())out.push({key:`${b.id}:${it.id}:${i}`,bid:b.id,who:it.label,text:l,copy:as(it.label,l)})});
+    if(b.type==='npc')(b.lines||'').split('\n').forEach((l,i)=>{if(l.trim())out.push({key:`${b.id}:n${i}`,bid:b.id,who:b.name,text:l,copy:as(b.name,l)})})}
   return out}
 
 const isField=el=>el&&(el.tagName==='TEXTAREA'||el.tagName==='SELECT'||(el.tagName==='INPUT'&&!['checkbox','button'].includes(el.type))||el.isContentEditable);
@@ -62,10 +63,39 @@ export function SessionMode({sc,plat,sel,go,up,gm,setGm,setMdl,onEnd,win,pip,onP
     <button className="ss-end" onClick={onEnd}>집필로 돌아가기</button></div></section>;
 
   const blocks=(entry.blocks||[]).map(b=>resolveB(sc,b)).filter(b=>(gm||!GMONLY.includes(b.type)&&b.type!=='clue')&&b.refId!=='');
-  const of=t=>blocks.filter(b=>t.includes(b.type));
-  const checks=of(['checks']).flatMap(b=>b.items||[]);
-  const clues=of(['clue']);const mats=of(['handout','item','place','npc','bgm']);const gms=gm?of(GMONLY):[];
-  const branches=of(['branches']).flatMap(b=>b.items||[]);
+  const lineBtn=l=>{const st=sent[l.key]?' sent':l===next?' next':'';
+    return<button key={l.key} className={'ss-ln'+st} onClick={()=>copyLine(l)}>
+      <span className="ss-n">{lines.indexOf(l)+1}</span>
+      <span className="ss-t">{l.who&&<span className="ss-w">{l.who}</span>}<span dangerouslySetInnerHTML={{__html:mdR(l.text)}}/></span>
+      <span className="ss-c">{sent[l.key]?<><Check size={11}/>보냄</>:l===next?'다음':'복사'}</span></button>};
+  const linesOf=b=>lines.filter(l=>l.bid===b.id).map(lineBtn);
+  const toggleFlag=id=>setS(x=>{x.flags[id]=!x.flags[id]});
+  // 블록 종류별 모습 (순서는 바꾸지 않음)
+  const renderBlock=b=>{
+    if(b.type==='text'||b.type==='lines')return linesOf(b);
+    if(GMONLY.includes(b.type))return<div className={'ss-sec '+b.type}><Lines text={b.content}/></div>;
+    if(b.type==='npc')return<><div className="ss-card"><div className="ss-card-h"><b>{b.name||'NPC'}</b>{b.role&&<small>{b.role}</small>}<span style={{flex:1}}/>{b.name&&<CopyBtn text={b.name} label="이름"/>}</div>
+        {b.imageUrl&&<img src={b.imageUrl} alt="" className="ss-img sm" onError={e=>{e.target.style.display='none'}}/>}
+        {b.traits&&<ul className="ss-ul">{b.traits.split('\n').filter(l=>l.trim()).map((t,i)=><li key={i}>{t}</li>)}</ul>}{gm&&b.gmNote&&<div className="ss-sec"><b>GM만</b>{b.gmNote}</div>}</div>
+      {linesOf(b)}</>;
+    if(b.type==='checks')return(b.items||[]).map(c=><details key={c.id} className="ss-rl">
+      <summary><span className="ss-d"><Dice5 size={15}/></span><span className="ss-rl-t"><b>{c.name||'(판정)'}</b><small>{[c.critSuccess&&'대성공',c.success&&'성공',c.fail&&'실패',c.critFail&&'대실패'].filter(Boolean).join(' · ')||'결과 없음'}</small></span><span className="ss-cp">결과 보기</span></summary>
+      {[['대성공',c.critSuccess,'var(--gold)'],['성공',c.success,'var(--green)'],['실패',c.fail,'var(--tx3)'],['대실패',c.critFail,'var(--red)']].map(([lb,v,cl])=>v?<div key={lb} className="ss-res"><span style={{color:cl}}>{lb}</span><Lines text={v}/></div>:null)}
+    </details>);
+    if(b.type==='clue'){const cl=sc.clues.find(c=>c.id===b.clueId);return<div className="ss-card">
+      <div className="ss-card-h"><Lightbulb size={13} style={{color:'var(--teal)'}}/><b>{cl?.name||'(단서 미지정)'}</b>{cl?.isRedHerring&&<span className="ss-tag red">미끼</span>}{cl?.leadsTo&&!cl.isRedHerring&&<small>→ {cl.leadsTo}</small>}
+        <span style={{flex:1}}/>{cl&&<button className={'found-btn'+(ss.found[cl.id]?' on':'')} onClick={()=>setS(x=>{x.found[cl.id]=!x.found[cl.id]})} aria-pressed={!!ss.found[cl.id]}>{ss.found[cl.id]?'✓ 획득함':'획득 표시'}</button>}</div>
+      {cl?.description&&<div className="ss-note">{cl.description}</div>}{b.content&&<Lines text={b.content}/>}</div>}
+    if(b.type==='bgm')return<div className="ss-card"><div className="ss-card-h"><Music size={13} style={{color:'var(--coral)'}}/><b>{b.title||'BGM'}</b><span style={{flex:1}}/>
+        {b.url&&<CopyBtn text={b.url} label="링크"/>}{/^https?:\/\//i.test(b.url||'')&&<a className="ss-a" href={b.url} target="_blank" rel="noopener noreferrer"><ExternalLink size={11}/>열기</a>}</div>
+      {ytId(b.url)&&<details className="ss-yt"><summary>▶ 여기서 재생</summary><div className="ss-ytbox"><iframe src={`https://www.youtube-nocookie.com/embed/${ytId(b.url)}`} title={b.title||'BGM'} allow="autoplay; encrypted-media" allowFullScreen loading="lazy"/></div></details>}
+      {!ytId(b.url)&&isAudio(b.url)&&<audio controls src={b.url} style={{width:'100%',marginTop:6}}/>}{b.note&&<div className="ss-note">{b.note}</div>}</div>;
+    if(b.type==='branches')return<div className="ss-chs">{(b.items||[]).map(it=><div key={it.id} className="ss-ch"><b><GitBranch size={12}/>{it.label||'(선택지)'}</b>{it.text&&<div className="ss-chx"><Lines text={it.text}/></div>}
+      <FlagStatus defs={sc.flags} needs={it.needs} state={ss.flags} onToggle={toggleFlag}/></div>)}</div>;
+    const title=b.type==='handout'?(b.title||'핸드아웃'):(b.name||(b.type==='item'?'아이템':'장소'));const body=b.type==='handout'?b.content:b.description;
+    return<div className="ss-card"><div className="ss-card-h"><b>{title}</b><span style={{flex:1}}/>{body&&<CopyBtn text={body} label="전체"/>}</div>
+      {b.imageUrl&&<img src={b.imageUrl} alt="" className="ss-img" onError={e=>{e.target.style.display='none'}}/>}
+      {body&&<Lines text={body}/>}{gm&&b.gmNote&&<div className="ss-sec"><b>GM만</b>{b.gmNote}</div>}</div>};
   const targets=(entry.connections||[]).map(c=>findTarget(sc,c.targetSceneId)).filter(Boolean);
   const order=[...ss.order].sort((a,b)=>(+b.init||0)-(+a.init||0));const cur=order[ss.turn];
   const foundN=sc.clues.filter(c=>ss.found[c.id]).length;const flagN=sc.flags.filter(f=>ss.flags[f.id]).length;
@@ -104,49 +134,20 @@ export function SessionMode({sc,plat,sel,go,up,gm,setGm,setMdl,onEnd,win,pip,onP
         {ending&&(ending.condition||ending.needs?.length>0)&&<div className="ss-cond"><b>도달 조건</b>{ending.condition&&<div>{ending.condition}</div>}
           <FlagStatus defs={sc.flags} needs={ending.needs} state={ss.flags} onToggle={id=>setS(x=>{x.flags[id]=!x.flags[id]})}/></div>}
 
-        {lines.length>0&&<div className="ss-lb">읽어 줄 것<span>{sentN}/{lines.length} 보냄</span>
+        {lines.length>0&&<div className="ss-lb">읽어 줄 줄<span>{sentN}/{lines.length} 보냄</span>
           <CopyBtn text={lines.map(l=>l.copy).join('\n')} label="전체 복사" title="읽어 줄 줄 전체 복사"/>
           {sentN>0&&<button onClick={()=>setS(x=>{const n={...(x.sent||{})};for(const l of lines)delete n[l.key];x.sent=n})} title="이 씬의 보냄 표시 지우기"><RotateCcw size={11}/></button>}</div>}
-        {lines.map((l,i)=>{const st=sent[l.key]?' sent':l===next?' next':'';
-          return<button key={l.key} className={'ss-ln'+st} onClick={()=>copyLine(l)}>
-            <span className="ss-n">{i+1}</span>
-            <span className="ss-t">{l.who&&<span className="ss-w">{l.who}</span>}<span dangerouslySetInnerHTML={{__html:mdR(l.text)}}/></span>
-            <span className="ss-c">{sent[l.key]?<><Check size={11}/>보냄</>:l===next?'다음':'복사'}</span></button>})}
+        {/* 블록은 집필 화면에 쓴 순서 그대로 */}
+        {blocks.filter(blockFilled).map(b=>{const m=BT[b.type]||BT.text;
+          return<div key={b.id} className={'ss-blk'+(GMONLY.includes(b.type)?' gm':'')} style={b.indent?{marginLeft:18}:undefined}>
+            <div className="ss-bh"><span className="ss-btag" style={{'--c':m.c}}><m.I size={11}/>{b.label||m.l}</span>{(GMONLY.includes(b.type)||b.type==='clue')&&<span className="ss-tag red">GM만</span>}</div>
+            {renderBlock(b)}</div>})}
 
-        {checks.length>0&&<div className="ss-lb">판정</div>}
-        {checks.map(c=><details key={c.id} className="ss-rl">
-          <summary><span className="ss-d"><Dice5 size={15}/></span><span className="ss-rl-t"><b>{c.name||'(판정)'}</b><small>{[c.success&&'성공',c.fail&&'실패'].filter(Boolean).join(' · ')||'결과를 눌러서 보기'}</small></span><span className="ss-cp">결과 보기</span></summary>
-          {[['대성공',c.critSuccess,'var(--gold)'],['성공',c.success,'var(--green)'],['실패',c.fail,'var(--tx3)'],['대실패',c.critFail,'var(--red)']].map(([lb,v,cl])=>v?<div key={lb} className="ss-res"><span style={{color:cl}}>{lb}</span><Lines text={v}/></div>:null)}
-        </details>)}
-
-        {clues.length>0&&<div className="ss-lb">단서</div>}
-        {clues.map(b=>{const cl=sc.clues.find(c=>c.id===b.clueId);return<div key={b.id} className="ss-card">
-          <div className="ss-card-h"><Lightbulb size={13} style={{color:'var(--teal)'}}/><b>{cl?.name||'(단서 미지정)'}</b>{cl?.isRedHerring&&<span className="ss-tag red">미끼</span>}{cl?.leadsTo&&!cl.isRedHerring&&<small>→ {cl.leadsTo}</small>}
-            <span style={{flex:1}}/>{cl&&<button className={'found-btn'+(ss.found[cl.id]?' on':'')} onClick={()=>setS(x=>{x.found[cl.id]=!x.found[cl.id]})} aria-pressed={!!ss.found[cl.id]}>{ss.found[cl.id]?'✓ 획득함':'획득 표시'}</button>}</div>
-          {cl?.description&&<div className="ss-note">{cl.description}</div>}{b.content&&<Lines text={b.content}/>}</div>})}
-
-        {mats.length>0&&<div className="ss-lb">자료</div>}
-        {mats.map(b=>{
-          if(b.type==='npc')return<div key={b.id} className="ss-card"><div className="ss-card-h"><b>{b.name||'NPC'}</b>{b.role&&<small>{b.role}</small>}<span style={{flex:1}}/>{b.name&&<CopyBtn text={b.name} label="이름"/>}</div>
-            {b.traits&&<ul className="ss-ul">{b.traits.split('\n').filter(l=>l.trim()).map((t,i)=><li key={i}>{t}</li>)}</ul>}{gm&&b.gmNote&&<div className="ss-sec"><b>GM만</b>{b.gmNote}</div>}</div>;
-          if(b.type==='bgm')return<div key={b.id} className="ss-card"><div className="ss-card-h"><Music size={13} style={{color:'var(--coral)'}}/><b>{b.title||'BGM'}</b><span style={{flex:1}}/>
-            {b.url&&<CopyBtn text={b.url} label="링크"/>}{/^https?:\/\//i.test(b.url||'')&&<a className="ss-a" href={b.url} target="_blank" rel="noopener noreferrer"><ExternalLink size={11}/>열기</a>}</div>
-            {ytId(b.url)&&<details className="ss-yt"><summary>▶ 여기서 재생</summary><div className="ss-ytbox"><iframe src={`https://www.youtube-nocookie.com/embed/${ytId(b.url)}`} title={b.title||'BGM'} allow="autoplay; encrypted-media" allowFullScreen loading="lazy"/></div></details>}
-            {!ytId(b.url)&&isAudio(b.url)&&<audio controls src={b.url} style={{width:'100%',marginTop:6}}/>}{b.note&&<div className="ss-note">{b.note}</div>}</div>;
-          const title=b.type==='handout'?(b.title||'핸드아웃'):(b.name||(b.type==='item'?'아이템':'장소'));const body=b.type==='handout'?b.content:b.description;
-          return<div key={b.id} className="ss-card"><div className="ss-card-h"><b>{title}</b><small>{b.type==='handout'?'핸드아웃':b.type==='item'?'아이템':'장소'}</small><span style={{flex:1}}/>{body&&<CopyBtn text={body} label="전체"/>}</div>
-            {b.imageUrl&&<img src={b.imageUrl} alt="" className="ss-img" onError={e=>{e.target.style.display='none'}}/>}
-            {body&&<Lines text={body}/>}{gm&&b.gmNote&&<div className="ss-sec"><b>GM만</b>{b.gmNote}</div>}</div>})}
-
-        {gms.map(b=><div key={b.id} className="ss-sec"><b>GM만 · {b.label||'메모'}</b><Lines text={b.content}/></div>)}
-
-        {(branches.length>0||targets.length>0)&&<div className="ss-lb">탐사자가 고르면</div>}
-        {branches.length>0&&<div className="ss-chs">{branches.map(it=><div key={it.id} className="ss-ch"><b><GitBranch size={12}/>{it.label||'(선택지)'}</b>{it.text&&<div className="ss-chx"><Lines text={it.text}/></div>}
-          <FlagStatus defs={sc.flags} needs={it.needs} state={ss.flags} onToggle={id=>setS(x=>{x.flags[id]=!x.flags[id]})}/></div>)}</div>}
+        {targets.length>0&&<div className="ss-lb">다음으로</div>}
         {targets.length>0&&<div className="ss-go">{targets.map(t=><button key={t.id} onClick={()=>{if(scene&&!scene.done)uSc(s=>{s.parts.find(p=>p.id===scene.ptid).scenes.find(x=>x.id===scene.id).done=true});goT(t)}} className={t.kind==='ending'?'end':''}>
           {t.kind==='ending'?<Flag size={12}/>:<ChevronRight size={12}/>}{t.title}</button>)}</div>}
 
-        {!lines.length&&!checks.length&&!clues.length&&!mats.length&&!gms.length&&!branches.length&&<div className="ss-empty">이 {scene?'씬':'엔딩'}에는 아직 내용이 없어요.</div>}
+        {!blocks.some(blockFilled)&&<div className="ss-empty">이 {scene?'씬':'엔딩'}에는 아직 내용이 없어요.</div>}
       </>}
     </div>
 
