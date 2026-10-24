@@ -1,5 +1,6 @@
-import { useState, useEffect, useCallback, useRef, useMemo } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo, lazy, Suspense } from "react";
 import { createPortal } from "react-dom";
+import { produce } from "immer";
 import { AlertTriangle,ChevronDown,CircleQuestionMark,Cloud,FileDown,FileUp,ListChecks,LogIn,Menu,Moon,MoreHorizontal,PanelLeftClose,PanelLeftOpen,Play,Redo2,Search,Sun,Undo2,X } from "lucide-react";
 import { Nav } from './components/Nav.jsx'
 import { Home } from './views/Home.jsx'
@@ -10,20 +11,13 @@ import { ActCtx,Btn,DialogProvider,IB,copyText,setCopyWin,useDialog,useMedia,use
 import { fetchRow,fetchStamp,forcePush,friendly,getUser,onAuth,pushRow } from './lib/cloud.js'
 import { SK,defData,download,forExport,mig,sceneNums,uid } from './lib/data.js'
 import { announceSave,getItem,onOtherTabSave,setItem } from './lib/store.js'
-import { AccountM } from './modals/AccountModal.jsx'
 import { ClueEditM } from './modals/ClueModal.jsx'
-import { CmdM } from './modals/CommandModal.jsx'
+import { JumpM } from './modals/JumpModal.jsx'
 import { ETM } from './modals/EndingTypeModal.jsx'
-import { FindM } from './modals/FindModal.jsx'
-import { HelpModal } from './modals/HelpModal.jsx'
 import { FillM } from './modals/FillModal.jsx'
-import { TplM } from './modals/TemplateModal.jsx'
 import { insertAtLast } from './components/insert.js'
 import { parseQueries } from './lib/rollkku.js'
-import { LibM } from './modals/LibraryModal.jsx'
-import { PlatM } from './modals/PlatformModal.jsx'
 import { EndingP } from './views/EndingView.jsx'
-import { FlowV } from './views/FlowView.jsx'
 import { OverviewP } from './views/Overview.jsx'
 import { SceneP } from './views/SceneView.jsx'
 
@@ -31,6 +25,20 @@ const bodyOf=d=>JSON.stringify(forExport(d));
 const hashStr=s=>{let h=5381;for(let i=0;i<s.length;i++)h=(h*33+s.charCodeAt(i))|0;return s.length+':'+(h>>>0).toString(36)};
 
 const isTextField=el=>el&&(el.tagName==='TEXTAREA'||(el.tagName==='INPUT'&&!['checkbox','color','file','button'].includes(el.type))||el.isContentEditable);
+
+// 자주 안 여는 창·화면은 처음 열 때 불러온다 (첫 화면을 가볍게)
+const AccountM=lazy(()=>import('./modals/AccountModal.jsx').then(m=>({default:m.AccountM})));
+const CmdM=lazy(()=>import('./modals/CommandModal.jsx').then(m=>({default:m.CmdM})));
+const FindM=lazy(()=>import('./modals/FindModal.jsx').then(m=>({default:m.FindM})));
+const HelpModal=lazy(()=>import('./modals/HelpModal.jsx').then(m=>({default:m.HelpModal})));
+const TplM=lazy(()=>import('./modals/TemplateModal.jsx').then(m=>({default:m.TplM})));
+const LibM=lazy(()=>import('./modals/LibraryModal.jsx').then(m=>({default:m.LibM})));
+const PlatM=lazy(()=>import('./modals/PlatformModal.jsx').then(m=>({default:m.PlatM})));
+const FlowV=lazy(()=>import('./views/FlowView.jsx').then(m=>({default:m.FlowV})));
+
+// 첫 화면이 뜬 뒤 쉬는 시간에 미리 받아 둔다 → 처음 열 때도 바로 뜨고, 오프라인 보관에도 들어감
+const preload=()=>{for(const f of[()=>import('./modals/HelpModal.jsx'),()=>import('./modals/FindModal.jsx'),()=>import('./views/FlowView.jsx'),()=>import('./modals/LibraryModal.jsx'),()=>import('./modals/TemplateModal.jsx'),()=>import('./modals/CommandModal.jsx'),()=>import('./modals/AccountModal.jsx'),()=>import('./modals/PlatformModal.jsx')])f().catch(()=>{})};
+if(typeof window!=='undefined')window.addEventListener('load',()=>setTimeout(()=>(window.requestIdleCallback||setTimeout)(preload),1500));
 
 // ===== MAIN APP =====
 export default function App(){return<DialogProvider><AppInner/></DialogProvider>}
@@ -57,39 +65,49 @@ function AppInner(){
   const[live,setLive]=useState(false);const[pip,setPip]=useState(null);
   // 오른쪽 준비 점검 칸 (넓은 화면에서는 기본으로 열림)
   const wide=useMedia('(min-width:1240px)');const[chkOpenS,setChk]=useState(null);const chkOpen=chkOpenS??wide;
-  const[crumb,setCrumb]=useState(false);
+  const[crumb,setCrumb]=useState(false);const navBefore=useRef(null);
   const[conflict,setConflict]=useState(null);const[menu,setMenu]=useState(false); // conflict: {kind:'tab'} | {kind:'server',row}
   const[user,setUser]=useState(null);const[authReady,setAuthReady]=useState(false);
   const[sync,setSync]=useState({s:'off'}); // off | pending | syncing | ok | offline | err
   const{show:toast,T:Toast}=useToast();
   const hist=useRef([]);const hi=useRef(-1);const ht=useRef();const Dref=useRef(null);Dref.current=D;
   const conflictRef=useRef(null);conflictRef.current=conflict;
+  const selRef=useRef(sel);selRef.current=sel;
   const userRef=useRef(null);userRef.current=user;
   // 동기화 기준점: base = 마지막으로 확인한 서버 updated_at, synced = 그때의 데이터 내용
   const meta=useRef({uid:null,base:null,hash:null});const synced=useRef(null);const busy=useRef(false);
+  // syncedD: 클라우드와 같다고 확인된 데이터 객체 — 바뀐 게 있는지는 객체가 같은지로 바로 안다 (전체를 글자로 바꿔 비교하지 않음)
+  const syncedD=useRef(null);
 
   useEffect(()=>{Promise.all([getItem('data'),getItem('meta')]).then(([raw,m])=>{const d=mig(raw||defData());
     setD(d);setThm(d.theme||'light');if(m)meta.current=m;
     if(d.platforms?.length)setSel(s=>({...s,pid:s.pid||d.platforms[0].id}));
-    hist.current=[JSON.stringify(d)];hi.current=0;setL(false)})},[]);
+    hist.current=[d];hi.current=0;setL(false)})},[]);
 
-  // 실행 취소 기록: 입력이 멈춘 뒤 0.5초 후 스냅샷. 실행 취소 직전에는 대기 중인 변경을 먼저 기록한다.
-  const commitHist=useCallback(()=>{clearTimeout(ht.current);const d=Dref.current;if(!d)return;const sn=JSON.stringify(d);
-    if(hi.current>=0&&hist.current[hi.current]===sn)return;
-    hist.current=hist.current.slice(0,hi.current+1);hist.current.push(sn);if(hist.current.length>50)hist.current.shift();hi.current=hist.current.length-1},[]);
+  // 실행 취소 기록: 입력이 멈춘 뒤 0.5초 후 그 시점의 데이터 객체를 기억한다.
+  // 데이터는 바뀐 부분만 새로 만들고 나머지는 공유하므로(immer) 50개를 기억해도 가볍다.
+  const commitHist=useCallback(()=>{clearTimeout(ht.current);const d=Dref.current;if(!d)return;
+    if(hi.current>=0&&hist.current[hi.current]===d)return;
+    hist.current=hist.current.slice(0,hi.current+1);hist.current.push(d);if(hist.current.length>50)hist.current.shift();hi.current=hist.current.length-1},[]);
 
   // 이 기기에 저장 (IndexedDB)
-  const svt=useRef();
+  // 타자 중에는 1초 모아서 저장, 창을 닫거나 다른 앱으로 갈 때는 바로 저장
+  const svt=useRef();const dirty=useRef(false);
+  const saveNow=useCallback(()=>{clearTimeout(svt.current);if(!dirty.current||!Dref.current||conflictRef.current?.kind==='tab')return Promise.resolve();dirty.current=false;
+    return setItem('data',Dref.current).then(ok=>{if(ok)announceSave();else toast('⚠ 이 기기에 저장하지 못했습니다 — JSON으로 내보내 백업하세요',4000)})},[]);
+  useEffect(()=>{window.__sfSave=saveNow},[saveNow]); // 자동 테스트에서 저장을 기다리지 않고 바로 확인할 때
   useEffect(()=>{if(!D||loading)return;
-    if(conflictRef.current?.kind!=='tab'){clearTimeout(svt.current);svt.current=setTimeout(()=>setItem('data',D).then(ok=>{if(ok)announceSave();else toast('⚠ 이 기기에 저장하지 못했습니다 — JSON으로 내보내 백업하세요',4000)}),300)}
+    if(conflictRef.current?.kind!=='tab'){dirty.current=true;clearTimeout(svt.current);svt.current=setTimeout(saveNow,1000)}
     clearTimeout(ht.current);ht.current=setTimeout(commitHist,500)},[D]);
+  useEffect(()=>{const h=()=>{if(document.visibilityState==='hidden')saveNow()};document.addEventListener('visibilitychange',h);window.addEventListener('pagehide',saveNow);
+    return()=>{document.removeEventListener('visibilitychange',h);window.removeEventListener('pagehide',saveNow)}},[saveNow]);
 
   // 다른 탭에서 저장하면 감지 → 이 탭의 저장을 멈추고 사용자에게 선택을 맡김
-  useEffect(()=>onOtherTabSave(()=>{clearTimeout(svt.current);setConflict(c=>c||{kind:'tab'})}),[]);
+  useEffect(()=>onOtherTabSave(()=>{clearTimeout(svt.current);dirty.current=false;setConflict(c=>c||{kind:'tab'})}),[]);
 
   // ===== 클라우드 동기화 =====
   const saveMeta=(m)=>{meta.current=m;setItem('meta',m)};
-  const markSynced=(uid,base,body)=>{synced.current=body;saveMeta({uid,base,hash:hashStr(body)});setSync({s:'ok',t:new Date()})};
+  const markSynced=(uid,base,body,d)=>{synced.current=body;syncedD.current=d||null;saveMeta({uid,base,hash:hashStr(body)});setSync({s:'ok',t:new Date()})};
   const fail=e=>{const msg=friendly(e);setSync({s:/연결하지 못했습니다/.test(msg)?'offline':'err',msg})};
   // 서버 데이터로 교체
   // 이 기기 데이터를 덮어쓰기 전에 백업 (계정 창의 "백업 되살리기")
@@ -97,29 +115,30 @@ function AppInner(){
   const adopt=useCallback((row,uid)=>{const nd=mig(JSON.parse(JSON.stringify(row.data)));const body=bodyOf(nd);
     if(bodyOf(Dref.current||{})!==body)backupLocal('클라우드 내용을 불러오기 전');
     setD(nd);setThm(nd.theme||'light');setSel(s=>nd.platforms.some(p=>p.id===s.pid)?s:{pid:nd.platforms?.[0]?.id||null,sid:null,ptid:null,scid:null,eid:null});
-    markSynced(uid,row.updated_at,body)},[]);
+    markSynced(uid,row.updated_at,body,nd)},[]);
   const push=useCallback(async()=>{const u=userRef.current;if(!u||busy.current||conflictRef.current)return;
-    const d=Dref.current;const body=bodyOf(d);if(body===synced.current){setSync(s=>s.s==='pending'?{s:'ok',t:s.t||new Date()}:s);return}
+    const d=Dref.current;const okNow=()=>setSync(s=>s.s==='pending'?{s:'ok',t:s.t||new Date()}:s);if(d===syncedD.current){okNow();return}
+    const body=bodyOf(d);if(body===synced.current){syncedD.current=d;okNow();return}
     busy.current=true;setSync({s:'syncing'});
     try{const base=meta.current.uid===u.id?meta.current.base:null;
       const r=await pushRow(u.id,forExport(d),base);
       if(r.conflict){const row=await fetchRow(u.id);
-        if(row&&bodyOf(mig(JSON.parse(JSON.stringify(row.data))))===body)markSynced(u.id,row.updated_at,body);
+        if(row&&bodyOf(mig(JSON.parse(JSON.stringify(row.data))))===body)markSynced(u.id,row.updated_at,body,d);
         else{setConflict({kind:'server',row});setSync({s:'err',msg:'다른 기기에서 먼저 변경됨'})}}
-      else markSynced(u.id,r.updated_at,body)}
+      else markSynced(u.id,r.updated_at,body,d)}
     catch(e){fail(e)}finally{busy.current=false}},[]);
   // 로그인 직후·창 복귀 시: 서버와 이 기기 상태를 비교해 불러오기/올리기/충돌 판단
   const syncNow=useCallback(async()=>{const u=userRef.current;if(!u||busy.current||conflictRef.current)return;
     busy.current=true;setSync({s:'syncing'});
     try{const row=await fetchRow(u.id);const d=Dref.current;const body=bodyOf(d);const m=meta.current;const known=m.uid===u.id;
       busy.current=false;
-      if(!row){if(known)saveMeta({...m,base:null});else saveMeta({uid:u.id,base:null,hash:null});synced.current=null;return push()}
+      if(!row){if(known)saveMeta({...m,base:null});else saveMeta({uid:u.id,base:null,hash:null});synced.current=null;syncedD.current=null;return push()}
       const sBody=bodyOf(mig(JSON.parse(JSON.stringify(row.data))));
-      if(sBody===body)return markSynced(u.id,row.updated_at,body);
+      if(sBody===body)return markSynced(u.id,row.updated_at,body,d);
       const localDirty=known?hashStr(body)!==m.hash:d.scenarios.length>0;
       const serverChanged=!known||m.base!==row.updated_at;
       if(!localDirty)return adopt(row,u.id);
-      if(!serverChanged){synced.current=null;return push()}
+      if(!serverChanged){synced.current=null;syncedD.current=null;return push()}
       setConflict({kind:'server',row});setSync({s:'err',msg:'이 기기와 클라우드의 내용이 다름'})}
     catch(e){busy.current=false;fail(e)}},[push,adopt]);
 
@@ -130,24 +149,25 @@ function AppInner(){
   useEffect(()=>{if(loading||!authReady)return;if(!user){setSync({s:'off'});return}setConflict(c=>c?.kind==='server'?null:c);syncNow()},[user?.id,loading,authReady]);
   // 편집 후 3초 뒤 자동 업로드
   const pvt=useRef();
-  useEffect(()=>{if(!D||loading||!user||conflict)return;if(bodyOf(D)===synced.current)return;
+  useEffect(()=>{if(!D||loading||!user||conflict)return;if(D===syncedD.current)return;
     setSync(s=>s.s==='syncing'?s:{...s,s:'pending'});clearTimeout(pvt.current);pvt.current=setTimeout(push,3000);return()=>clearTimeout(pvt.current)},[D,user?.id,conflict]);
   // 창으로 돌아오거나 1분마다 서버 변경 확인, 다시 온라인이 되면 업로드
   useEffect(()=>{if(!user)return;
     const check=async()=>{if(document.hidden||busy.current||conflictRef.current)return;
-      try{const st=await fetchStamp(user.id);if(st!==meta.current.base)syncNow();else if(bodyOf(Dref.current)!==synced.current)push()}catch(e){fail(e)}};
+      try{const st=await fetchStamp(user.id);if(st!==meta.current.base)syncNow();else if(Dref.current!==syncedD.current)push()}catch(e){fail(e)}};
     const vis=()=>{if(!document.hidden)check()};const iv=setInterval(check,60000);
     document.addEventListener('visibilitychange',vis);window.addEventListener('online',check);
     return()=>{clearInterval(iv);document.removeEventListener('visibilitychange',vis);window.removeEventListener('online',check)}},[user?.id]);
   // 업로드되지 않은 변경이 있는데 창을 닫으려 하면 경고
-  useEffect(()=>{const h=e=>{if(userRef.current&&Dref.current&&bodyOf(Dref.current)!==synced.current&&!conflictRef.current){e.preventDefault();e.returnValue=''}};
+  useEffect(()=>{const h=e=>{if(userRef.current&&Dref.current&&Dref.current!==syncedD.current&&!conflictRef.current){e.preventDefault();e.returnValue=''}};
     window.addEventListener('beforeunload',h);return()=>window.removeEventListener('beforeunload',h)},[]);
 
   useEffect(()=>{document.documentElement.setAttribute('data-theme',theme)},[theme]);
   useEffect(()=>{if(sel.ptid)setOp(v=>v[sel.ptid]?v:{...v,[sel.ptid]:true})},[sel.ptid]);
   useEffect(()=>{if(isMobile)setSb(false)},[isMobile]);
 
-  const up=useCallback(fn=>{setD(p=>{const n=JSON.parse(JSON.stringify(p));fn(n);return n})},[]);
+  // 데이터 바꾸기: 바뀐 부분만 새 객체로 (immer). fn이 값을 돌려줘도 무시한다.
+  const up=useCallback(fn=>{setD(p=>produce(p,d=>{fn(d)}))},[]);
   // 삭제처럼 되돌릴 일이 잦은 변경: 실행 후 "되돌리기" 버튼이 있는 알림
   const removed=useCallback((label,fn)=>{const before=Dref.current;fn();toast(label+' 삭제됨',6000,{label:'되돌리기',fn:()=>{setD(before);toast('되돌렸습니다')}})},[toast]);
   // 명령어·템플릿 넣기: ?{} 자리가 있으면 채우기 창을 먼저 띄우고, 없으면 마지막으로 클릭한 글 입력칸에 바로 넣는다
@@ -158,14 +178,15 @@ function AppInner(){
   // 데이터 전체 교체 (가져오기·다른 탭 내용) — 테마·선택 상태도 함께 맞춤
   const replaceD=useCallback((nd,keepSel)=>{setD(nd);setThm(nd.theme||'light');
     setSel(s=>keepSel&&nd.platforms.some(p=>p.id===s.pid)?s:{pid:nd.platforms?.[0]?.id||null,sid:null,ptid:null,scid:null,eid:null})},[]);
-  const undo=useCallback(()=>{commitHist();if(hi.current<=0){toast('되돌릴 수 없음');return}hi.current--;setD(mig(JSON.parse(hist.current[hi.current])));toast('실행 취소')},[toast,commitHist]);
-  const redo=useCallback(()=>{commitHist();if(hi.current>=hist.current.length-1){toast('다시 실행할 내용 없음');return}hi.current++;setD(mig(JSON.parse(hist.current[hi.current])));toast('다시 실행')},[toast,commitHist]);
+  const undo=useCallback(()=>{commitHist();if(hi.current<=0){toast('되돌릴 수 없음');return}hi.current--;setD(hist.current[hi.current]);toast('실행 취소')},[toast,commitHist]);
+  const redo=useCallback(()=>{commitHist();if(hi.current>=hist.current.length-1){toast('다시 실행할 내용 없음');return}hi.current++;setD(hist.current[hi.current]);toast('다시 실행')},[toast,commitHist]);
 
   useEffect(()=>{const h=e=>{const m=e.ctrlKey||e.metaKey;if(!m)return;const k=e.key.toLowerCase();
     // 입력 중에는 브라우저 기본 실행 취소(글자 단위)를 그대로 쓴다
     if((k==='z'||k==='y')&&isTextField(e.target))return;
     if(k==='z'&&!e.shiftKey){e.preventDefault();undo()}else if((k==='z'&&e.shiftKey)||k==='y'){e.preventDefault();redo()}
-    else if(k==='f'){e.preventDefault();setMdl('find')}};
+    else if(k==='f'){e.preventDefault();setMdl('find')}
+    else if(k==='k'&&Dref.current&&selRef.current.sid){e.preventDefault();setMdl('jump')}};
     const hq=e=>{if(e.key==='?'&&!e.ctrlKey&&!e.metaKey&&!isTextField(e.target)&&!document.querySelector('[role=dialog]')){e.preventDefault();setMdl('help')}};document.addEventListener('keydown',hq);document.addEventListener('keydown',h);return()=>{document.removeEventListener('keydown',h);document.removeEventListener('keydown',hq)}},[undo,redo]);
 
   if(loading||!D)return<div style={{display:'flex',alignItems:'center',justifyContent:'center',height:'100%',color:'var(--tx3)'}}>불러오는 중…</div>;
@@ -182,8 +203,9 @@ function AppInner(){
 
   const go=s=>{setSel(s);if(isMobile)setSb(false);setCrumb(false)};
   const toggleTheme=()=>{const t=theme==='dark'?'light':'dark';setThm(t);up(d=>{d.theme=t})};
-  const startLive=()=>{if(!sc)return;setLive(true);setMode('edit')};
-  const endLive=()=>{if(pip&&!pip.closed)pip.close();setPip(null);setLive(false)};
+  // 세션 중에는 씬 목록을 접어 세션 칸을 넓게 (끝나면 원래대로)
+  const startLive=()=>{if(!sc)return;navBefore.current=sbOpen;if(!isMobile)setSb(false);setLive(true);setMode('edit')};
+  const endLive=()=>{if(pip&&!pip.closed)pip.close();setPip(null);if(live&&navBefore.current!=null&&!isMobile)setSb(navBefore.current);navBefore.current=null;setLive(false)};
   // 늘 위에 떠 있는 미니 창 (Chrome·Edge의 Document Picture-in-Picture)
   const canPip=typeof window!=='undefined'&&'documentPictureInPicture' in window;
   const openPip=async()=>{try{const w=await window.documentPictureInPicture.requestWindow({width:440,height:760});
@@ -205,7 +227,7 @@ function AppInner(){
     try{const nd=mig(await getItem('data'));replaceD(nd,true);setConflict(null);toast('다른 탭의 내용을 불러왔습니다')}catch(e){toast('불러오기 실패')}};
   const keepMine=async()=>{const srv=conflict?.kind==='server';
     if(!await dlg.confirm(srv?'클라우드에 저장된 다른 내용이 이 기기의 내용으로 바뀝니다.':'다른 탭에서 저장한 변경 내용이 사라집니다.',{title:srv?'이 기기 내용으로 클라우드 덮어쓰기':'이 탭 내용으로 덮어쓰기',okLabel:'덮어쓰기',danger:true}))return;
-    if(srv){try{setSync({s:'syncing'});const body=bodyOf(D);const r=await forcePush(user.id,forExport(D));markSynced(user.id,r.updated_at,body);setConflict(null);toast('이 기기 내용으로 저장했습니다')}catch(e){fail(e);toast(friendly(e),4000)}return}
+    if(srv){try{setSync({s:'syncing'});const body=bodyOf(D);const r=await forcePush(user.id,forExport(D));markSynced(user.id,r.updated_at,body,D);setConflict(null);toast('이 기기 내용으로 저장했습니다')}catch(e){fail(e);toast(friendly(e),4000)}return}
     const ok=await setItem('data',D);if(ok)announceSave();setConflict(null);toast(ok?'이 탭 내용으로 저장했습니다':'저장 실패')};
 
   const SY={off:['var(--tx3)','로그인하면 클라우드에 자동 저장됩니다'],pending:['var(--gold)','변경 사항 저장 대기 중'],syncing:['var(--gold)','클라우드에 저장 중…'],
@@ -216,7 +238,7 @@ function AppInner(){
   const showNav=!!sc&&sbOpen;const showChk=!!sc&&!live&&mode==='edit'&&chkOpen&&!isMobile;
   const page=scene?scene.title:ending?ending.title:sc?'개요':'';
   const menuItems=[[Search,'찾기 · 바꾸기',()=>setMdl('find')],[user?Cloud:LogIn,user?'클라우드 · '+SY[1]:'로그인 (클라우드 저장)',()=>setMdl('account')],[FileDown,'전체 JSON 내보내기',exportAll],[FileUp,'JSON 가져오기 (전체 덮어쓰기)',()=>document.getElementById('imp')?.click()],[theme==='dark'?Sun:Moon,theme==='dark'?'밝은 화면':'어두운 화면',toggleTheme],[CircleQuestionMark,'사용법',()=>setMdl('help')],...(sc&&isMobile&&!live?[[ListChecks,'준비 점검',()=>setChk(true)]]:[])];
-  const sessionEl=sc&&<SessionMode sc={sc} plat={plat} sel={sel} go={go} up={up} gm={gm} setGm={setGm} setMdl={setMdl} onEnd={endLive} canPip={canPip&&!isMobile} onPip={openPip}/>;
+  const sessionEl=sc&&<SessionMode sc={sc} plat={plat} sel={sel} go={go} up={up} gm={gm} setGm={setGm} setMdl={setMdl} onEnd={endLive} canPip={canPip&&!isMobile} onPip={openPip} onJump={()=>setMdl('jump')}/>;
 
   return(<ActCtx.Provider value={act}>
     <div className="app" style={{height:`calc(100vh / ${zoom})`,zoom}}>
@@ -238,7 +260,7 @@ function AppInner(){
               <button role="menuitem" className="pop-all" onClick={()=>{endLive();go({pid:sel.pid,sid:null,ptid:null,scid:null,eid:null})}}>모든 시나리오 · 사이트 보기</button></div></>}
         </div>
         <div style={{flex:1}}/>
-        <button className="tb-sync hide-m" onClick={()=>setMdl('account')} title={(user?`클라우드 (${user.email}) — `:'로그인 — ')+SY[1]}><i style={{background:user?SY[0]:'var(--tx4)'}}/>{user?syncShort:'로그인'}</button>
+        <button className="tb-sync hide-m" onClick={()=>setMdl('account')} title={user?`클라우드 (${user.email}) — `+SY[1]:'지금은 이 브라우저에만 저장돼요. 로그인하면 클라우드에도 저장되어 다른 기기에서 이어서 쓸 수 있어요.'}><i style={{background:user?SY[0]:'var(--green)'}}/>{user?syncShort:<>이 기기에 저장됨<span className="tb-login">로그인</span></>}</button>
         {sc&&!live&&<div role="tablist" className="seg">
           {[['edit','집필'],['flow','흐름도']].map(([m,l])=><button key={m} role="tab" aria-selected={mode===m} onClick={()=>setMode(m)}>{l}</button>)}</div>}
         <IB I={Undo2} s={16} onClick={undo} title="실행 취소 (Ctrl+Z)"/><IB I={Redo2} s={16} onClick={redo} title="다시 실행 (Ctrl+Shift+Z)"/>
@@ -279,10 +301,10 @@ function AppInner(){
         <main className={'main'+(live?' main-live':'')}>
           {live&&sc?(pip?<div className="pip-hold"><b>미니 창에서 세션 진행 중</b><span>롤20 창 위에 떠 있는 작은 창을 쓰세요.</span>
               <Btn onClick={()=>{pip.close();setPip(null)}}>큰 화면으로 돌아오기</Btn></div>:sessionEl)
-          :mode==='flow'&&sc?<div className="flow-pg"><FlowV sc={sc} sel={sel} setSel={go} setMode={setMode}/></div>
+          :mode==='flow'&&sc?<div className="flow-pg"><Suspense fallback={<div className="lazy-wait">흐름도를 불러오는 중…</div>}><FlowV sc={sc} sel={sel} setSel={go} setMode={setMode}/></Suspense></div>
           :ending?<EndingP ending={ending} sc={sc} plat={plat} up={up} sel={sel} setMdl={setMdl}/>
           :scene?<SceneP scene={scene} pt={pt} sc={sc} plat={plat} up={up} sel={sel} isR20={isR20} isCoco={isCoco} r20On={r20On} setR20On={setR20On} go={go} setMdl={setMdl} no={sceneNo}/>
-          :sc?<OverviewP sc={sc} plat={plat} up={up} sel={sel} toast={toast} exportSingle={exportSingle} mergeImp={mergeImp} setMdl={setMdl} go={go}/>
+          :sc?<OverviewP sc={sc} plat={plat} up={up} sel={sel} toast={toast} exportSingle={exportSingle} mergeImp={mergeImp} setMdl={setMdl} go={go} onStart={startLive}/>
           :<Home D={D} sel={sel} go={go} setSel={setSel} up={up} setMdl={setMdl} dlg={dlg} toast={toast}/>}
         </main>
 
@@ -293,7 +315,7 @@ function AppInner(){
       </div>
     </div>
     {pip&&sc&&live&&createPortal(<ActCtx.Provider value={act}><SessionMode sc={sc} plat={plat} sel={sel} go={go} up={up} gm={gm} setGm={setGm} setMdl={setMdl} onEnd={()=>{pip.close();setPip(null)}} win={pip} pip/></ActCtx.Provider>,pip.document.body)}
-    {/* MODALS */}
+    {/* MODALS */}<Suspense fallback={null}>
     {(modal==='account'||modal==='account-recovery')&&<AccountM user={user} sync={sync} SY={SY} recovery={modal==='account-recovery'} syncNow={()=>{setConflict(c=>c?.kind==='server'?c:null);syncNow()}} toast={toast}
       loadCloud={async()=>{try{const row=await fetchRow(user.id);if(!row){toast('클라우드에 저장된 데이터가 없습니다');return false}setConflict(null);adopt(row,user.id);toast('☁ 클라우드 내용을 불러왔습니다');return true}catch(e){toast(friendly(e),4000);return false}}}
       restoreBackup={async()=>{const b=await getItem('backup');if(!b?.data){toast('백업이 없습니다');return}backupLocal('백업을 되살리기 전');replaceD(mig(b.data),true);toast('백업을 되살렸습니다')}} onClose={()=>setMdl(null)}/>}
@@ -305,7 +327,8 @@ function AppInner(){
     {modal==='help'&&<HelpModal onClose={()=>setMdl(null)}/>}
     {modal==='tpl'&&<TplM plat={plat} up={up} sel={sel} onClose={()=>setMdl(null)}/>}
     {fill&&<FillM key={fill.code} fill={fill} onClose={()=>setFill(null)}/>}
-    {modal?.type==='clueEdit'&&<ClueEditM sc={sc} clueId={modal.clueId} up={up} sel={sel} onClose={()=>setMdl(null)} go={go}/>}
+    {modal==='jump'&&sc&&<JumpM sc={sc} sel={sel} go={go} onClose={()=>setMdl(null)}/>}
+    {modal?.type==='clueEdit'&&<ClueEditM sc={sc} clueId={modal.clueId} up={up} sel={sel} onClose={()=>setMdl(null)} go={go}/>}</Suspense>
     {Toast}
   </ActCtx.Provider>);
 }

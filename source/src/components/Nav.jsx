@@ -84,7 +84,7 @@ export function Nav({sel,go,setSel,up,sc,plat,op,setOp,setMdl,toast,dlg,isMobile
             const prevTop=!s.parentId&&!kids.length?[...p.scenes.slice(0,si)].reverse().find(c=>!c.parentId):null;
             return<div key={s.id} className={'nav-it row'+(s.parentId?' sub':'')+(on?' on':'')+(s.done?' done':'')+(over===k?' drag-over-top':'')} {...src({kind:'scene',id:s.id,ptid:p.id})}
               {...dst(k,d=>d.kind==='scene',d=>moveScene(d,p.id,s.id))} onClick={()=>go({...base,ptid:p.id,scid:s.id})}
-              title={is.notes.length?is.notes.map(x=>x.t).join('\n'):'준비 완료'} aria-current={on?'page':undefined}>
+              title={s.title+'\n'+(is.notes.length?is.notes.map(x=>'· '+x.t).join('\n'):'준비 완료')} aria-current={on?'page':undefined}>
               {kids.length>0?<button className="nav-fold" onClick={e=>{e.stopPropagation();setOp(v=>({...v,['c'+s.id]:folded}))}} aria-expanded={!folded} title={folded?`하위 씬 ${kids.length}개 펼치기`:'하위 씬 접기'}>
                 <ChevronRight size={11} style={{transform:folded?'none':'rotate(90deg)'}}/></button>:!s.parentId&&<span className="nav-fold-sp"/>}
               <span className="nav-n">{s.done?<Check size={12}/>:nums[s.id]}</span><span className="nav-t">{s.title}{folded&&<small className="nav-kids">하위 {kids.length}</small>}</span>

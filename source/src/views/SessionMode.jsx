@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Check,ChevronLeft,ChevronRight,Copy,Dice5,ExternalLink,Eye,EyeOff,Flag,GitBranch,Lightbulb,Music,PictureInPicture2,Pin,RotateCcw,Search,X } from "lucide-react";
+import { Check,ChevronDown,ChevronLeft,ChevronRight,ChevronUp,Copy,Dice5,ExternalLink,Eye,EyeOff,Flag,GitBranch,Lightbulb,Music,PictureInPicture2,Pin,RotateCcw,Search,Send,Undo2,X } from "lucide-react";
 import { CopyBtn,Lines,copyText,useAct } from '../components/ui.jsx'
-import { BT,LIB_LABEL,allScenes,findTarget,libUses,mdR,resolveB,sceneNpcNames,sceneNums } from '../lib/data.js'
+import { BT,LIB_LABEL,SK,allScenes,findTarget,libUses,mdR,resolveB,sceneNpcNames,sceneNums } from '../lib/data.js'
 import { blockFilled } from '../lib/check.js'
 import { parseQueries } from '../lib/rollkku.js'
 import { colorCode } from '../components/CmdBar.jsx'
@@ -26,10 +26,17 @@ export function readLines(entry,isR20,sc){const out=[];
 
 const isField=el=>el&&(el.tagName==='TEXTAREA'||el.tagName==='SELECT'||(el.tagName==='INPUT'&&!['checkbox','button'].includes(el.type))||el.isContentEditable);
 
-export function SessionMode({sc,plat,sel,go,up,gm,setGm,setMdl,onEnd,win,pip,onPip,canPip}){
+// 이 기기에 기억하는 세션 화면 설정 (글자 크기·명령어 칩 펼침)
+const lsGet=(k,d)=>{try{const v=localStorage.getItem(SK+k);return v==null?d:JSON.parse(v)}catch(e){return d}};
+const lsSet=(k,v)=>{try{localStorage.setItem(SK+k,JSON.stringify(v))}catch(e){}};
+const FS=[.9,1,1.15,1.3,1.5];
+
+export function SessionMode({sc,plat,sel,go,up,gm,setGm,setMdl,onEnd,win,pip,onPip,canPip,onJump}){
   const{useCode}=useAct();
   const W=win||window;
   const[tab,setTab]=useState('run');const[flash,setFlash]=useState(null);const ft=useRef();
+  const[fs,setFsS]=useState(()=>lsGet('-ssfs',1));const setFs=v=>{setFsS(v);lsSet('-ssfs',v)};
+  const[chipsOpen,setChipsS]=useState(()=>lsGet('-sschips',false));const setChips=v=>{setChipsS(v);lsSet('-sschips',v)};
   const isR20=/roll20/i.test(plat?.name||'');
   const flat=useMemo(()=>allScenes(sc),[sc]);const nums=useMemo(()=>sceneNums(sc),[sc]);
   const scene=sel.scid?flat.find(s=>s.id===sel.scid):null;
@@ -48,10 +55,18 @@ export function SessionMode({sc,plat,sel,go,up,gm,setGm,setMdl,onEnd,win,pip,onP
   const next=lines.find(l=>!sent[l.key]);
   const say=t=>{setFlash(t);clearTimeout(ft.current);ft.current=setTimeout(()=>setFlash(null),1400)};
   const copyLine=async l=>{if(await copyText(l.copy)){setS(x=>{x.sent={...(x.sent||{}),[l.key]:true}});say('복사했어요 — 채팅창에 붙여넣으세요')}else say('복사하지 못했어요')};
+  // 블록 하나의 줄을 한 번에 (Roll20에 여러 줄 묘사를 한 번에 붙일 때)
+  const copyBlock=async ls=>{if(!ls.length)return;if(await copyText(ls.map(l=>l.copy).join('\n'))){setS(x=>{const n={...(x.sent||{})};for(const l of ls)n[l.key]=true;x.sent=n});say(`${ls.length}줄을 한 번에 복사했어요`)}else say('복사하지 못했어요')};
+  const unsend=l=>setS(x=>{const n={...(x.sent||{})};delete n[l.key];x.sent=n});
   const prev=idx>0?flat[idx-1]:null;const nextSc=idx>=0&&idx<flat.length-1?flat[idx+1]:null;
   const goNext=()=>{if(!nextSc)return;if(scene&&!scene.done)uSc(s=>{s.parts.find(p=>p.id===scene.ptid).scenes.find(x=>x.id===scene.id).done=true});goScene(nextSc)};
   const big=()=>{if(next)copyLine(next);else if(nextSc)goNext()};
 
+  // 세션 중에는 화면이 꺼지지 않게 (지원하는 브라우저만, 다른 창으로 갔다 오면 다시 요청)
+  useEffect(()=>{let lock=null,alive=true;const nav=W.navigator;
+    const get=async()=>{try{if(alive&&nav.wakeLock&&W.document.visibilityState==='visible')lock=await nav.wakeLock.request('screen')}catch(e){}};
+    const vis=()=>{if(W.document.visibilityState==='visible')get()};get();W.document.addEventListener('visibilitychange',vis);
+    return()=>{alive=false;W.document.removeEventListener('visibilitychange',vis);lock?.release?.().catch(()=>{})}},[W]);
   // 키보드: Space 다음 줄 · ← → 씬 이동 (글 입력 중·대화상자가 열려 있을 때는 무시)
   useEffect(()=>{const h=e=>{if(isField(e.target)||e.ctrlKey||e.metaKey||e.altKey||W.document.querySelector('[role=dialog]')||document.querySelector('[role=dialog]'))return;
     if(e.key===' '&&tab==='run'){e.preventDefault();big()}
@@ -64,10 +79,11 @@ export function SessionMode({sc,plat,sel,go,up,gm,setGm,setMdl,onEnd,win,pip,onP
 
   const blocks=(entry.blocks||[]).map(b=>resolveB(sc,b)).filter(b=>(gm||!GMONLY.includes(b.type)&&b.type!=='clue')&&b.refId!=='');
   const lineBtn=l=>{const st=sent[l.key]?' sent':l===next?' next':'';
-    return<button key={l.key} className={'ss-ln'+st} onClick={()=>copyLine(l)}>
+    return<div key={l.key} className={'ss-lnw'+st}><button className={'ss-ln'+st} onClick={()=>copyLine(l)}>
       <span className="ss-n">{lines.indexOf(l)+1}</span>
       <span className="ss-t">{l.who&&<span className="ss-w">{l.who}</span>}<span dangerouslySetInnerHTML={{__html:mdR(l.text)}}/></span>
-      <span className="ss-c">{sent[l.key]?<><Check size={11}/>보냄</>:l===next?'다음':'복사'}</span></button>};
+      <span className="ss-c">{sent[l.key]?<><Check size={11}/>보냄</>:l===next?'다음':'복사'}</span></button>
+      {sent[l.key]&&<button className="ss-unsend" onClick={()=>unsend(l)} title="이 줄의 보냄 표시만 지우기" aria-label="보냄 취소"><Undo2 size={12}/></button>}</div>};
   const linesOf=b=>lines.filter(l=>l.bid===b.id).map(lineBtn);
   const toggleFlag=id=>setS(x=>{x.flags[id]=!x.flags[id]});
   // 블록 종류별 모습 (순서는 바꾸지 않음)
@@ -75,10 +91,10 @@ export function SessionMode({sc,plat,sel,go,up,gm,setGm,setMdl,onEnd,win,pip,onP
     if(b.type==='text'||b.type==='lines')return linesOf(b);
     if(GMONLY.includes(b.type))return<div className={'ss-sec '+b.type}><Lines text={b.content}/></div>;
     if(b.type==='npc')return<><div className="ss-card"><div className="ss-card-h"><b>{b.name||'NPC'}</b>{b.role&&<small>{b.role}</small>}<span style={{flex:1}}/>{b.name&&<CopyBtn text={b.name} label="이름"/>}</div>
-        {b.imageUrl&&<img src={b.imageUrl} alt="" className="ss-img sm" onError={e=>{e.target.style.display='none'}}/>}
+        {b.imageUrl&&<img loading="lazy" decoding="async" src={b.imageUrl} alt="" className="ss-img sm" onError={e=>{e.target.style.display='none'}}/>}
         {b.traits&&<ul className="ss-ul">{b.traits.split('\n').filter(l=>l.trim()).map((t,i)=><li key={i}>{t}</li>)}</ul>}{gm&&b.gmNote&&<div className="ss-sec"><b>GM만</b>{b.gmNote}</div>}</div>
       {linesOf(b)}</>;
-    if(b.type==='checks')return(b.items||[]).map(c=><details key={c.id} className="ss-rl">
+    if(b.type==='checks')return(b.items||[]).map(c=><details key={c.id} className="ss-rl" open={(b.items||[]).length<=2||undefined}>
       <summary><span className="ss-d"><Dice5 size={15}/></span><span className="ss-rl-t"><b>{c.name||'(판정)'}</b><small>{[c.critSuccess&&'대성공',c.success&&'성공',c.fail&&'실패',c.critFail&&'대실패'].filter(Boolean).join(' · ')||'결과 없음'}</small></span><span className="ss-cp">결과 보기</span></summary>
       {[['대성공',c.critSuccess,'var(--gold)'],['성공',c.success,'var(--green)'],['실패',c.fail,'var(--tx3)'],['대실패',c.critFail,'var(--red)']].map(([lb,v,cl])=>v?<div key={lb} className="ss-res"><span style={{color:cl}}>{lb}</span><Lines text={v}/></div>:null)}
     </details>);
@@ -94,7 +110,7 @@ export function SessionMode({sc,plat,sel,go,up,gm,setGm,setMdl,onEnd,win,pip,onP
       <FlagStatus defs={sc.flags} needs={it.needs} state={ss.flags} onToggle={toggleFlag}/></div>)}</div>;
     const title=b.type==='handout'?(b.title||'핸드아웃'):(b.name||(b.type==='item'?'아이템':'장소'));const body=b.type==='handout'?b.content:b.description;
     return<div className="ss-card"><div className="ss-card-h"><b>{title}</b><span style={{flex:1}}/>{body&&<CopyBtn text={body} label="전체"/>}</div>
-      {b.imageUrl&&<img src={b.imageUrl} alt="" className="ss-img" onError={e=>{e.target.style.display='none'}}/>}
+      {b.imageUrl&&<img loading="lazy" decoding="async" src={b.imageUrl} alt="" className="ss-img" onError={e=>{e.target.style.display='none'}}/>}
       {body&&<Lines text={body}/>}{gm&&b.gmNote&&<div className="ss-sec"><b>GM만</b>{b.gmNote}</div>}</div>};
   const targets=(entry.connections||[]).map(c=>findTarget(sc,c.targetSceneId)).filter(Boolean);
   const order=[...ss.order].sort((a,b)=>(+b.init||0)-(+a.init||0));const cur=order[ss.turn];
@@ -104,10 +120,12 @@ export function SessionMode({sc,plat,sel,go,up,gm,setGm,setMdl,onEnd,win,pip,onP
     if(!parseQueries(code).length){copyText(code).then(ok=>say(ok?`"${label}" 복사했어요`:'복사하지 못했어요'));return}useCode(code,label)};
   const sentN=lines.filter(l=>sent[l.key]).length;
 
-  return<section className={'ss'+(pip?' ss-pip':'')} aria-label="세션 진행">
+  return<section className={'ss'+(pip?' ss-pip':'')} aria-label="세션 진행" style={{'--ss-scale':fs}}>
     <div className="ss-top">
       <span className="ss-live"><i/>세션 중</span><span className="ss-name">{sc.title}</span><span style={{flex:1}}/>
       <button className={'ss-gm'+(gm?' on':'')} onClick={()=>setGm(!gm)} aria-pressed={gm} title={gm?'GM 정보 보이는 중 — 누르면 숨김':'GM 정보 숨김 — 누르면 보임'}>{gm?<Eye size={12}/>:<EyeOff size={12}/>}GM</button>
+      <span className="ss-fs" role="group" aria-label="세션 글자 크기"><button onClick={()=>setFs(FS[Math.max(0,FS.indexOf(fs)-1)]??1)} disabled={fs<=FS[0]} title="글자 작게" aria-label="글자 작게">가−</button><button onClick={()=>setFs(FS[Math.min(FS.length-1,FS.indexOf(fs)+1)]??1)} disabled={fs>=FS[FS.length-1]} title="글자 크게" aria-label="글자 크게">가+</button></span>
+      {!win&&onJump&&<button className="ss-ib" onClick={onJump} title="씬 바로 찾아가기 (Ctrl+K)" aria-label="씬 찾기"><Search size={14}/></button>}
       {canPip&&!pip&&<button className="ss-ib" onClick={onPip} title="롤20 위에 늘 떠 있는 미니 창으로 띄우기"><PictureInPicture2 size={14}/><span className="hide-m">미니 창</span></button>}
       {pip&&<span className="ss-pin"><Pin size={11}/>항상 위</span>}
       <button className="ss-ib" onClick={onEnd} title={pip?'미니 창 닫기':'세션 화면 닫고 집필로'} aria-label="세션 화면 닫기"><X size={14}/></button>
@@ -140,7 +158,8 @@ export function SessionMode({sc,plat,sel,go,up,gm,setGm,setMdl,onEnd,win,pip,onP
         {/* 블록은 집필 화면에 쓴 순서 그대로 */}
         {blocks.filter(blockFilled).map(b=>{const m=BT[b.type]||BT.text;
           return<div key={b.id} className={'ss-blk'+(GMONLY.includes(b.type)?' gm':'')} style={b.indent?{marginLeft:18}:undefined}>
-            <div className="ss-bh"><span className="ss-btag" style={{'--c':m.c}}><m.I size={11}/>{b.label||m.l}</span>{(GMONLY.includes(b.type)||b.type==='clue')&&<span className="ss-tag red">GM만</span>}</div>
+            <div className="ss-bh"><span className="ss-btag" style={{'--c':m.c}}><m.I size={11}/>{b.label||m.l}</span>{(GMONLY.includes(b.type)||b.type==='clue')&&<span className="ss-tag red">GM만</span>}
+              {(()=>{const ls=lines.filter(l=>l.bid===b.id);return ls.length>1&&<button className="ss-blksend" onClick={()=>copyBlock(ls)} title="이 블록의 줄을 한 번에 복사하고 모두 보냄으로 표시"><Send size={11}/>{ls.length}줄 한 번에</button>})()}</div>
             {renderBlock(b)}</div>})}
 
         {targets.length>0&&<div className="ss-lb">다음으로</div>}
@@ -152,7 +171,8 @@ export function SessionMode({sc,plat,sel,go,up,gm,setGm,setMdl,onEnd,win,pip,onP
     </div>
 
     <div className="ss-ft">
-      {plat&&<div className="ss-chips">
+      {plat&&<div className={'ss-chips'+(chipsOpen?'':' one')}>
+        <button className="ss-chip-tog" onClick={()=>setChips(!chipsOpen)} aria-expanded={chipsOpen} title={chipsOpen?'명령어 칩 한 줄로 접기':'명령어 칩 모두 보기'}>{chipsOpen?<ChevronDown size={12}/>:<ChevronUp size={12}/>}</button>
         {(plat.commands||[]).map(c=><button key={c.id} className="ss-chip" onMouseDown={nd} onClick={()=>chip(c.s||'',c.l)} title={c.s}>{c.l}</button>)}
         {(plat.savedColors||[]).map(h=><button key={h} className="ss-chip" onMouseDown={nd} onClick={()=>chip(colorCode(h),h)} title={h+' 글자색'}><i style={{background:h}}/>{h}</button>)}
         {(plat.templates||[]).map(t=><button key={t.id} className="ss-chip" onMouseDown={nd} onClick={()=>chip(t.code,t.name)}>✦ {t.name}</button>)}
@@ -162,9 +182,9 @@ export function SessionMode({sc,plat,sel,go,up,gm,setGm,setMdl,onEnd,win,pip,onP
         <button onClick={()=>setTab('clue')}><b>{foundN} / {sc.clues.length}</b>단서</button>
         <button onClick={()=>setTab('flag')}><b>{flagN} / {sc.flags.length}</b>플래그</button>
       </div>
-      {flash&&<div className="ss-flash" role="status">{flash}</div>}
-      <button className="ss-big" onClick={big} disabled={!next&&!nextSc}>
-        {next?<>다음 줄 복사 <kbd>Space</kbd></>:nextSc?<>다음 씬으로 — {nextSc.title} <ChevronRight size={14}/></>:<><Copy size={13}/>읽어 줄 줄을 모두 보냈어요</>}</button>
+      <span className="sr-only" role="status">{flash||''}</span>
+      <button className={'ss-big'+(flash?' ok':'')} onClick={big} disabled={!next&&!nextSc}>
+        {flash?<><Check size={14}/>{flash}</>:next?<>다음 줄 복사 <kbd>Space</kbd></>:nextSc?<>다음 씬으로 — {nextSc.title} <ChevronRight size={14}/></>:<><Copy size={13}/>읽어 줄 줄을 모두 보냈어요</>}</button>
     </div>
   </section>}
 
@@ -183,7 +203,7 @@ function LibBrowse({sc,entry,scene,isR20,gm}){
         {l.map(e=><details key={e.id} className="ss-card ss-libc" open={!!q.trim()||undefined}>
           <summary className="ss-card-h"><b>{e.name||'(이름 없음)'}</b>{e.role&&<small>{e.role}</small>}{here(e.id)&&<span className="ss-tag here">이 {scene?'씬':'엔딩'}</span>}<span style={{flex:1}}/>
             {e.name&&<CopyBtn text={e.name} label="이름"/>}</summary>
-          {e.imageUrl&&<img src={e.imageUrl} alt="" className="ss-img" onError={ev=>{ev.target.style.display='none'}}/>}
+          {e.imageUrl&&<img loading="lazy" decoding="async" src={e.imageUrl} alt="" className="ss-img" onError={ev=>{ev.target.style.display='none'}}/>}
           {e.traits&&<ul className="ss-ul">{e.traits.split('\n').filter(x=>x.trim()).map((t,i)=><li key={i}>{t}</li>)}</ul>}
           {e.lines&&<Lines text={e.lines} wrap={l=>as(e.name,l)}/>}
           {e.description&&<Lines text={e.description}/>}

@@ -1,4 +1,4 @@
-import { allScenes, clueUsage, collectBgm, concKey, resolveB } from './data.js'
+import { allScenes, clueUsage, collectBgm, concKey, memo1, resolveB } from './data.js'
 
 // ===== 준비 점검 =====
 // 세션 전에 빠진 곳을 찾는다. 씬 목록의 색 점(초록·노랑·빨강)과 오른쪽 "준비 점검" 칸이 같은 결과를 쓴다.
@@ -16,7 +16,7 @@ export function blockFilled(b){
 const lvOf=notes=>notes.some(n=>n.lv==='bad')?'bad':notes.length?'warn':'ok';
 
 // 씬·엔딩별 상태: {id: {lv:'ok'|'warn'|'bad', notes:[{lv,t}]}}
-export function entryIssues(sc){
+function entryIssues_(sc){
   const flat=allScenes(sc);const endIds=new Set(sc.endings.map(e=>e.id));const res={};
   const incoming=new Set();for(const s of flat)for(const c of s.connections||[])incoming.add(c.targetSceneId);
   const valid=s=>(s.connections||[]).filter(c=>endIds.has(c.targetSceneId)||flat.some(x=>x.id===c.targetSceneId));
@@ -50,3 +50,5 @@ export function flagIssues(sc){const used=new Set();
 export function sessionAssets(sc,plat){let handouts=0;
   for(const p of sc.parts)for(const s of p.scenes)for(const b of s.blocks||[])if(b.type==='handout')handouts++;
   return{bgm:collectBgm(sc).length,tpl:plat?.templates?.length||0,handouts,npcs:sc.library.npcs.length}}
+
+export const entryIssues=memo1(entryIssues_);

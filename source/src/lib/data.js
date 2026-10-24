@@ -1,6 +1,9 @@
 import { defTpl } from './rollkku.js'
 import { BookOpen,Dice5,FileDown,FileText,GitBranch,Lightbulb,MapPin,MessageSquareQuote,Music,Package,Sparkles,StickyNote,Users } from "lucide-react";
 
+// 같은 객체로 다시 부르면 이전 결과를 돌려준다 (데이터는 immer로 바뀐 부분만 새 객체가 되므로 안전)
+export const memo1=fn=>{const c=new WeakMap();return x=>{if(!x||typeof x!=='object')return fn(x);if(c.has(x))return c.get(x);const v=fn(x);c.set(x,v);return v}};
+
 // ===== CONSTANTS =====
 export const SK='scenario-forge-v4';
 export const BT={
@@ -61,12 +64,12 @@ export function eachEntry(D,fn){for(const sc of D.scenarios){for(const p of sc.p
 export const countIn=(v,t)=>{let n=0,i=0;while((i=v.indexOf(t,i))!==-1){n++;i+=t.length}return n};
 
 // ===== 씬·엔딩 조회 =====
-export const allScenes=sc=>sc.parts.flatMap(p=>p.scenes.map(s=>({...s,ptid:p.id,ptTitle:p.title})));
+export const allScenes=memo1(sc=>sc.parts.flatMap(p=>p.scenes.map(s=>({...s,ptid:p.id,ptTitle:p.title}))));
 // 연결 대상: 씬 또는 엔딩
 export function findTarget(sc,id){for(const p of sc.parts)for(const s of p.scenes)if(s.id===id)return{kind:'scene',ptid:p.id,id,title:s.title};
   const e=sc.endings.find(x=>x.id===id);return e?{kind:'ending',id,title:e.title}:null}
 // 단서별 등장 위치 (단서 블록이 연결된 씬/엔딩)
-export function clueUsage(sc){const u={};const add=(cid,where)=>{if(!cid)return;(u[cid]??=[]).push(where)};
+function clueUsage_(sc){const u={};const add=(cid,where)=>{if(!cid)return;(u[cid]??=[]).push(where)};
   for(const p of sc.parts)for(const s of p.scenes)for(const b of s.blocks||[])if(b.type==='clue')add(b.clueId,{kind:'scene',ptid:p.id,id:s.id,title:s.title});
   for(const e of sc.endings)for(const b of e.blocks||[])if(b.type==='clue')add(b.clueId,{kind:'ending',id:e.id,title:e.title});
   return u}
@@ -96,7 +99,7 @@ export function clueProgress(sc){const use=clueUsage(sc),found=sc.session?.found
 // 행동 순서 정렬 (높은 값 먼저, 같으면 PC 먼저)
 export const sortOrder=o=>[...o].sort((a,b)=>(+b.init||0)-(+a.init||0)||(b.pcId?1:0)-(a.pcId?1:0));
 // 시나리오 안의 BGM 블록을 씬 순서대로 (사이드바 BGM 목록)
-export function collectBgm(sc){const out=[];
+function collectBgm_(sc){const out=[];
   for(const p of sc.parts)for(const s of p.scenes)for(const b of s.blocks||[])if(b.type==='bgm')out.push({b,ptid:p.id,scid:s.id,where:s.title});
   for(const e of sc.endings)for(const b of e.blocks||[])if(b.type==='bgm')out.push({b,eid:e.id,where:'엔딩 · '+(e.title||'')});
   return out}
@@ -114,7 +117,7 @@ export const libOf=(sc,b)=>{const k=LIB_KIND[b?.type];return k&&b.refId?sc.libra
 // 블록 + 자료실 내용을 합친 모습 (화면 표시·복사·점검용)
 export const resolveB=(sc,b)=>{const e=libOf(sc,b);return e?{...b,...e,id:b.id,label:b.label,type:b.type}:b};
 // 자료실 항목이 쓰이는 곳: {항목 id: [{kind:'scene'|'ending', ptid, id, title}]}
-export function libUses(sc){const u={};const add=(id,w)=>{if(!id)return;const l=u[id]??=[];if(!l.some(x=>x.id===w.id))l.push(w)};
+function libUses_(sc){const u={};const add=(id,w)=>{if(!id)return;const l=u[id]??=[];if(!l.some(x=>x.id===w.id))l.push(w)};
   for(const p of sc.parts)for(const s of p.scenes){const w={kind:'scene',ptid:p.id,id:s.id,title:s.title};for(const b of s.blocks||[])if(LIB_KIND[b.type])add(b.refId,w);for(const id of s.npcIds||[])add(id,w)}
   for(const e of sc.endings)for(const b of e.blocks||[])if(LIB_KIND[b.type])add(b.refId,{kind:'ending',id:e.id,title:e.title});
   return u}
@@ -149,6 +152,11 @@ export function normalizePart(p){if(!p?.scenes)return p;const byId=Object.fromEn
   const out=[];for(const t of p.scenes)if(!t.parentId){out.push(t);for(const c of p.scenes)if(c.parentId===t.id)out.push(c)}
   p.scenes=out;return p}
 // 씬 번호: 상위 씬은 1, 2, 3…(시나리오 전체), 하위 씬은 3-1, 3-2…
-export function sceneNums(sc){const m={};let n=0,k=0;
+function sceneNums_(sc){const m={};let n=0,k=0;
   for(const p of sc.parts)for(const s of p.scenes){if(!s.parentId){n++;k=0;m[s.id]=String(n)}else{k++;m[s.id]=n+'-'+k}}
   return m}
+
+export const clueUsage=memo1(clueUsage_);
+export const libUses=memo1(libUses_);
+export const sceneNums=memo1(sceneNums_);
+export const collectBgm=memo1(collectBgm_);
