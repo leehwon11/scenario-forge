@@ -12,6 +12,7 @@ import { fetchRow,fetchStamp,forcePush,friendly,getUser,onAuth,pushRow } from '.
 import { SK,defData,download,forExport,mig,sceneNums,uid } from './lib/data.js'
 import { announceSave,getItem,onOtherTabSave,setItem } from './lib/store.js'
 import { ClueEditM } from './modals/ClueModal.jsx'
+import { JumpM } from './modals/JumpModal.jsx'
 import { ETM } from './modals/EndingTypeModal.jsx'
 import { FillM } from './modals/FillModal.jsx'
 import { insertAtLast } from './components/insert.js'
@@ -64,13 +65,14 @@ function AppInner(){
   const[live,setLive]=useState(false);const[pip,setPip]=useState(null);
   // 오른쪽 준비 점검 칸 (넓은 화면에서는 기본으로 열림)
   const wide=useMedia('(min-width:1240px)');const[chkOpenS,setChk]=useState(null);const chkOpen=chkOpenS??wide;
-  const[crumb,setCrumb]=useState(false);
+  const[crumb,setCrumb]=useState(false);const navBefore=useRef(null);
   const[conflict,setConflict]=useState(null);const[menu,setMenu]=useState(false); // conflict: {kind:'tab'} | {kind:'server',row}
   const[user,setUser]=useState(null);const[authReady,setAuthReady]=useState(false);
   const[sync,setSync]=useState({s:'off'}); // off | pending | syncing | ok | offline | err
   const{show:toast,T:Toast}=useToast();
   const hist=useRef([]);const hi=useRef(-1);const ht=useRef();const Dref=useRef(null);Dref.current=D;
   const conflictRef=useRef(null);conflictRef.current=conflict;
+  const selRef=useRef(sel);selRef.current=sel;
   const userRef=useRef(null);userRef.current=user;
   // 동기화 기준점: base = 마지막으로 확인한 서버 updated_at, synced = 그때의 데이터 내용
   const meta=useRef({uid:null,base:null,hash:null});const synced=useRef(null);const busy=useRef(false);
@@ -183,7 +185,8 @@ function AppInner(){
     // 입력 중에는 브라우저 기본 실행 취소(글자 단위)를 그대로 쓴다
     if((k==='z'||k==='y')&&isTextField(e.target))return;
     if(k==='z'&&!e.shiftKey){e.preventDefault();undo()}else if((k==='z'&&e.shiftKey)||k==='y'){e.preventDefault();redo()}
-    else if(k==='f'){e.preventDefault();setMdl('find')}};
+    else if(k==='f'){e.preventDefault();setMdl('find')}
+    else if(k==='k'&&Dref.current&&selRef.current.sid){e.preventDefault();setMdl('jump')}};
     const hq=e=>{if(e.key==='?'&&!e.ctrlKey&&!e.metaKey&&!isTextField(e.target)&&!document.querySelector('[role=dialog]')){e.preventDefault();setMdl('help')}};document.addEventListener('keydown',hq);document.addEventListener('keydown',h);return()=>{document.removeEventListener('keydown',h);document.removeEventListener('keydown',hq)}},[undo,redo]);
 
   if(loading||!D)return<div style={{display:'flex',alignItems:'center',justifyContent:'center',height:'100%',color:'var(--tx3)'}}>불러오는 중…</div>;
@@ -200,8 +203,9 @@ function AppInner(){
 
   const go=s=>{setSel(s);if(isMobile)setSb(false);setCrumb(false)};
   const toggleTheme=()=>{const t=theme==='dark'?'light':'dark';setThm(t);up(d=>{d.theme=t})};
-  const startLive=()=>{if(!sc)return;setLive(true);setMode('edit')};
-  const endLive=()=>{if(pip&&!pip.closed)pip.close();setPip(null);setLive(false)};
+  // 세션 중에는 씬 목록을 접어 세션 칸을 넓게 (끝나면 원래대로)
+  const startLive=()=>{if(!sc)return;navBefore.current=sbOpen;if(!isMobile)setSb(false);setLive(true);setMode('edit')};
+  const endLive=()=>{if(pip&&!pip.closed)pip.close();setPip(null);if(live&&navBefore.current!=null&&!isMobile)setSb(navBefore.current);navBefore.current=null;setLive(false)};
   // 늘 위에 떠 있는 미니 창 (Chrome·Edge의 Document Picture-in-Picture)
   const canPip=typeof window!=='undefined'&&'documentPictureInPicture' in window;
   const openPip=async()=>{try{const w=await window.documentPictureInPicture.requestWindow({width:440,height:760});
@@ -234,7 +238,7 @@ function AppInner(){
   const showNav=!!sc&&sbOpen;const showChk=!!sc&&!live&&mode==='edit'&&chkOpen&&!isMobile;
   const page=scene?scene.title:ending?ending.title:sc?'개요':'';
   const menuItems=[[Search,'찾기 · 바꾸기',()=>setMdl('find')],[user?Cloud:LogIn,user?'클라우드 · '+SY[1]:'로그인 (클라우드 저장)',()=>setMdl('account')],[FileDown,'전체 JSON 내보내기',exportAll],[FileUp,'JSON 가져오기 (전체 덮어쓰기)',()=>document.getElementById('imp')?.click()],[theme==='dark'?Sun:Moon,theme==='dark'?'밝은 화면':'어두운 화면',toggleTheme],[CircleQuestionMark,'사용법',()=>setMdl('help')],...(sc&&isMobile&&!live?[[ListChecks,'준비 점검',()=>setChk(true)]]:[])];
-  const sessionEl=sc&&<SessionMode sc={sc} plat={plat} sel={sel} go={go} up={up} gm={gm} setGm={setGm} setMdl={setMdl} onEnd={endLive} canPip={canPip&&!isMobile} onPip={openPip}/>;
+  const sessionEl=sc&&<SessionMode sc={sc} plat={plat} sel={sel} go={go} up={up} gm={gm} setGm={setGm} setMdl={setMdl} onEnd={endLive} canPip={canPip&&!isMobile} onPip={openPip} onJump={()=>setMdl('jump')}/>;
 
   return(<ActCtx.Provider value={act}>
     <div className="app" style={{height:`calc(100vh / ${zoom})`,zoom}}>
@@ -323,6 +327,7 @@ function AppInner(){
     {modal==='help'&&<HelpModal onClose={()=>setMdl(null)}/>}
     {modal==='tpl'&&<TplM plat={plat} up={up} sel={sel} onClose={()=>setMdl(null)}/>}
     {fill&&<FillM key={fill.code} fill={fill} onClose={()=>setFill(null)}/>}
+    {modal==='jump'&&sc&&<JumpM sc={sc} sel={sel} go={go} onClose={()=>setMdl(null)}/>}
     {modal?.type==='clueEdit'&&<ClueEditM sc={sc} clueId={modal.clueId} up={up} sel={sel} onClose={()=>setMdl(null)} go={go}/>}</Suspense>
     {Toast}
   </ActCtx.Provider>);
