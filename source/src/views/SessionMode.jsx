@@ -52,6 +52,11 @@ export function SessionMode({sc,plat,sel,go,up,gm,setGm,setMdl,onEnd,win,pip,onP
   const goNext=()=>{if(!nextSc)return;if(scene&&!scene.done)uSc(s=>{s.parts.find(p=>p.id===scene.ptid).scenes.find(x=>x.id===scene.id).done=true});goScene(nextSc)};
   const big=()=>{if(next)copyLine(next);else if(nextSc)goNext()};
 
+  // 세션 중에는 화면이 꺼지지 않게 (지원하는 브라우저만, 다른 창으로 갔다 오면 다시 요청)
+  useEffect(()=>{let lock=null,alive=true;const nav=W.navigator;
+    const get=async()=>{try{if(alive&&nav.wakeLock&&W.document.visibilityState==='visible')lock=await nav.wakeLock.request('screen')}catch(e){}};
+    const vis=()=>{if(W.document.visibilityState==='visible')get()};get();W.document.addEventListener('visibilitychange',vis);
+    return()=>{alive=false;W.document.removeEventListener('visibilitychange',vis);lock?.release?.().catch(()=>{})}},[W]);
   // 키보드: Space 다음 줄 · ← → 씬 이동 (글 입력 중·대화상자가 열려 있을 때는 무시)
   useEffect(()=>{const h=e=>{if(isField(e.target)||e.ctrlKey||e.metaKey||e.altKey||W.document.querySelector('[role=dialog]')||document.querySelector('[role=dialog]'))return;
     if(e.key===' '&&tab==='run'){e.preventDefault();big()}
@@ -75,7 +80,7 @@ export function SessionMode({sc,plat,sel,go,up,gm,setGm,setMdl,onEnd,win,pip,onP
     if(b.type==='text'||b.type==='lines')return linesOf(b);
     if(GMONLY.includes(b.type))return<div className={'ss-sec '+b.type}><Lines text={b.content}/></div>;
     if(b.type==='npc')return<><div className="ss-card"><div className="ss-card-h"><b>{b.name||'NPC'}</b>{b.role&&<small>{b.role}</small>}<span style={{flex:1}}/>{b.name&&<CopyBtn text={b.name} label="이름"/>}</div>
-        {b.imageUrl&&<img src={b.imageUrl} alt="" className="ss-img sm" onError={e=>{e.target.style.display='none'}}/>}
+        {b.imageUrl&&<img loading="lazy" decoding="async" src={b.imageUrl} alt="" className="ss-img sm" onError={e=>{e.target.style.display='none'}}/>}
         {b.traits&&<ul className="ss-ul">{b.traits.split('\n').filter(l=>l.trim()).map((t,i)=><li key={i}>{t}</li>)}</ul>}{gm&&b.gmNote&&<div className="ss-sec"><b>GM만</b>{b.gmNote}</div>}</div>
       {linesOf(b)}</>;
     if(b.type==='checks')return(b.items||[]).map(c=><details key={c.id} className="ss-rl">
@@ -94,7 +99,7 @@ export function SessionMode({sc,plat,sel,go,up,gm,setGm,setMdl,onEnd,win,pip,onP
       <FlagStatus defs={sc.flags} needs={it.needs} state={ss.flags} onToggle={toggleFlag}/></div>)}</div>;
     const title=b.type==='handout'?(b.title||'핸드아웃'):(b.name||(b.type==='item'?'아이템':'장소'));const body=b.type==='handout'?b.content:b.description;
     return<div className="ss-card"><div className="ss-card-h"><b>{title}</b><span style={{flex:1}}/>{body&&<CopyBtn text={body} label="전체"/>}</div>
-      {b.imageUrl&&<img src={b.imageUrl} alt="" className="ss-img" onError={e=>{e.target.style.display='none'}}/>}
+      {b.imageUrl&&<img loading="lazy" decoding="async" src={b.imageUrl} alt="" className="ss-img" onError={e=>{e.target.style.display='none'}}/>}
       {body&&<Lines text={body}/>}{gm&&b.gmNote&&<div className="ss-sec"><b>GM만</b>{b.gmNote}</div>}</div>};
   const targets=(entry.connections||[]).map(c=>findTarget(sc,c.targetSceneId)).filter(Boolean);
   const order=[...ss.order].sort((a,b)=>(+b.init||0)-(+a.init||0));const cur=order[ss.turn];
@@ -183,7 +188,7 @@ function LibBrowse({sc,entry,scene,isR20,gm}){
         {l.map(e=><details key={e.id} className="ss-card ss-libc" open={!!q.trim()||undefined}>
           <summary className="ss-card-h"><b>{e.name||'(이름 없음)'}</b>{e.role&&<small>{e.role}</small>}{here(e.id)&&<span className="ss-tag here">이 {scene?'씬':'엔딩'}</span>}<span style={{flex:1}}/>
             {e.name&&<CopyBtn text={e.name} label="이름"/>}</summary>
-          {e.imageUrl&&<img src={e.imageUrl} alt="" className="ss-img" onError={ev=>{ev.target.style.display='none'}}/>}
+          {e.imageUrl&&<img loading="lazy" decoding="async" src={e.imageUrl} alt="" className="ss-img" onError={ev=>{ev.target.style.display='none'}}/>}
           {e.traits&&<ul className="ss-ul">{e.traits.split('\n').filter(x=>x.trim()).map((t,i)=><li key={i}>{t}</li>)}</ul>}
           {e.lines&&<Lines text={e.lines} wrap={l=>as(e.name,l)}/>}
           {e.description&&<Lines text={e.description}/>}

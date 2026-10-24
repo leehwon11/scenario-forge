@@ -47,7 +47,7 @@ export function LibM({sc,up,sel,scene,ending,onClose,toast,go,initKind='npcs',in
       </div>
       <div className="lib-main">
         {!ed?<div className="lib-empty big">왼쪽에서 {L}를 고르거나 <b>새 {L}</b>를 만드세요.<br/>여기서 고친 내용은 이 {L}를 쓰는 모든 씬에 반영됩니다.</div>:<>
-          <div className="lib-row">{ed.imageUrl&&<img src={ed.imageUrl} alt="" className="lib-img big" onError={e=>{e.target.style.display='none'}}/>}
+          <div className="lib-row">{ed.imageUrl&&<img loading="lazy" decoding="async" src={ed.imageUrl} alt="" className="lib-img big" onError={e=>{e.target.style.display='none'}}/>}
             <div className="lib-f">
               <div><Label>이름</Label><Inp value={ed.name||''} onChange={v=>ue(x=>{x.name=v})} placeholder={L+' 이름'} autoFocus={!ed.name}/></div>
               {kind==='npcs'&&<div><Label>역할</Label><Inp value={ed.role||''} onChange={v=>ue(x=>{x.role=v})} placeholder="예: 등대지기의 아들"/></div>}

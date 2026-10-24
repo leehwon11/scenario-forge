@@ -17,7 +17,7 @@ function r20Links(raw){let o='',i=0;const L=raw.length;while(i<L){
       const sm=hr.match(/^([^"]*)"?\s*style\s*=\s*"(.*)$/i);
       if(sm){o+=`<a href="#" style="${esc(sanCSS(sm[2].replace(/"\s*$/,'')))}">${r20Inline(txt)}</a>`;i=k;continue}
       if(hr[0]==='!'){o+=`<span class="apibtn">${esc(txt)}</span>`;i=k;continue}
-      if(/\.(png|jpg|jpeg|gif|webp|svg)(\?.*)?$/i.test(hr)){o+=`<img class="r20img" src="${esc(hr)}">`;i=k;continue}
+      if(/\.(png|jpg|jpeg|gif|webp|svg)(\?.*)?$/i.test(hr)){o+=`<img class="r20img" loading="lazy" src="${esc(hr)}">`;i=k;continue}
       if(/^https?:\/\//i.test(hr)){o+=`<a href="${esc(hr)}" style="color:#4a8acf;text-decoration:underline">${esc(txt)}</a>`;i=k;continue}
       o+=`<a href="#" style="color:#4a8acf">${esc(txt)}</a>`;i=k;continue}
     o+=esc(raw[i]);i++;continue}

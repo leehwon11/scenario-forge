@@ -1,4 +1,4 @@
-import { useRef, useEffect } from "react";
+import { useRef, useEffect, memo } from "react";
 import { ArrowDown,ArrowUp,ChevronDown,ChevronUp,CopyPlus,GripVertical,ListIndentDecrease,ListIndentIncrease,Plus,Trash2 } from "lucide-react";
 import { useDrop } from '../components/dnd.js'
 import { Btn,IB,Inp,TA,useAct } from '../components/ui.jsx'
@@ -64,7 +64,9 @@ export function AddBlock({onAdd}){
       <I size={12}/>{l}{GMONLY.has(t)&&<span className="add-gm">GM</span>}</button>})}
     <span className="add-or">또는 글 입력 중 <kbd className="kbd">/</kbd></span></div>}
 
-export function BB({b,upB,sc,upE,upSc,openLib,i}){
+// 블록 내용: 이 블록과 단서·자료실·플래그가 그대로면 다시 그리지 않는다 (다른 블록에 타자 칠 때 빨라짐)
+export const BB=memo(BB_,(a,b)=>a.b.refId===undefined&&a.b===b.b&&a.i===b.i&&a.sc?.clues===b.sc?.clues&&a.sc?.library===b.sc?.library&&a.sc?.flags===b.sc?.flags);
+function BB_({b,upB,sc,upE,upSc,openLib,i}){
   const up=fn=>upB(b.id,fn);
   if(['text','memo','truth','session-log'].includes(b.type)){
     const bgMap={memo:'var(--goldA)',truth:'var(--coralA)','session-log':'var(--purpleA)'};
@@ -77,7 +79,7 @@ export function BB({b,upB,sc,upE,upSc,openLib,i}){
   if(b.type==='handout')return<div className="blk-sub">
     <Inp value={b.title||''} onChange={v=>up(x=>{x.title=v})} placeholder="핸드아웃 제목" style={{marginBottom:4}}/>
     <Inp value={b.imageUrl||''} onChange={v=>up(x=>{x.imageUrl=v})} placeholder="이미지 URL" style={{marginBottom:4}}/>
-    {b.imageUrl&&<img src={b.imageUrl} style={{maxWidth:160,borderRadius:6,margin:'4px 0'}} onError={e=>{e.target.style.display='none'}}/>}
+    {b.imageUrl&&<img loading="lazy" decoding="async" src={b.imageUrl} style={{maxWidth:160,borderRadius:6,margin:'4px 0'}} onError={e=>{e.target.style.display='none'}}/>}
     <TA value={b.content||''} onChange={v=>up(x=>{x.content=v})} placeholder="내용"/><TA value={b.gmNote||''} onChange={v=>up(x=>{x.gmNote=v})} placeholder="GM 메모" bg="var(--goldA)" style={{marginTop:4}}/></div>;
   if(b.type==='bgm')return<div className="blk-sub">
     <Inp value={b.title||''} onChange={v=>up(x=>{x.title=v})} placeholder="트랙 이름" style={{marginBottom:4}}/><Inp value={b.url||''} onChange={v=>up(x=>{x.url=v})} placeholder="URL" style={{marginBottom:4}}/><TA value={b.note||''} onChange={v=>up(x=>{x.note=v})} placeholder="메모"/></div>;
@@ -111,7 +113,7 @@ function LibBlock({b,up,sc,upSc,openLib}){
   const ue=fn=>upSc(s=>{const x=s.library[kind].find(y=>y.id===e.id);if(x)fn(x)});
   const uses=libUses(sc)[e.id]||[];
   return<div className="lib-blk">
-    <div className="lib-row">{e.imageUrl&&<img src={e.imageUrl} alt="" className="lib-img" onError={ev=>{ev.target.style.display='none'}}/>}
+    <div className="lib-row">{e.imageUrl&&<img loading="lazy" decoding="async" src={e.imageUrl} alt="" className="lib-img" onError={ev=>{ev.target.style.display='none'}}/>}
       <div className="lib-f"><Inp value={e.name||''} onChange={v=>ue(x=>{x.name=v})} placeholder={L+' 이름'} aria-label={L+' 이름'}/>
         {kind==='npcs'&&<Inp value={e.role||''} onChange={v=>ue(x=>{x.role=v})} placeholder="역할 (예: 등대지기의 아들)"/>}
         <Inp value={e.imageUrl||''} onChange={v=>ue(x=>{x.imageUrl=v})} placeholder="이미지 URL (선택)"/></div></div>

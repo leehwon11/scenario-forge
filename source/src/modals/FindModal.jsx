@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useDeferredValue } from "react";
 import { Btn,Inp,Modal,useDialog } from '../components/ui.jsx'
 import { countIn,eachText } from '../lib/data.js'
 
@@ -16,13 +16,13 @@ function Snip({text,q}){const i=text.toLowerCase().indexOf(q.toLowerCase());if(i
   return<div style={{fontSize:12,color:'var(--tx2)',lineHeight:1.5,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
     {a>0&&'…'}{text.slice(a,i).replace(/\n/g,' ')}<mark className="hl">{text.slice(i,i+q.length)}</mark>{text.slice(i+q.length,b).replace(/\n/g,' ')}{b<text.length&&'…'}</div>}
 
-export function FindM({D,up,sel,setSel,setMode,onClose,toast,onLib}){const dlg=useDialog();const[t,setT]=useState('');const[rt,setRt]=useState('');const[rm,setRm]=useState('find');
+export function FindM({D,up,sel,setSel,setMode,onClose,toast,onLib}){const dlg=useDialog();const[t,setT]=useState('');const tq=useDeferredValue(t); // 타자 중에는 화면을 먼저 그리고 검색은 뒤따라const[rt,setRt]=useState('');const[rm,setRm]=useState('find');
   const scopes=[['all','전체'],...(sel.sid?[['here','이 시나리오']]:[]),...(sel.scid||sel.eid?[['entry',sel.scid?'이 씬':'이 엔딩']]:[])];
   const[scope,setScope]=useState('all');
-  const res=useMemo(()=>{if(!t.trim())return[];const lt=t.toLowerCase(),r=[];
+  const res=useMemo(()=>{const t=tq;if(!t.trim())return[];const lt=t.toLowerCase(),r=[];
     for(const x of entriesIn(D,scope,sel)){const hits=[];const chk=v=>{if(typeof v==='string'&&v.toLowerCase().includes(lt))hits.push(v)};chk(x.en.title);chk(x.en.condition);
       for(const b of x.en.blocks||[])eachText(b,(o,k)=>chk(o[k]));
-      if(hits.length)r.push({...x,hits})}return r},[t,D,scope,sel]);
+      if(hits.length)r.push({...x,hits})}return r},[tq,D,scope,sel]);
   const countAll=()=>{if(!t)return 0;let n=0;for(const{en}of entriesIn(D,scope,sel)){if(en.condition)n+=countIn(en.condition,t);for(const b of en.blocks||[])eachText(b,(o,k)=>{n+=countIn(o[k],t)})}return n};
   const doReplace=async()=>{if(!t){toast('검색어 필요');return}const n=countAll();if(!n){toast('결과 없음');return}
     if(!await dlg.confirm(`"${t}" → "${rt}" 로 ${n}건을 바꿉니다.\n(실행 취소로 되돌릴 수 있습니다)`,{title:'모두 바꾸기',okLabel:'바꾸기'}))return;

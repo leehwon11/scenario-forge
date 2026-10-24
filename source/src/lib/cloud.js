@@ -1,5 +1,4 @@
 import { uid } from './data.js'
-import { createClient } from '@supabase/supabase-js'
 
 // ===== Supabase 클라우드 동기화 =====
 // 사용자당 scenario_data 한 줄(data: 전체 JSON, updated_at: 마지막 저장 시각)을 쓴다.
@@ -14,8 +13,18 @@ const cfg=(typeof window!=='undefined'&&window.SF_SUPABASE)||{};
 const SUPABASE_URL=String(cfg.url||DEF_URL).trim(),SUPABASE_ANON_KEY=String(cfg.anonKey||DEF_KEY).trim();
 const T='scenario_data';
 
-export const sb=SUPABASE_URL.startsWith('https://')&&SUPABASE_ANON_KEY.length>20?createClient(SUPABASE_URL,SUPABASE_ANON_KEY,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}}):null;
-export const isConfigured=()=>!!sb;
+// Supabase 코드는 크기가 커서 필요할 때만 불러온다 (로그인된 기기이거나, 로그인 창에서 로그인할 때).
+// 로그인한 적 없는 기기에서는 첫 화면을 그만큼 빨리 연다.
+const OK=SUPABASE_URL.startsWith('https://')&&SUPABASE_ANON_KEY.length>20;
+export const isConfigured=()=>OK;
+let sbP=null;const listeners=new Set();
+const client=()=>sbP??=(OK?import('@supabase/supabase-js').then(({createClient})=>{
+  const c=createClient(SUPABASE_URL,SUPABASE_ANON_KEY,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});
+  c.auth.onAuthStateChange((ev,s)=>{for(const f of listeners)f(s?.user||null,ev)});return c}):Promise.resolve(null));
+// 이 기기에 로그인 기록(세션 토큰)이 있거나, 메일의 인증·비밀번호 재설정 링크로 들어왔는지
+const ref=(SUPABASE_URL.match(/https:\/\/([^.]+)/)||[])[1];
+const hasSession=()=>{try{if(ref&&localStorage.getItem(`sb-${ref}-auth-token`))return true;for(let i=0;i<localStorage.length;i++)if(/^sb-.*-auth-token$/.test(localStorage.key(i)))return true}catch(e){}
+  return /access_token=|[?&]code=|type=recovery/.test(location.hash+location.search)};
 
 // 오류를 사람이 읽을 수 있는 문장으로
 export function friendly(e){
@@ -35,26 +44,26 @@ export function friendly(e){
   return m||'알 수 없는 오류';
 }
 
-export async function getUser(){if(!sb)return null;const{data}=await sb.auth.getSession();return data.session?.user||null}
-export const onAuth=fn=>{if(!sb)return()=>{};const{data}=sb.auth.onAuthStateChange((ev,s)=>fn(s?.user||null,ev));return()=>data.subscription.unsubscribe()};
-const need=()=>{if(!sb)throw Error('Supabase 연결 정보가 없습니다. 저장소의 supabase-config.js에 url과 anonKey를 넣어주세요.')};
-export async function signIn(email,pw){need();const{data,error}=await sb.auth.signInWithPassword({email,password:pw});if(error)throw error;return data.user}
+export async function getUser(){if(!OK||!hasSession())return null;const sb=await client();const{data}=await sb.auth.getSession();return data.session?.user||null}
+export const onAuth=fn=>{listeners.add(fn);if(OK&&hasSession())client();return()=>listeners.delete(fn)};
+const need=async()=>{if(!OK)throw Error('Supabase 연결 정보가 없습니다. 저장소의 supabase-config.js에 url과 anonKey를 넣어주세요.');return client()};
+export async function signIn(email,pw){const sb=await need();const{data,error}=await sb.auth.signInWithPassword({email,password:pw});if(error)throw error;return data.user}
 // 이메일 인증이 켜진 프로젝트면 user는 오지만 session이 없다 → needConfirm
-export async function signUp(email,pw){need();const{data,error}=await sb.auth.signUp({email,password:pw,options:{emailRedirectTo:location.origin+location.pathname}});if(error)throw error;return{user:data.user,needConfirm:!data.session}}
-export async function signOut(){if(sb)await sb.auth.signOut()}
-export async function resetPw(email){need();const{error}=await sb.auth.resetPasswordForEmail(email,{redirectTo:location.origin+location.pathname});if(error)throw error}
-export async function updatePw(pw){need();const{error}=await sb.auth.updateUser({password:pw});if(error)throw error}
+export async function signUp(email,pw){const sb=await need();const{data,error}=await sb.auth.signUp({email,password:pw,options:{emailRedirectTo:location.origin+location.pathname}});if(error)throw error;return{user:data.user,needConfirm:!data.session}}
+export async function signOut(){if(!sbP)return;const sb=await sbP;if(sb)await sb.auth.signOut()}
+export async function resetPw(email){const sb=await need();const{error}=await sb.auth.resetPasswordForEmail(email,{redirectTo:location.origin+location.pathname});if(error)throw error}
+export async function updatePw(pw){const sb=await need();const{error}=await sb.auth.updateUser({password:pw});if(error)throw error}
 
 // 서버 데이터 읽기 → {data, updated_at} 또는 null(아직 없음)
-export async function fetchRow(uid){need();
+export async function fetchRow(uid){const sb=await need();
   const{data,error}=await sb.from(T).select('data,updated_at').eq('user_id',uid).maybeSingle();
   if(error)throw error;return data}
 // 서버의 updated_at만 확인 (가벼운 변경 감지용)
-export async function fetchStamp(uid){need();
+export async function fetchStamp(uid){const sb=await need();
   const{data,error}=await sb.from(T).select('updated_at').eq('user_id',uid).maybeSingle();
   if(error)throw error;return data?.updated_at??null}
 // 저장: base가 서버 값과 같을 때만 갱신. 다르면 {conflict:true}
-export async function pushRow(uid,payload,base){need();
+export async function pushRow(uid,payload,base){const sb=await need();
   const now=new Date().toISOString();
   if(base==null){
     const{data,error}=await sb.from(T).insert({user_id:uid,data:payload,updated_at:now}).select('updated_at').maybeSingle();
@@ -65,7 +74,7 @@ export async function pushRow(uid,payload,base){need();
   if(!data?.length)return{conflict:true};
   return{updated_at:data[0].updated_at}}
 // 강제 덮어쓰기 (충돌 해결 시 "이 기기 내용으로")
-export async function forcePush(uid,payload){need();
+export async function forcePush(uid,payload){const sb=await need();
   const now=new Date().toISOString();
   const{data,error}=await sb.from(T).upsert({user_id:uid,data:payload,updated_at:now},{onConflict:'user_id'}).select('updated_at').maybeSingle();
   if(error)throw error;return{updated_at:data?.updated_at??now}}
