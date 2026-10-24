@@ -16,7 +16,7 @@ function Snip({text,q}){const i=text.toLowerCase().indexOf(q.toLowerCase());if(i
   return<div style={{fontSize:12,color:'var(--tx2)',lineHeight:1.5,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
     {a>0&&'…'}{text.slice(a,i).replace(/\n/g,' ')}<mark className="hl">{text.slice(i,i+q.length)}</mark>{text.slice(i+q.length,b).replace(/\n/g,' ')}{b<text.length&&'…'}</div>}
 
-export function FindM({D,up,sel,setSel,setMode,onClose,toast,onLib}){const dlg=useDialog();const[t,setT]=useState('');const tq=useDeferredValue(t); // 타자 중에는 화면을 먼저 그리고 검색은 뒤따라const[rt,setRt]=useState('');const[rm,setRm]=useState('find');
+export function FindM({D,up,sel,setSel,setMode,onClose,toast,onLib}){const dlg=useDialog();const[t,setT]=useState('');const tq=useDeferredValue(t);/* 타자 중에는 화면을 먼저 그리고 검색은 뒤따라 */const[rt,setRt]=useState('');const[rm,setRm]=useState('find');
   const scopes=[['all','전체'],...(sel.sid?[['here','이 시나리오']]:[]),...(sel.scid||sel.eid?[['entry',sel.scid?'이 씬':'이 엔딩']]:[])];
   const[scope,setScope]=useState('all');
   const res=useMemo(()=>{const t=tq;if(!t.trim())return[];const lt=t.toLowerCase(),r=[];
