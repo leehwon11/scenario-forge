@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Check,ChevronLeft,ChevronRight,Copy,Dice5,ExternalLink,Eye,EyeOff,Flag,GitBranch,Lightbulb,Music,PictureInPicture2,Pin,RotateCcw,Search,X } from "lucide-react";
 import { CopyBtn,Lines,copyText,useAct } from '../components/ui.jsx'
-import { BT,LIB_LABEL,allScenes,findTarget,libUses,mdR,resolveB,sceneNpcNames } from '../lib/data.js'
+import { BT,LIB_LABEL,allScenes,findTarget,libUses,mdR,resolveB,sceneNpcNames,sceneNums } from '../lib/data.js'
 import { blockFilled } from '../lib/check.js'
 import { parseQueries } from '../lib/rollkku.js'
 import { colorCode } from '../components/CmdBar.jsx'
@@ -31,7 +31,7 @@ export function SessionMode({sc,plat,sel,go,up,gm,setGm,setMdl,onEnd,win,pip,onP
   const W=win||window;
   const[tab,setTab]=useState('run');const[flash,setFlash]=useState(null);const ft=useRef();
   const isR20=/roll20/i.test(plat?.name||'');
-  const flat=useMemo(()=>allScenes(sc),[sc]);
+  const flat=useMemo(()=>allScenes(sc),[sc]);const nums=useMemo(()=>sceneNums(sc),[sc]);
   const scene=sel.scid?flat.find(s=>s.id===sel.scid):null;
   const ending=sel.eid?sc.endings.find(e=>e.id===sel.eid):null;
   const entry=scene||ending||flat[0]||sc.endings[0]||null;
@@ -117,7 +117,7 @@ export function SessionMode({sc,plat,sel,go,up,gm,setGm,setMdl,onEnd,win,pip,onP
       <div className="ss-sc-r">
         <button className="ss-arr" disabled={!prev} onClick={()=>prev&&goScene(prev)} aria-label="이전 씬" title={prev?'← '+prev.title:''}><ChevronLeft size={15}/></button>
         <div className="ss-sc-t">
-          <small>{scene?`SCENE ${String(idx+1).padStart(2,'0')}${scene.timeOfDay?' · '+scene.timeOfDay:''}`:'ENDING'}</small>
+          <small>{scene?`SCENE ${(nums[scene.id]||'').replace(/^\d+/,d=>d.padStart(2,'0'))}${scene.timeOfDay?' · '+scene.timeOfDay:''}`:'ENDING'}</small>
           <h1>{entry.title||'(제목 없음)'}</h1>
           {scene&&(scene.location||sceneNpcNames(sc,scene))&&<div className="ss-sc-m">{[scene.location,sceneNpcNames(sc,scene)].filter(Boolean).join(' · ')}</div>}
         </div>

@@ -29,6 +29,7 @@ scenarios[] { platformId, title, setting, synopsis, parts[{title, scenes[{title,
   eventTimeline[], sessionHistory[{date, summary}], library{npcs[{name,role,imageUrl,traits,lines,gmNote}], items/places[{name,imageUrl,description,gmNote}]},
   flags[{id,name}], session{flags{}, found{}, order[], turn, round, sent{}(세션 화면에서 보낸 줄)}, pcs[](예전 데이터 보존용, 화면 없음) }
 블록 타입: text, memo, truth, clue, lines, branches(items[].needs), checks, npc, handout, bgm, item, place, session-log
+하위 씬: scene.parentId(같은 파트의 상위 씬, 한 단계만). `normalizePart`가 하위 씬을 상위 씬 바로 뒤로 모으고 잘못된 parentId를 지움, 번호는 `sceneNums`(3, 3-1…).
 npc·item·place 블록은 내용 없이 `refId`(자료실 항목 id, ''이면 아직 안 고름)만 가진다 → 표시할 때 `resolveB(sc,b)`, 쓰이는 곳은 `libUses(sc)`.
 예전 데이터는 `migLib`이 자료실로 옮김(같은 이름은 합침). 단서 결론은 `concKey`로 띄어쓰기 무시하고 묶는다.
 `mig()`가 구버전 데이터를 보정함 — 필드 추가 시 반드시 mig(또는 migSession)에도 기본값 추가.

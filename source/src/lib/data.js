@@ -38,6 +38,7 @@ for(const sc of(d.scenarios||[])){
   for(const e of sc.endings){e.blocks??=[];e.condition??='';e.endingType??='normal';e.needs??=[]}
   migSession(sc);
   migLib(sc);
+  for(const p of(sc.parts||[]))normalizePart(p);
   for(const p of(sc.parts||[]))for(const s of(p.scenes||[])){
     if(!Array.isArray(s.blocks))s.blocks=[{id:uid(),type:'text',label:'나레이션',content:''}];
     s.location??='';s.timeOfDay??='';s.npcsPresent??='';s.sessionLog??=[];s.connections??=[];
@@ -138,3 +139,16 @@ export function migLib(sc){const lib=sc.library;
   return sc}
 // 결론 이름 비교: 띄어쓰기·대소문자 차이는 같은 결론으로 본다
 export const concKey=v=>String(v||'').replace(/\s+/g,'').toLowerCase();
+
+// ===== 하위 씬 =====
+// scene.parentId: 같은 파트 안의 상위 씬 id (한 단계만, 대제목 → 소제목).
+// 하위 씬은 항상 상위 씬 바로 뒤에 모여 있도록 정리한다 → 씬 순서(세션 화면 이전/다음)도 상위 → 하위 순.
+export function normalizePart(p){if(!p?.scenes)return p;const byId=Object.fromEntries(p.scenes.map(s=>[s.id,s]));
+  for(const s of p.scenes)if(s.parentId&&(!byId[s.parentId]||s.parentId===s.id))delete s.parentId;
+  for(const s of p.scenes)if(s.parentId&&byId[s.parentId].parentId){const g=byId[s.parentId].parentId;if(g!==s.id&&byId[g]&&!byId[g].parentId)s.parentId=g;else delete s.parentId}
+  const out=[];for(const t of p.scenes)if(!t.parentId){out.push(t);for(const c of p.scenes)if(c.parentId===t.id)out.push(c)}
+  p.scenes=out;return p}
+// 씬 번호: 상위 씬은 1, 2, 3…(시나리오 전체), 하위 씬은 3-1, 3-2…
+export function sceneNums(sc){const m={};let n=0,k=0;
+  for(const p of sc.parts)for(const s of p.scenes){if(!s.parentId){n++;k=0;m[s.id]=String(n)}else{k++;m[s.id]=n+'-'+k}}
+  return m}

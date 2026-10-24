@@ -8,7 +8,7 @@ import { SessionMode } from './views/SessionMode.jsx'
 import { entryIssues } from './lib/check.js'
 import { ActCtx,Btn,DialogProvider,IB,copyText,setCopyWin,useDialog,useMedia,useToast } from './components/ui.jsx'
 import { fetchRow,fetchStamp,forcePush,friendly,getUser,onAuth,pushRow } from './lib/cloud.js'
-import { SK,allScenes,defData,download,forExport,mig,uid } from './lib/data.js'
+import { SK,defData,download,forExport,mig,sceneNums,uid } from './lib/data.js'
 import { announceSave,getItem,onOtherTabSave,setItem } from './lib/store.js'
 import { AccountM } from './modals/AccountModal.jsx'
 import { ClueEditM } from './modals/ClueModal.jsx'
@@ -178,7 +178,7 @@ function AppInner(){
   const isR20=plat?.name.toLowerCase().includes('roll20');
   const isCoco=plat&&(plat.name.includes('코코')||plat.name.toLowerCase().includes('coco'));
   const issues=sc?entryIssues(sc):{};
-  const sceneNo=scene?allScenes(sc).findIndex(s=>s.id===scene.id)+1:0;
+  const sceneNo=scene?sceneNums(sc)[scene.id]:'';
 
   const go=s=>{setSel(s);if(isMobile)setSb(false);setCrumb(false)};
   const toggleTheme=()=>{const t=theme==='dark'?'light':'dark';setThm(t);up(d=>{d.theme=t})};
@@ -279,7 +279,7 @@ function AppInner(){
         <main className={'main'+(live?' main-live':'')}>
           {live&&sc?(pip?<div className="pip-hold"><b>미니 창에서 세션 진행 중</b><span>롤20 창 위에 떠 있는 작은 창을 쓰세요.</span>
               <Btn onClick={()=>{pip.close();setPip(null)}}>큰 화면으로 돌아오기</Btn></div>:sessionEl)
-          :mode==='flow'&&sc?<FlowV sc={sc} sel={sel} setSel={go} setMode={setMode}/>
+          :mode==='flow'&&sc?<div className="flow-pg"><FlowV sc={sc} sel={sel} setSel={go} setMode={setMode}/></div>
           :ending?<EndingP ending={ending} sc={sc} plat={plat} up={up} sel={sel} setMdl={setMdl}/>
           :scene?<SceneP scene={scene} pt={pt} sc={sc} plat={plat} up={up} sel={sel} isR20={isR20} isCoco={isCoco} r20On={r20On} setR20On={setR20On} go={go} setMdl={setMdl} no={sceneNo}/>
           :sc?<OverviewP sc={sc} plat={plat} up={up} sel={sel} toast={toast} exportSingle={exportSingle} mergeImp={mergeImp} setMdl={setMdl} go={go}/>
