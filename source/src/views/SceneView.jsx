@@ -14,6 +14,7 @@ export function SceneP({scene,pt,sc,plat,up,sel,isR20,isCoco,r20On,setR20On,go,s
   const uS=fn=>up(d=>{const s=d.scenarios.find(x=>x.id===sel.sid).parts.find(x=>x.id===sel.ptid).scenes.find(x=>x.id===sel.scid);fn(s)});
   const goT=t=>t.kind==='scene'?go({pid:sel.pid,sid:sel.sid,ptid:t.ptid,scid:t.id,eid:null}):go({pid:sel.pid,sid:sel.sid,ptid:null,scid:null,eid:t.id});
   const conns=scene.connections||[];
+  const parent=scene.parentId?pt.scenes.find(x=>x.id===scene.parentId):null;
   const dlg=useDialog();
   const upSc=fn=>up(d=>fn(d.scenarios.find(x=>x.id===sel.sid)));
   const openLib=(kind,id)=>setMdl({type:'lib',kind,id});
@@ -24,7 +25,8 @@ export function SceneP({scene,pt,sc,plat,up,sel,isR20,isCoco,r20On,setR20On,go,s
   return<div className="ed">
     <CmdBar plat={plat} onManage={()=>setMdl('cmd')} onTpl={()=>setMdl('tpl')}/>
     <div className="ed-pg">
-      <div className="ed-k">SCENE {String(no).padStart(2,'0')} <span>· {pt.title}</span></div>
+      <div className="ed-k">SCENE {String(no).replace(/^\d+/,d=>d.padStart(2,'0'))} <span>· {pt.title}</span>
+        {parent&&<span> · 상위 씬 <button className="ed-parent" onClick={()=>go({pid:sel.pid,sid:sel.sid,ptid:pt.id,scid:parent.id,eid:null})}>{parent.title}</button></span>}</div>
       <input className="ghost page-title ed-title" aria-label="씬 제목" value={scene.title} onChange={e=>uS(s=>{s.title=e.target.value})}/>
       <div className="props">
         <Prop label="장소" value={scene.location} onChange={v=>uS(s=>{s.location=v})} placeholder="어디서"/>

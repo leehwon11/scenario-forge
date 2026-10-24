@@ -1,8 +1,8 @@
 import { useState } from "react";
-import { AlertTriangle,Check,ChevronRight,CopyPlus,ExternalLink,FolderPlus,LayoutList,Palette,Pencil,Plus,Sparkles,Trash2,Users } from "lucide-react";
+import { AlertTriangle,Check,ChevronRight,CopyPlus,CornerDownRight,ListIndentDecrease,ListIndentIncrease,ExternalLink,FolderPlus,LayoutList,Palette,Pencil,Plus,Sparkles,Trash2,Users } from "lucide-react";
 import { DRAG,useDrop } from './dnd.js'
 import { IB,useAct } from './ui.jsx'
-import { DEF_ET,SK,clueUsage,collectBgm,dropConns,migSession,moveIdx,uid } from '../lib/data.js'
+import { DEF_ET,SK,clueUsage,collectBgm,dropConns,migSession,moveIdx,normalizePart,sceneNums,uid } from '../lib/data.js'
 
 // ===== 왼쪽 씬 목록 (Desk) =====
 // 파트별 씬 목록(번호 · 제목 · 준비 상태 점) + 아래쪽에 엔딩·단서·BGM·세션 기록·자료 바로가기.
@@ -40,15 +40,26 @@ export function Nav({sel,go,setSel,up,sc,plat,op,setOp,setMdl,toast,dlg,isMobile
     uSc(s=>{s.clues.push({id,name:n,description:'',isRedHerring:false,leadsTo:''})});setFold(f=>({...f,clue:true}));setMdl({type:'clueEdit',clueId:id})};
   const newPart=async()=>{const n=await dlg.prompt('새 파트','',{placeholder:'파트 이름 (예: Ⅰ 도착)'});if(!n)return;const nid=uid();
     uSc(s=>{s.parts.push({id:nid,title:n,scenes:[]})});setOp(v=>({...v,[nid]:true}))};
-  const newScene=async(p)=>{const n=await dlg.prompt('새 씬','',{placeholder:'씬 이름',message:`파트: ${p.title}`});if(!n)return;const nid=uid();
-    uSc(s=>{s.parts.find(x=>x.id===p.id).scenes.push({id:nid,title:n,location:'',timeOfDay:'',npcsPresent:'',npcIds:[],done:false,blocks:[{id:uid(),type:'text',label:'나레이션',content:''}],sessionLog:[],connections:[]})});
-    setOp(v=>({...v,[p.id]:true}));go({...base,ptid:p.id,scid:nid})};
-  const moveScene=(from,toPt,beforeId)=>{if(from.id===beforeId)return;uSc(s=>{const fp=s.parts.find(x=>x.id===from.ptid);const i=fp.scenes.findIndex(x=>x.id===from.id);const[x]=fp.scenes.splice(i,1);
-    const tp=s.parts.find(p=>p.id===toPt);const j=beforeId?tp.scenes.findIndex(y=>y.id===beforeId):-1;tp.scenes.splice(j<0?tp.scenes.length:j,0,x)});
-    if(sel.scid===from.id)setSel(v=>({...v,ptid:toPt}));setOp(v=>({...v,[toPt]:true}))};
+  // 새 씬 (parent를 주면 그 씬의 하위 씬으로, 상위 씬의 마지막 하위 씬 뒤에)
+  const newScene=async(p,parent)=>{const n=await dlg.prompt(parent?'새 하위 씬':'새 씬','',{placeholder:'씬 이름',message:parent?`상위 씬: ${parent.title}`:`파트: ${p.title}`});if(!n)return;const nid=uid();
+    uSc(s=>{const pt=s.parts.find(x=>x.id===p.id);const ns={id:nid,title:n,location:'',timeOfDay:'',npcsPresent:'',npcIds:[],done:false,blocks:[{id:uid(),type:'text',label:'나레이션',content:''}],sessionLog:[],connections:[]};
+      if(parent){ns.parentId=parent.id;let j=pt.scenes.findIndex(x=>x.id===parent.id);while(pt.scenes[j+1]?.parentId===parent.id)j++;pt.scenes.splice(j+1,0,ns)}else pt.scenes.push(ns)});
+    setOp(v=>({...v,[p.id]:true,...(parent?{['c'+parent.id]:true}:{})}));go({...base,ptid:p.id,scid:nid})};
+  // 끌어서 옮기기: 상위 씬은 하위 씬과 함께 옮겨진다. 다른 씬 앞에 놓으면 그 씬과 같은 단계가 된다.
+  const moveScene=(from,toPt,beforeId)=>{if(from.id===beforeId)return;
+    const kidIds=sc.parts.find(x=>x.id===from.ptid)?.scenes.filter(c=>c.parentId===from.id).map(c=>c.id)||[];if(kidIds.includes(beforeId))return;
+    uSc(s=>{const fp=s.parts.find(x=>x.id===from.ptid);const x=fp.scenes.find(y=>y.id===from.id);const moving=[x,...fp.scenes.filter(c=>c.parentId===x.id)];
+      fp.scenes=fp.scenes.filter(c=>!moving.includes(c));const tp=s.parts.find(p=>p.id===toPt);
+      let before=beforeId?tp.scenes.find(y=>y.id===beforeId):null;
+      if(before&&moving.length>1&&before.parentId)before=tp.scenes.find(y=>y.id===before.parentId);
+      if(before?.parentId&&moving.length===1)x.parentId=before.parentId;else delete x.parentId;
+      const j=before?tp.scenes.indexOf(before):tp.scenes.length;tp.scenes.splice(j,0,...moving);normalizePart(tp);if(fp!==tp)normalizePart(fp)});
+    if(sel.scid===from.id||kidIds.includes(sel.scid))setSel(v=>({...v,ptid:toPt}));setOp(v=>({...v,[toPt]:true}))};
+  // 앞의 상위 씬 아래로 넣기 / 하위에서 빼기
+  const setParent=(p,s,parentId)=>uSc(x=>{const pt=x.parts.find(y=>y.id===p.id);const y=pt.scenes.find(q=>q.id===s.id);if(parentId)y.parentId=parentId;else delete y.parentId;normalizePart(pt)});
   const movePart=(fromId,beforeId)=>{if(fromId===beforeId)return;uSc(s=>{const i=s.parts.findIndex(p=>p.id===fromId);const j=s.parts.findIndex(p=>p.id===beforeId);moveIdx(s.parts,i,j)})};
 
-  let n=0;
+  const nums=sceneNums(sc);
   return<nav className="nav" aria-label="씬 목록">
     <button className={'nav-ov'+(!sel.scid&&!sel.eid?' on':'')} onClick={()=>go(base)}><LayoutList size={14}/>시나리오 개요</button>
 
@@ -67,15 +78,23 @@ export function Nav({sel,go,setSel,up,sc,plat,op,setOp,setMdl,toast,dlg,isMobile
               removed(`파트 "${p.title}"`,()=>uSc(s=>{s.parts=s.parts.filter(x=>x.id!==p.id);dropConns(s,new Set(p.scenes.map(x=>x.id)))}));if(sel.ptid===p.id)setSel(v=>({...v,ptid:null,scid:null}))}}/></span>
         </div>
         {isO&&<>
-          {p.scenes.map(s=>{n++;const k='s'+s.id;const on=sel.scid===s.id;const is=issues[s.id]||{lv:'ok',notes:[]};
-            return<div key={s.id} className={'nav-it row'+(on?' on':'')+(s.done?' done':'')+(over===k?' drag-over-top':'')} {...src({kind:'scene',id:s.id,ptid:p.id})}
+          {p.scenes.map((s,si)=>{const k='s'+s.id;const on=sel.scid===s.id;const is=issues[s.id]||{lv:'ok',notes:[]};
+            const kids=p.scenes.filter(c=>c.parentId===s.id);const folded=op['c'+s.id]===false;
+            if(s.parentId&&op['c'+s.parentId]===false)return null;
+            const prevTop=!s.parentId&&!kids.length?[...p.scenes.slice(0,si)].reverse().find(c=>!c.parentId):null;
+            return<div key={s.id} className={'nav-it row'+(s.parentId?' sub':'')+(on?' on':'')+(s.done?' done':'')+(over===k?' drag-over-top':'')} {...src({kind:'scene',id:s.id,ptid:p.id})}
               {...dst(k,d=>d.kind==='scene',d=>moveScene(d,p.id,s.id))} onClick={()=>go({...base,ptid:p.id,scid:s.id})}
               title={is.notes.length?is.notes.map(x=>x.t).join('\n'):'준비 완료'} aria-current={on?'page':undefined}>
-              <span className="nav-n">{s.done?<Check size={12}/>:n}</span><span className="nav-t">{s.title}</span>
+              {kids.length>0?<button className="nav-fold" onClick={e=>{e.stopPropagation();setOp(v=>({...v,['c'+s.id]:folded}))}} aria-expanded={!folded} title={folded?`하위 씬 ${kids.length}개 펼치기`:'하위 씬 접기'}>
+                <ChevronRight size={11} style={{transform:folded?'none':'rotate(90deg)'}}/></button>:!s.parentId&&<span className="nav-fold-sp"/>}
+              <span className="nav-n">{s.done?<Check size={12}/>:nums[s.id]}</span><span className="nav-t">{s.title}{folded&&<small className="nav-kids">하위 {kids.length}</small>}</span>
               <span className="acts" onClick={e=>e.stopPropagation()}>
+                {!s.parentId&&<IB I={CornerDownRight} s={11} title="하위 씬 추가" onClick={()=>newScene(p,s)}/>}
+                {prevTop&&<IB I={ListIndentIncrease} s={11} title={`"${prevTop.title}"의 하위 씬으로`} onClick={()=>setParent(p,s,prevTop.id)}/>}
+                {s.parentId&&<IB I={ListIndentDecrease} s={11} title="하위에서 빼기 (상위 씬으로)" onClick={()=>setParent(p,s,null)}/>}
                 <IB I={Check} s={11} title={s.done?'진행 완료 해제':'진행 완료로 표시'} active={s.done} onClick={()=>uSc(x=>{const y=x.parts.find(q=>q.id===p.id).scenes.find(q=>q.id===s.id);y.done=!y.done})}/>
-                <IB I={CopyPlus} s={11} title="씬 복제" onClick={()=>{uSc(x=>{const pt2=x.parts.find(y=>y.id===p.id);const cp=JSON.parse(JSON.stringify(s));cp.id=uid();cp.title+=' (복사)';cp.done=false;for(const b of cp.blocks)b.id=uid();const i=pt2.scenes.findIndex(y=>y.id===s.id);pt2.scenes.splice(i+1,0,cp)});toast('복제됨')}}/>
-                <IB I={Trash2} s={11} danger title="씬 삭제" onClick={()=>{removed(`씬 "${s.title}"`,()=>uSc(x=>{const p2=x.parts.find(y=>y.id===p.id);p2.scenes=p2.scenes.filter(y=>y.id!==s.id);dropConns(x,new Set([s.id]))}));if(sel.scid===s.id)setSel(v=>({...v,scid:null}))}}/></span>
+                <IB I={CopyPlus} s={11} title="씬 복제" onClick={()=>{uSc(x=>{const pt2=x.parts.find(y=>y.id===p.id);const cp=JSON.parse(JSON.stringify(s));cp.id=uid();cp.title+=' (복사)';cp.done=false;for(const b of cp.blocks)b.id=uid();let i=pt2.scenes.findIndex(y=>y.id===s.id);if(!s.parentId)while(pt2.scenes[i+1]?.parentId===s.id)i++;pt2.scenes.splice(i+1,0,cp);normalizePart(pt2)});toast('복제됨')}}/>
+                <IB I={Trash2} s={11} danger title={kids.length?'씬 삭제 (하위 씬은 상위 씬으로 올라감)':'씬 삭제'} onClick={()=>{removed(`씬 "${s.title}"`,()=>uSc(x=>{const p2=x.parts.find(y=>y.id===p.id);p2.scenes=p2.scenes.filter(y=>y.id!==s.id);for(const c of p2.scenes)if(c.parentId===s.id)delete c.parentId;dropConns(x,new Set([s.id]))}));if(sel.scid===s.id)setSel(v=>({...v,scid:null}))}}/></span>
               <span className="nav-dot" style={{background:LV_C[is.lv]}} aria-label={{ok:'준비 완료',warn:'확인 필요',bad:'문제 있음'}[is.lv]}/>
             </div>})}
           {!p.scenes.length&&<button className="nav-add" onClick={()=>newScene(p)}><Plus size={12}/>씬 추가</button>}
