@@ -1,9 +1,30 @@
 import { AlertTriangle,Eye,EyeOff,FileDown,FileUp,Pencil,Plus,Trash2 } from "lucide-react";
-import { Btn,IB,SecTitle,TA } from '../components/ui.jsx'
-import { clueUsage,uid } from '../lib/data.js'
+import { useState } from "react";
+import { Btn,IB,SecTitle,TA,useDialog } from '../components/ui.jsx'
+import { blockFilled } from '../lib/check.js'
+import { SK,allScenes,clueUsage,resolveB,uid } from '../lib/data.js'
 
 // ===== OVERVIEW =====
-export function OverviewP({sc,plat,up,sel,toast,exportSingle,mergeImp,setMdl,go}){
+// 처음 쓰는 사람용 4단계 안내 (다 하거나 "숨기기"를 누르면 사라짐)
+function Onboard({sc,up,sel,go,onStart}){
+  const dlg=useDialog();const key=SK+'-onb-'+sc.id;
+  const[hide,setHide]=useState(()=>{try{return localStorage.getItem(key)==='1'}catch(e){return false}});
+  const scenes=allScenes(sc);const filled=scenes.find(s=>(s.blocks||[]).some(b=>blockFilled(resolveB(sc,b))));
+  const steps=[
+    {t:'파트(장) 만들기',d:'예: Ⅰ 도착',ok:sc.parts.length>0,act:'파트 만들기',fn:async()=>{const n=await dlg.prompt('새 파트','',{placeholder:'파트 이름 (예: Ⅰ 도착)'});if(n)up(d=>{d.scenarios.find(x=>x.id===sel.sid).parts.push({id:uid(),title:n,scenes:[]})})}},
+    {t:'씬 만들기',d:'파트 안에 장면을 하나씩',ok:scenes.length>0,act:'씬 만들기',fn:async()=>{if(!sc.parts.length)return;const n=await dlg.prompt('새 씬','',{placeholder:'씬 이름'});if(!n)return;const id=uid();const pt=sc.parts[0];
+      up(d=>{d.scenarios.find(x=>x.id===sel.sid).parts.find(p=>p.id===pt.id).scenes.push({id,title:n,location:'',timeOfDay:'',npcsPresent:'',npcIds:[],done:false,blocks:[{id:uid(),type:'text',label:'나레이션',content:''}],sessionLog:[],connections:[]})});go({pid:sel.pid,sid:sel.sid,ptid:pt.id,scid:id,eid:null})}},
+    {t:'블록 채우기',d:'나레이션·대사·판정 등을 써 넣기',ok:!!filled,act:'첫 씬 열기',fn:()=>{const s=scenes[0];if(s)go({pid:sel.pid,sid:sel.sid,ptid:s.ptid,scid:s.id,eid:null})}},
+    {t:'세션 시작해 보기',d:'Space로 다음 줄을 복사해 채팅창에 붙여넣기',ok:Object.keys(sc.session?.sent||{}).length>0||(sc.sessionHistory||[]).length>0,act:'세션 시작',fn:onStart}];
+  const doneN=steps.filter(x=>x.ok).length;
+  if(hide||doneN===steps.length)return null;
+  const nextI=steps.findIndex(x=>!x.ok);
+  return<div className="onb"><div className="onb-h"><b>처음이라면 이렇게 해 보세요</b><span>{doneN} / 4</span>
+      <button onClick={()=>{setHide(true);try{localStorage.setItem(key,'1')}catch(e){}}}>숨기기</button></div>
+    <ol>{steps.map((x,i)=><li key={i} className={x.ok?'ok':i===nextI?'now':''}><span className="onb-n">{x.ok?'✓':i+1}</span><span className="onb-t"><b>{x.t}</b><small>{x.d}</small></span>
+      {!x.ok&&i===nextI&&<button className="onb-go" onClick={x.fn} disabled={(i===1&&!sc.parts.length)||(i===2&&!scenes.length)}>{x.act}</button>}</li>)}</ol></div>}
+
+export function OverviewP({sc,plat,up,sel,toast,exportSingle,mergeImp,setMdl,go,onStart}){
   const uS=fn=>up(d=>{const s=d.scenarios.find(x=>x.id===sel.sid);fn(s)});
   const use=clueUsage(sc);
   // 결론별 단서 수: 실제로 씬/엔딩에 배치된 단서만 '유효'로 센다
@@ -12,6 +33,7 @@ export function OverviewP({sc,plat,up,sel,toast,exportSingle,mergeImp,setMdl,go}
   return<div className="ed"><div className="ed-pg">
     <div className="ed-k">SCENARIO <span>· {plat?.name||''}</span></div>
     <input className="ghost page-title ed-title" aria-label="시나리오 제목" value={sc.title} onChange={e=>uS(s=>{s.title=e.target.value})}/>
+    <Onboard sc={sc} up={up} sel={sel} go={go} onStart={onStart}/>
     <div className="props">
       <span className="prop ro"><span>씬</span>{sc.parts.reduce((a,p)=>a+p.scenes.filter(s=>s.done).length,0)} / {sc.parts.reduce((a,p)=>a+p.scenes.length,0)} 진행</span>
       <span className="prop ro"><span>엔딩</span>{sc.endings.length}</span><span className="prop ro"><span>단서</span>{sc.clues.length}</span>

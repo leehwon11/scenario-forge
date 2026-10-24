@@ -260,7 +260,7 @@ function AppInner(){
               <button role="menuitem" className="pop-all" onClick={()=>{endLive();go({pid:sel.pid,sid:null,ptid:null,scid:null,eid:null})}}>모든 시나리오 · 사이트 보기</button></div></>}
         </div>
         <div style={{flex:1}}/>
-        <button className="tb-sync hide-m" onClick={()=>setMdl('account')} title={(user?`클라우드 (${user.email}) — `:'로그인 — ')+SY[1]}><i style={{background:user?SY[0]:'var(--tx4)'}}/>{user?syncShort:'로그인'}</button>
+        <button className="tb-sync hide-m" onClick={()=>setMdl('account')} title={user?`클라우드 (${user.email}) — `+SY[1]:'지금은 이 브라우저에만 저장돼요. 로그인하면 클라우드에도 저장되어 다른 기기에서 이어서 쓸 수 있어요.'}><i style={{background:user?SY[0]:'var(--green)'}}/>{user?syncShort:<>이 기기에 저장됨<span className="tb-login">로그인</span></>}</button>
         {sc&&!live&&<div role="tablist" className="seg">
           {[['edit','집필'],['flow','흐름도']].map(([m,l])=><button key={m} role="tab" aria-selected={mode===m} onClick={()=>setMode(m)}>{l}</button>)}</div>}
         <IB I={Undo2} s={16} onClick={undo} title="실행 취소 (Ctrl+Z)"/><IB I={Redo2} s={16} onClick={redo} title="다시 실행 (Ctrl+Shift+Z)"/>
@@ -304,7 +304,7 @@ function AppInner(){
           :mode==='flow'&&sc?<div className="flow-pg"><Suspense fallback={<div className="lazy-wait">흐름도를 불러오는 중…</div>}><FlowV sc={sc} sel={sel} setSel={go} setMode={setMode}/></Suspense></div>
           :ending?<EndingP ending={ending} sc={sc} plat={plat} up={up} sel={sel} setMdl={setMdl}/>
           :scene?<SceneP scene={scene} pt={pt} sc={sc} plat={plat} up={up} sel={sel} isR20={isR20} isCoco={isCoco} r20On={r20On} setR20On={setR20On} go={go} setMdl={setMdl} no={sceneNo}/>
-          :sc?<OverviewP sc={sc} plat={plat} up={up} sel={sel} toast={toast} exportSingle={exportSingle} mergeImp={mergeImp} setMdl={setMdl} go={go}/>
+          :sc?<OverviewP sc={sc} plat={plat} up={up} sel={sel} toast={toast} exportSingle={exportSingle} mergeImp={mergeImp} setMdl={setMdl} go={go} onStart={startLive}/>
           :<Home D={D} sel={sel} go={go} setSel={setSel} up={up} setMdl={setMdl} dlg={dlg} toast={toast}/>}
         </main>
 

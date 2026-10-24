@@ -1,4 +1,4 @@
-import { useRef, useEffect, memo } from "react";
+import { useRef, useEffect, useState, memo } from "react";
 import { ArrowDown,ArrowUp,ChevronDown,ChevronUp,CopyPlus,GripVertical,ListIndentDecrease,ListIndentIncrease,Plus,Trash2 } from "lucide-react";
 import { useDrop } from '../components/dnd.js'
 import { Btn,IB,Inp,TA,useAct } from '../components/ui.jsx'
@@ -16,13 +16,15 @@ export function BL({entry,upE,upSc,openLib,sc,plat,onManage}){
     onDragStart={e=>{g.onDragStart(e);const el=refs.current[b.id];if(el)e.dataTransfer.setDragImage(el,10,10)}}><GripVertical size={13}/></span>};
   const acc=d=>d.kind==='block'&&d.owner===entry.id;
   const upB=(bid,fn)=>upE(e=>{const b=e.blocks.find(x=>x.id===bid);if(b)fn(b)});
-  const addB=(type)=>{const nb={id:uid(),type,label:BT[type].l};
+  // at: 넣을 위치(없으면 맨 끝)
+  const addB=(type,at)=>{const nb={id:uid(),type,label:BT[type].l};
     if(['text','memo','truth','session-log','clue'].includes(type))nb.content='';if(type==='clue')nb.clueId='';
     if(['branches','checks','lines'].includes(type))nb.items=[];
     if(LIB_KIND[type])nb.refId='';
     if(type==='handout'){nb.title='';nb.content='';nb.gmNote='';nb.imageUrl=''}
     if(type==='bgm'){nb.title='';nb.url='';nb.note=''}
-    upE(e=>{e.blocks.push(nb)});return nb.id};
+    upE(e=>{if(at==null||at>=e.blocks.length)e.blocks.push(nb);else e.blocks.splice(at,0,nb)});return nb.id};
+  const[ins,setIns]=useState(null); // 블록 사이 "+"를 눌러 연 위치
   // 새 블록으로 스크롤 + 첫 입력칸에 포커스
   const added=useRef(null);
   useEffect(()=>{const id=added.current;if(!id)return;added.current=null;const el=refs.current[id];if(el){el.scrollIntoView({block:'nearest',behavior:'smooth'});el.querySelector('.blk-b textarea,.blk-b input,.blk-b select')?.focus()}});
@@ -40,14 +42,22 @@ export function BL({entry,upE,upSc,openLib,sc,plat,onManage}){
       <IB I={CopyPlus} s={12} title="블록 복제" onClick={()=>upE(e=>{const cp=JSON.parse(JSON.stringify(b));cp.id=uid();cp.label+=' (복사)';e.blocks.splice(i+1,0,cp)})}/>
       <IB I={Trash2} s={12} danger title="블록 삭제" onClick={()=>removed(`블록 "${b.label}"`,()=>upE(e=>{e.blocks=e.blocks.filter(x=>x.id!==b.id)}))}/>
     </span></div>;
-  return<div ref={root}>
+  // 단축키 (블록 글 입력칸 안에서): Alt+↑/↓ 블록 옮기기 · Ctrl+Enter 아래에 같은 종류 블록 추가
+  const onKey=e=>{const el=e.target.closest?.('[data-bid]');if(!el||e.nativeEvent.isComposing)return;const bid=el.getAttribute('data-bid');const i=entry.blocks.findIndex(x=>x.id===bid);if(i<0)return;
+    if(e.altKey&&(e.key==='ArrowUp'||e.key==='ArrowDown')){const j=e.key==='ArrowUp'?i-1:i+1;if(j<0||j>=entry.blocks.length)return;e.preventDefault();
+      const t=e.target;upE(x=>{[x.blocks[i],x.blocks[j]]=[x.blocks[j],x.blocks[i]]});requestAnimationFrame(()=>{t.focus();t.closest('[data-bid]')?.scrollIntoView({block:'nearest'})})}
+    else if((e.ctrlKey||e.metaKey)&&e.key==='Enter'&&e.target.tagName==='TEXTAREA'){e.preventDefault();added.current=addB(entry.blocks[i].type,i+1)}};
+  return<div ref={root} onKeyDown={onKey}>
     <SlashMenu rootRef={root} cmds={plat?.commands||[]} colors={plat?.savedColors||[]} tpls={plat?.templates||[]} onManage={onManage}/>
     {entry.blocks.map((b,i)=>{const m=BT[b.type]||BT.text;
-      return<div key={b.id} ref={el=>refs.current[b.id]=el} {...dst(b.id,acc,d=>moveB(d.id,b.id))}
+      return<div key={b.id} style={{display:'contents'}}>
+      {i>0&&(ins===i?<div className="blk-insbox"><AddBlock onAdd={t=>{setIns(null);added.current=addB(t,i)}}/><button className="blk-inscancel" onClick={()=>setIns(null)}>닫기</button></div>
+        :<div className="blk-ins"><button onClick={()=>setIns(i)} title="여기에 블록 넣기" aria-label={`${i}번째 블록 다음에 블록 넣기`}><Plus size={12}/>여기에 넣기</button></div>)}
+      <div data-bid={b.id} ref={el=>refs.current[b.id]=el} {...dst(b.id,acc,d=>moveB(d.id,b.id))}
         className={'blk blk-'+b.type+(b.collapsed?' collapsed':'')+(over===b.id?' drag-over-top':'')} style={{marginLeft:b.indent?28:0}}>
         {head(b,i,m,b.collapsed)}
         {!b.collapsed&&<div className="blk-b"><BB b={b} upB={upB} sc={sc} upE={upE} upSc={upSc} openLib={openLib} i={i}/></div>}
-      </div>})}
+      </div></div>})}
     <div {...dst('end',acc,d=>moveB(d.id,null))} className={'blk-end'+(over==='end'?' over':'')}>
       <AddBlock onAdd={t=>{added.current=addB(t)}}/>
     </div></div>}
