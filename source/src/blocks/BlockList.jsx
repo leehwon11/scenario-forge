@@ -1,15 +1,24 @@
 import { useRef, useEffect, useState, memo } from "react";
-import { ArrowDown,ArrowUp,ChevronDown,ChevronUp,CopyPlus,GripVertical,ListIndentDecrease,ListIndentIncrease,Plus,Trash2 } from "lucide-react";
+import { ArrowDown,ArrowUp,ChevronDown,ChevronUp,ClipboardPaste,Copy,CopyPlus,Flag,Send,X,GripVertical,ListIndentDecrease,ListIndentIncrease,Plus,Trash2 } from "lucide-react";
 import { useDrop } from '../components/dnd.js'
-import { Btn,IB,Inp,TA,useAct } from '../components/ui.jsx'
-import { BT,LIB_KIND,LIB_LABEL,libOf,libUses,moveIdx,newLibEntry,uid } from '../lib/data.js'
+import { Btn,IB,Inp,Modal,TA,useAct } from '../components/ui.jsx'
+import { clearClip,findEntry,makeClip,onClip,pasteBlocks,readClip,writeClip } from '../lib/clip.js'
+import { BT,LIB_KIND,LIB_LABEL,libOf,libUses,moveIdx,newLibEntry,sceneNums,uid } from '../lib/data.js'
 import { SlashMenu } from './SlashMenu.jsx'
 import { QFillBtn } from '../modals/FillModal.jsx'
 import { FlagPicker } from '../components/flags.jsx'
 
 // ===== BLOCK LIST =====
 export function BL({entry,upE,upSc,openLib,sc,plat,onManage}){
-  const{over,src,dst}=useDrop();const refs=useRef({});const root=useRef(null);const{removed}=useAct();
+  const{over,src,dst}=useDrop();const refs=useRef({});const root=useRef(null);const{removed,toast}=useAct();
+  // 블록 클립보드 (다른 씬·시나리오에 붙여넣기)
+  const[clip,setClip]=useState(readClip);useEffect(()=>onClip(()=>setClip(readClip())),[]);
+  const[sendFor,setSendFor]=useState(null); // "다른 씬에 복사"를 연 블록
+  const copyB=b=>{writeClip(makeClip(sc,[b]));toast(`블록 "${b.label}" 복사됨 — 다른 씬의 "붙여넣기"로 넣으세요`,2600)};
+  const paste=at=>{const c=readClip();if(!c)return;
+    upSc(s=>{const en=findEntry(s,entry.id);if(!en)return;const nb=pasteBlocks(c,s);if(at==null||at>=en.blocks.length)en.blocks.push(...nb);else en.blocks.splice(at,0,...nb)});
+    toast(c.blocks.length>1?`블록 ${c.blocks.length}개를 붙여넣었어요`:`블록 "${c.blocks[0].label}"을(를) 붙여넣었어요`)};
+  const sendTo=(b,t)=>{const c=makeClip(sc,[b]);upSc(s=>{const en=findEntry(s,t.id);if(en)en.blocks.push(...pasteBlocks(c,s))});setSendFor(null);toast(`"${t.title}" 맨 아래에 복사했어요`)};
   const moveB=(fromId,beforeId)=>{if(fromId===beforeId)return;upE(e=>{const i=e.blocks.findIndex(x=>x.id===fromId);const j=beforeId?e.blocks.findIndex(x=>x.id===beforeId):e.blocks.length;if(i>=0)moveIdx(e.blocks,i,j)})};
   // 블록 전체가 아닌 손잡이에서만 드래그 시작 (텍스트 선택 방해 방지)
   const grip=b=>{const g=src({kind:'block',id:b.id,owner:entry.id});return<span className="grip" title="끌어서 순서 변경" {...g}
@@ -39,7 +48,9 @@ export function BL({entry,upE,upSc,openLib,sc,plat,onManage}){
       <IB I={collapsed?ChevronDown:ChevronUp} s={12} onClick={()=>upB(b.id,x=>{x.collapsed=!collapsed})} title={collapsed?'펼치기':'접기'}/>
       {!collapsed&&<IB I={ArrowUp} s={12} title="위로" disabled={i===0} onClick={()=>upE(e=>{[e.blocks[i-1],e.blocks[i]]=[e.blocks[i],e.blocks[i-1]]})}/>}
       {!collapsed&&<IB I={ArrowDown} s={12} title="아래로" disabled={i===entry.blocks.length-1} onClick={()=>upE(e=>{[e.blocks[i],e.blocks[i+1]]=[e.blocks[i+1],e.blocks[i]]})}/>}
-      <IB I={CopyPlus} s={12} title="블록 복제" onClick={()=>upE(e=>{const cp=JSON.parse(JSON.stringify(b));cp.id=uid();cp.label+=' (복사)';e.blocks.splice(i+1,0,cp)})}/>
+      <IB I={CopyPlus} s={12} title="이 씬에 블록 복제" onClick={()=>upE(e=>{const cp=JSON.parse(JSON.stringify(b));cp.id=uid();for(const it of cp.items||[])it.id=uid();cp.label+=' (복사)';e.blocks.splice(i+1,0,cp)})}/>
+      <IB I={Copy} s={12} title="블록 복사 (다른 씬·시나리오에서 붙여넣기)" onClick={()=>copyB(b)}/>
+      <IB I={Send} s={12} title="다른 씬에 복사…" onClick={()=>setSendFor(b)}/>
       <IB I={Trash2} s={12} danger title="블록 삭제" onClick={()=>removed(`블록 "${b.label}"`,()=>upE(e=>{e.blocks=e.blocks.filter(x=>x.id!==b.id)}))}/>
     </span></div>;
   // 단축키 (블록 글 입력칸 안에서): Alt+↑/↓ 블록 옮기기 · Ctrl+Enter 아래에 같은 종류 블록 추가
@@ -51,7 +62,7 @@ export function BL({entry,upE,upSc,openLib,sc,plat,onManage}){
     <SlashMenu rootRef={root} cmds={plat?.commands||[]} colors={plat?.savedColors||[]} tpls={plat?.templates||[]} onManage={onManage}/>
     {entry.blocks.map((b,i)=>{const m=BT[b.type]||BT.text;
       return<div key={b.id} style={{display:'contents'}}>
-      {i>0&&(ins===i?<div className="blk-insbox"><AddBlock onAdd={t=>{setIns(null);added.current=addB(t,i)}}/><button className="blk-inscancel" onClick={()=>setIns(null)}>닫기</button></div>
+      {i>0&&(ins===i?<div className="blk-insbox"><AddBlock onAdd={t=>{setIns(null);added.current=addB(t,i)}} clip={clip} onPaste={()=>{setIns(null);paste(i)}}/><button className="blk-inscancel" onClick={()=>setIns(null)}>닫기</button></div>
         :<div className="blk-ins"><button onClick={()=>setIns(i)} title="여기에 블록 넣기" aria-label={`${i}번째 블록 다음에 블록 넣기`}><Plus size={12}/>여기에 넣기</button></div>)}
       <div data-bid={b.id} ref={el=>refs.current[b.id]=el} {...dst(b.id,acc,d=>moveB(d.id,b.id))}
         className={'blk blk-'+b.type+(b.collapsed?' collapsed':'')+(over===b.id?' drag-over-top':'')} style={{marginLeft:b.indent?28:0}}>
@@ -59,8 +70,22 @@ export function BL({entry,upE,upSc,openLib,sc,plat,onManage}){
         {!b.collapsed&&<div className="blk-b"><BB b={b} upB={upB} sc={sc} upE={upE} upSc={upSc} openLib={openLib} i={i}/></div>}
       </div></div>})}
     <div {...dst('end',acc,d=>moveB(d.id,null))} className={'blk-end'+(over==='end'?' over':'')}>
-      <AddBlock onAdd={t=>{added.current=addB(t)}}/>
-    </div></div>}
+      <AddBlock onAdd={t=>{added.current=addB(t)}} clip={clip} onPaste={()=>paste(null)}/>
+    </div>
+    {sendFor&&<SendM b={sendFor} sc={sc} from={entry.id} onPick={t=>sendTo(sendFor,t)} onClose={()=>setSendFor(null)}/>}</div>}
+
+// "다른 씬에 복사": 같은 시나리오의 씬·엔딩을 고르면 그 맨 아래에 복사
+function SendM({b,sc,from,onPick,onClose}){const nums=sceneNums(sc);
+  return<Modal title={`"${b.label}" 블록을 어디에 복사할까요?`} onClose={onClose} width={460}>
+    <div className="jump-list">
+      {sc.parts.map(p=><div key={p.id}><div className="send-pt">{p.title}</div>
+        {p.scenes.map(x=><button key={x.id} className={'jump-it'+(x.parentId?' sub':'')} disabled={x.id===from} onClick={()=>onPick({id:x.id,title:x.title})}>
+          <span className="jump-no">{nums[x.id]}</span><b>{x.title||'(제목 없음)'}</b>{x.id===from&&<small>지금 씬</small>}</button>)}</div>)}
+      {sc.endings.length>0&&<div><div className="send-pt">엔딩</div>{sc.endings.map(e=><button key={e.id} className="jump-it" disabled={e.id===from} onClick={()=>onPick({id:e.id,title:e.title})}>
+        <span className="jump-no"><Flag size={12}/></span><b>{e.title||'(제목 없음)'}</b></button>)}</div>}
+    </div>
+    <div className="jump-hint">다른 시나리오에 넣으려면 블록의 <b>복사</b> 버튼을 누른 뒤, 그 시나리오의 씬에서 <b>붙여넣기</b>를 누르세요.</div>
+  </Modal>}
 
 // 블록 종류 설명 (추가 메뉴용)
 const BDESC={text:'플레이어에게 읽어줄 지문',memo:'GM만 보는 메모',truth:'숨겨진 사실·배경',clue:'단서 목록과 연결',lines:'화자별 대사',branches:'플레이어 선택과 전개',
@@ -68,8 +93,11 @@ const BDESC={text:'플레이어에게 읽어줄 지문',memo:'GM만 보는 메�
 const GMONLY=new Set(['memo','truth','clue','session-log']);
 // 블록 추가: 자주 쓰는 종류를 버튼으로 늘어놓는다 (Desk)
 const ADD_ORDER=['text','lines','checks','clue','branches','handout','bgm','npc','item','place','memo','truth','session-log'];
-export function AddBlock({onAdd}){
-  return<div className="add-row" role="group" aria-label="블록 추가"><span className="add-cap">추가</span>
+export function AddBlock({onAdd,clip,onPaste}){
+  return<div className="add-row" role="group" aria-label="블록 추가">
+    {clip&&onPaste&&<span className="add-paste"><button onClick={onPaste} title={`복사해 둔 블록${clip.sid?` (${clip.scTitle||''})`:''}을 여기에 넣기`}><ClipboardPaste size={12}/>붙여넣기: {clip.blocks[0]?.label||'블록'}{clip.blocks.length>1?` 외 ${clip.blocks.length-1}개`:''}</button>
+      <button className="add-paste-x" onClick={clearClip} title="복사해 둔 블록 비우기" aria-label="복사해 둔 블록 비우기"><X size={11}/></button></span>}
+    <span className="add-cap">추가</span>
     {ADD_ORDER.map(t=>{const{l,c,I}=BT[t];return<button key={t} className="add-chip" style={{'--c':c}} onClick={()=>onAdd(t)} title={BDESC[t]}>
       <I size={12}/>{l}{GMONLY.has(t)&&<span className="add-gm">GM</span>}</button>})}
     <span className="add-or">또는 글 입력 중 <kbd className="kbd">/</kbd></span></div>}

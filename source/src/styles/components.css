@@ -753,3 +753,11 @@ textarea:focus,.fill-sel:focus{border-color:var(--blue)!important;box-shadow:0 0
 .onb li.ok .onb-t b{color:var(--tx3);text-decoration:line-through}
 .onb-go{background:var(--blue);color:#fff;border-radius:8px;padding:6px 12px;font-size:12px;font-weight:700;flex-shrink:0}
 .onb-go:disabled{opacity:.4}
+/* 블록 복사·붙여넣기 */
+.add-paste{display:inline-flex;align-items:center;border:1px solid var(--blue);border-radius:999px;background:var(--blueA);margin-right:4px}
+.add-paste>button:first-child{display:inline-flex;align-items:center;gap:5px;padding:5px 6px 5px 11px;font-size:12px;font-weight:700;color:var(--blue);max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.add-paste-x{display:grid;place-items:center;width:24px;height:24px;color:var(--blue);opacity:.7}
+.add-paste-x:hover{opacity:1}
+.send-pt{font-size:11.5px;font-weight:700;color:var(--tx3);padding:8px 10px 2px}
+.jump-it:disabled{opacity:.4;cursor:default}
+.jump-it:not(:disabled):hover{background:var(--blueA)}
